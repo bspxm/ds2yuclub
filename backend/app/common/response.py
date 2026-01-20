@@ -18,6 +18,14 @@ class ResponseSchema(BaseModel):
     success: bool = Field(default=True, description='操作是否成功')
 
 
+class PaginatedResponse(BaseModel):
+    """分页响应模型"""
+    total: int = Field(..., description="总记录数")
+    page_no: int = Field(..., description="当前页码")
+    page_size: int = Field(..., description="每页数量")
+    items: list = Field(..., description="数据列表")
+
+
 class SuccessResponse(JSONResponse):
     """成功响应类"""
 

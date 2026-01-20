@@ -1,0 +1,49 @@
+"""\ntournament模块 - Service服务层\n"""\n\nfrom datetime import date, datetime, timedelta\nfrom typing import Optional, List, Dict, Any\n\nfrom sqlalchemy.orm import Session\n\nfrom app.api.v1.module_system.auth.service import UserService\nfrom app.core.base_crud import BaseCRUD\nfrom app.core.database import SessionDep\nfrom app.core.exceptions import CustomException\nfrom app.core.logger import logger\n\nfrom .model import *\nfrom .crud import *\nfrom .schema import *\n\n# ============================================================================
+# 赛事管理服务
+# ============================================================================
+
+class TournamentService:
+    """赛事管理服务层"""
+
+    @classmethod
+    async def create_service(cls, auth: AuthSchema, data: TournamentCreateSchema) -> dict:
+        """创建赛事"""
+        tournament = await TournamentCRUD(auth).create_crud(data=data)
+        return TournamentOutSchema.model_validate(tournament).model_dump()
+
+    @classmethod
+    async def update_service(cls, auth: AuthSchema, tournament_id: int, data: TournamentCreateSchema) -> dict:
+        """更新赛事"""
+        tournament = await TournamentCRUD(auth).get_by_id_crud(tournament_id)
+        if not tournament:
+            raise CustomException(msg="赛事不存在")
+        
+        # 如果赛事已开始，不能修改某些字段
+        if tournament.status != "draft":
+            raise CustomException(msg="赛事已开始，不能修改")
+        
+        updated = await TournamentCRUD(auth).update_crud(tournament_id, data=data)
+        return TournamentOutSchema.model_validate(updated).model_dump()
+
+    @classmethod
+    async def update_status_service(cls, auth: AuthSchema, tournament_id: int, status: str) -> dict:
+        """更新赛事状态"""
+        tournament = await TournamentCRUD(auth).update_status_crud(tournament_id, status)
+        if not tournament:
+            raise CustomException(msg="赛事不存在")
+        return TournamentOutSchema.model_validate(tournament).model_dump()
+
+    @classmethod
+    async def list_service(cls, auth: AuthSchema) -> list[dict]:
+        """获取赛事列表"""
+        tournaments = await TournamentCRUD(auth).list_crud(
+            order_by=[{"start_date": "desc"}],
+            preload=["created_by", "updated_by"]
+        )
+        return [TournamentOutSchema.model_validate(tournament).model_dump() for tournament in tournaments]
+
+    @classmethod
+    async def get_active_service(cls, auth: AuthSchema) -> list[dict]:
+        """获取进行中的赛事"""
+        tournaments = await TournamentCRUD(auth).get_active_tournaments_crud()
+        return [TournamentOutSchema.model_validate(tournament).model_dump() for tournament in tournaments]\n

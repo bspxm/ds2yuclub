@@ -67,8 +67,13 @@ class LoginService:
 
         # 用户认证
         auth = AuthSchema(db=db)
+        # 首先尝试通过用户名查找用户
         user = await UserCRUD(auth).get_by_username_crud(username=login_form.username)
-
+        
+        # 如果通过用户名找不到，尝试通过手机号查找
+        if not user:
+            user = await UserCRUD(auth).get_by_mobile_crud(mobile=login_form.username)
+        
         if not user:
             raise CustomException(msg="用户不存在")
 

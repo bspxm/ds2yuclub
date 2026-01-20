@@ -147,3 +147,15 @@ async def redis_connect(app: FastAPI, status: str) -> Redis | None:
     else:
         await app.state.redis.close()
         log.info('✅️ Redis连接已关闭')
+
+
+# 数据库会话依赖函数
+async def get_db() -> AsyncSession:
+    """获取数据库会话连接"""
+    from sqlalchemy.ext.asyncio import AsyncSession
+    async with async_db_session() as session:
+        async with session.begin():
+            yield session
+
+from fastapi import Depends
+SessionDep = Depends(get_db)  # 数据库会话依赖注入

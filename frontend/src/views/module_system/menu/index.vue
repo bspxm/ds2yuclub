@@ -145,8 +145,7 @@
         :data="pageTableData"
         :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
         class="data-table__content"
-        height="540"
-        max-height="540"
+        :height="tableHeight"
         border
         stripe
         @selection-change="handleSelectionChange"
@@ -673,6 +672,8 @@ defineOptions({
   inheritAttrs: false,
 });
 
+import { onMounted, onUnmounted } from "vue";
+
 import { useAppStore } from "@/store/modules/app.store";
 import { useUserStore } from "@/store/modules/user.store";
 import { DeviceEnum } from "@/enums/settings/device.enum";
@@ -692,6 +693,9 @@ const loading = ref(false);
 
 const isExpand = ref(false);
 const isExpandable = ref(true);
+
+// 表格高度（动态计算）
+const tableHeight = ref('540px');
 
 // 分页表单
 const pageTableData = ref<MenuTable[]>([]);
@@ -1006,7 +1010,25 @@ async function handleMoreClick(status: string) {
     });
 }
 
+// 计算表格高度
+function calculateTableHeight() {
+  // 获取窗口高度，减去头部、搜索区域、卡片头部、工具栏等固定高度
+  // 头部约60px，搜索区域约60px，卡片头部约60px，工具栏约50px，底部留白约10px
+  const windowHeight = window.innerHeight;
+  const fixedHeight = 255; // 固定高度总和
+  const calculatedHeight = windowHeight - fixedHeight;
+  // 最小高度400px，最大高度为计算值
+  tableHeight.value = Math.max(400, calculatedHeight) + 'px';
+}
+
+// 监听窗口大小变化
 onMounted(() => {
   handleQuery();
+  calculateTableHeight();
+  window.addEventListener('resize', calculateTableHeight);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('resize', calculateTableHeight);
 });
 </script>

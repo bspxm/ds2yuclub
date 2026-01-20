@@ -450,3 +450,5 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
                 options.append(opt)
 
         return options
+
+BaseCRUD = CRUDBase  # 向后兼容别名

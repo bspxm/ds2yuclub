@@ -172,3 +172,4 @@ class AuthPermission:
             raise CustomException(msg="无权限操作", code=10403, status_code=403)
 
         return auth
+

@@ -1,0 +1,86 @@
+"""\nschedule模块 - Service服务层\n"""\n\nfrom datetime import date, datetime, timedelta\nfrom typing import Optional, List, Dict, Any\n\nfrom sqlalchemy.orm import Session\n\nfrom app.api.v1.module_system.auth.service import UserService\nfrom app.core.base_crud import BaseCRUD\nfrom app.core.database import SessionDep\nfrom app.core.exceptions import CustomException\nfrom app.core.logger import logger\n\nfrom .model import *\nfrom .crud import *\nfrom .schema import *\n\n# ============================================================================
+# 排课记录管理服务
+# ============================================================================
+
+class ClassScheduleService:
+    """排课记录管理服务层"""
+
+    @classmethod
+    async def detail_service(cls, auth: AuthSchema, schedule_id: int) -> dict:
+        """获取排课记录详情"""
+        schedule = await ClassScheduleCRUD(auth).get_by_id_crud(
+            id=schedule_id,
+            preload=["class_ref", "coach_user", "created_by", "updated_by"]
+        )
+        if not schedule:
+            raise CustomException(msg="排课记录不存在")
+        return ClassScheduleOutSchema.model_validate(schedule).model_dump()
+
+    @classmethod
+    async def list_service(cls, auth: AuthSchema, search: Optional[dict] = None, order_by: Optional[list[dict]] = None) -> list[dict]:
+        """排课记录列表查询"""
+        schedules = await ClassScheduleCRUD(auth).list_crud(
+            search=search,
+            order_by=order_by,
+            preload=["class_ref", "coach_user"]
+        )
+        return [ClassScheduleOutSchema.model_validate(schedule).model_dump() for schedule in schedules]
+
+    @classmethod
+    async def page_service(cls, auth: AuthSchema, page_no: int, page_size: int, search: Optional[dict] = None, order_by: Optional[list[dict]] = None) -> dict:
+        """排课记录分页查询"""
+        search_dict = search or {}
+        order_by_list = order_by or [{'id': 'asc'}]
+        offset = (page_no - 1) * page_size
+
+        result = await ClassScheduleCRUD(auth).page_crud(
+            offset=offset,
+            limit=page_size,
+            order_by=order_by_list,
+            search=search_dict,
+            preload=["class_ref", "coach_user"],
+            out_schema=ClassScheduleOutSchema
+        )
+        
+        return PaginatedResponse(
+            total=result["total"],
+            page_no=page_no,
+            page_size=page_size,
+            items=result["items"]
+        ).model_dump()
+
+    @classmethod
+    async def create_service(cls, auth: AuthSchema, data: ClassScheduleCreateSchema) -> dict:
+        """创建排课记录"""
+        # 检查排课时间是否冲突（同一班级、同一时间）
+        # TODO: 实现时间冲突检查
+        
+        schedule = await ClassScheduleCRUD(auth).create_crud(data=data)
+        if not schedule:
+            raise CustomException(msg="创建排课记录失败")
+        return SimpleResponse(
+            success=True,
+            message="排课记录创建成功",
+            data=ClassScheduleOutSchema.model_validate(schedule).model_dump()
+        ).model_dump()
+
+    @classmethod
+    async def update_service(cls, auth: AuthSchema, schedule_id: int, data: ClassScheduleUpdateSchema) -> dict:
+        """更新排课记录"""
+        schedule = await ClassScheduleCRUD(auth).update_crud(id=schedule_id, data=data)
+        if not schedule:
+            raise CustomException(msg="排课记录不存在或更新失败")
+        return SimpleResponse(
+            success=True,
+            message="排课记录更新成功",
+            data=ClassScheduleOutSchema.model_validate(schedule).model_dump()
+        ).model_dump()
+
+    @classmethod
+    async def delete_service(cls, auth: AuthSchema, schedule_ids: list[int]) -> dict:
+        """删除排课记录"""
+        await ClassScheduleCRUD(auth).delete_crud(ids=schedule_ids)
+        return SimpleResponse(
+            success=True,
+            message="排课记录删除成功"
+        ).model_dump()\n

@@ -1,0 +1,184 @@
+"""
+attendance模块 - Service服务层
+"""
+
+from datetime import date, datetime, timedelta
+from typing import Optional, List, Dict, Any
+
+from sqlalchemy.orm import Session
+
+from app.api.v1.module_system.user.service import UserService
+from app.core.base_crud import CRUDBase
+from app.core.database import SessionDep
+from app.core.exceptions import CustomException
+from app.core.logger import logger
+
+from .model import *
+from .crud import *
+from ..class_.schema import (
+    ClassAttendanceCreateSchema,
+    ClassAttendanceUpdateSchema,
+    ClassAttendanceOutSchema,
+    ClassAttendanceQueryParam
+)
+from app.common.response import PaginatedResponse
+
+from app.api.v1.module_system.auth.schema import AuthSchema
+
+# ============================================================================
+# 考勤记录管理服务
+# ============================================================================
+
+class ClassAttendanceService:
+    """考勤记录管理服务层"""
+
+    @classmethod
+    async def detail_service(cls, auth: AuthSchema, attendance_id: int) -> dict:
+        """获取考勤记录详情"""
+        attendance = await ClassAttendanceCRUD(auth).get_by_id_crud(
+            id=attendance_id,
+            preload=["student", "class_ref", "schedule", "purchase", "coach_user", "created_by", "updated_by"]
+        )
+        if not attendance:
+            raise CustomException(msg="考勤记录不存在")
+        return ClassAttendanceOutSchema.model_validate(attendance).model_dump()
+
+    @classmethod
+    async def list_service(cls, auth: AuthSchema, search: Optional[dict] = None, order_by: Optional[list[dict]] = None) -> list[dict]:
+        """考勤记录列表查询"""
+        attendances = await ClassAttendanceCRUD(auth).list_crud(
+            search=search,
+            order_by=order_by,
+            preload=["student", "class_ref", "schedule", "purchase", "coach_user"]
+        )
+        return [ClassAttendanceOutSchema.model_validate(attendance).model_dump() for attendance in attendances]
+
+    @classmethod
+    async def page_service(cls, auth: AuthSchema, page_no: int, page_size: int, search: Optional[dict | ClassAttendanceQueryParam] = None, order_by: Optional[list[dict]] = None) -> dict:
+        """考勤记录分页查询"""
+        # 将QueryParam对象转换为字典
+        if isinstance(search, ClassAttendanceQueryParam):
+            search_dict = vars(search)
+        else:
+            search_dict = search or {}
+        
+        order_by_list = order_by or [{'id': 'asc'}]
+        offset = (page_no - 1) * page_size
+
+        result = await ClassAttendanceCRUD(auth).page_crud(
+            offset=offset,
+            limit=page_size,
+            order_by=order_by_list,
+            search=search_dict,
+            preload=["student", "class_ref", "schedule", "purchase", "coach_user"],
+            out_schema=ClassAttendanceOutSchema
+        )
+        
+        return PaginatedResponse(
+            total=result["total"],
+            page_no=page_no,
+            page_size=page_size,
+            items=result["items"]
+        ).model_dump()
+
+    @classmethod
+    async def create_service(cls, auth: AuthSchema, data: ClassAttendanceCreateSchema) -> dict:
+        """创建考勤记录"""
+        from datetime import timedelta
+        from ..enums import AttendanceStatusEnum
+        
+        # 检查考勤记录是否重复（同一学员、同一班级、同一时间）
+        # TODO: 实现重复考勤检查
+        
+        # 如果是请假记录，设置不扣课时
+        if data.attendance_status == AttendanceStatusEnum.LEAVE:
+            # 请假不扣课时
+            data_dict = data.model_dump()
+            data_dict["session_deducted"] = 0
+            data_dict["is_auto_deduct"] = False
+            
+            # 创建请假考勤记录
+            attendance = await ClassAttendanceCRUD(auth).create_crud(data=ClassAttendanceCreateSchema(**data_dict))
+            if not attendance:
+                raise CustomException(msg="创建请假考勤记录失败")
+            
+            # 自动创建补课记录（下周同一时间）
+            try:
+                # 计算下周同一时间（增加7天）
+                from datetime import datetime
+                
+                # 解析日期和时间
+                attendance_date = datetime.strptime(str(data.attendance_date), "%Y-%m-%d").date()
+                makeup_date = attendance_date + timedelta(days=7)
+                
+                # 创建补课记录数据
+                makeup_data = data.model_dump()
+                makeup_data["attendance_status"] = AttendanceStatusEnum.MAKEUP
+                makeup_data["is_makeup"] = True
+                makeup_data["makeup_date"] = makeup_date.isoformat()
+                makeup_data["attendance_date"] = makeup_date.isoformat()
+                makeup_data["original_attendance_id"] = attendance.id
+                makeup_data["makeup_notes"] = f"请假自动顺延补课，原请假日期：{attendance_date}"
+                
+                # 创建补课记录
+                makeup_attendance = await ClassAttendanceCRUD(auth).create_crud(
+                    data=ClassAttendanceCreateSchema(**makeup_data)
+                )
+                
+                # 更新原请假记录的关联
+                from ..attendance.model import ClassAttendanceModel
+                from app.core.database import async_session
+                
+                async with async_session() as session:
+                    db_attendance = await session.get(ClassAttendanceModel, attendance.id)
+                    if db_attendance:
+                        db_attendance.makeup_attendance = makeup_attendance
+                        await session.commit()
+                
+                return SimpleResponse(
+                    success=True,
+                    message="请假考勤记录创建成功，已自动安排下周补课",
+                    data={
+                        "leave_attendance": ClassAttendanceOutSchema.model_validate(attendance).model_dump(),
+                        "makeup_attendance": ClassAttendanceOutSchema.model_validate(makeup_attendance).model_dump()
+                    }
+                ).model_dump()
+                
+            except Exception as e:
+                # 如果创建补课记录失败，只返回请假记录
+                return SimpleResponse(
+                    success=True,
+                    message=f"请假考勤记录创建成功，但补课安排失败：{str(e)}",
+                    data=ClassAttendanceOutSchema.model_validate(attendance).model_dump()
+                ).model_dump()
+        else:
+            # 非请假记录，正常创建
+            attendance = await ClassAttendanceCRUD(auth).create_crud(data=data)
+            if not attendance:
+                raise CustomException(msg="创建考勤记录失败")
+            return SimpleResponse(
+                success=True,
+                message="考勤记录创建成功",
+                data=ClassAttendanceOutSchema.model_validate(attendance).model_dump()
+            ).model_dump()
+
+    @classmethod
+    async def update_service(cls, auth: AuthSchema, attendance_id: int, data: ClassAttendanceUpdateSchema) -> dict:
+        """更新考勤记录"""
+        attendance = await ClassAttendanceCRUD(auth).update_crud(id=attendance_id, data=data)
+        if not attendance:
+            raise CustomException(msg="考勤记录不存在或更新失败")
+        return SimpleResponse(
+            success=True,
+            message="考勤记录更新成功",
+            data=ClassAttendanceOutSchema.model_validate(attendance).model_dump()
+        ).model_dump()
+
+    @classmethod
+    async def delete_service(cls, auth: AuthSchema, attendance_ids: list[int]) -> dict:
+        """删除考勤记录"""
+        await ClassAttendanceCRUD(auth).delete_crud(ids=attendance_ids)
+        return SimpleResponse(
+            success=True,
+            message="考勤记录删除成功"
+        ).model_dump()

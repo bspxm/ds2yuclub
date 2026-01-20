@@ -104,6 +104,65 @@ class UserModel(ModelMixin, UserMixin):
         lazy="selectin"
     )
 
+    # ============================================================================
+    # 羽毛球模块关联关系
+    # ============================================================================
+    
+    # 作为家长关联的学员
+    students: Mapped[list["StudentModel"]] = relationship(
+        secondary="badminton_parent_student",
+        back_populates="parents",
+        lazy="selectin"
+    )
+    
+    # 作为教练评估的记录
+    assessments_as_coach: Mapped[list["AbilityAssessmentModel"]] = relationship(
+        back_populates="coach",
+        lazy="selectin",
+        cascade="all, delete-orphan",
+        foreign_keys="AbilityAssessmentModel.coach_id"
+    )
+    
+    # 作为教练的课程记录
+    courses_as_coach: Mapped[list["CourseModel"]] = relationship(
+        back_populates="coach_user",
+        lazy="selectin",
+        cascade="all, delete-orphan",
+        foreign_keys="CourseModel.coach_id"
+    )
+    
+    # 作为教练的班级记录
+    # classes_as_coach: Mapped[list["ClassModel"]] = relationship(
+    #     back_populates="coach_user",
+    #     lazy="selectin",
+    #     cascade="all, delete-orphan",
+    #     foreign_keys="ClassModel.coach_id"
+    # )
+    
+    # 作为教练的排课记录
+    # schedules_as_coach: Mapped[list["ClassScheduleModel"]] = relationship(
+    #     back_populates="coach_user",
+    #     lazy="selectin",
+    #     cascade="all, delete-orphan",
+    #     foreign_keys="ClassScheduleModel.coach_id"
+    # )
+    
+    # 作为教练确认的考勤记录
+    # attendance_as_coach: Mapped[list["ClassAttendanceModel"]] = relationship(
+    #     back_populates="coach_user",
+    #     lazy="selectin",
+    #     cascade="all, delete-orphan",
+    #     foreign_keys="ClassAttendanceModel.coach_id"
+    # )
+    
+    # 作为教练的评估记录
+    # assessments_as_coach: Mapped[list["AbilityAssessmentModel"]] = relationship(
+    #     back_populates="coach",
+    #     lazy="selectin",
+    #     cascade="all, delete-orphan",
+    #     foreign_keys="AbilityAssessmentModel.coach_id"
+    # )
+
     # 覆盖 UserMixin 的关系定义,显式指定 foreign_keys 避免自引用混淆
     created_by: Mapped["UserModel | None"] = relationship(
         "UserModel",
