@@ -73,6 +73,7 @@ class SemesterTypeEnum(enum.Enum):
     REGULAR = "regular"        # 常规学期（春秋）
     SUMMER = "summer"          # 暑假学期
     WINTER = "winter"          # 寒假学期
+    WINTERSUMMER = "wintersummer"  # 寒暑假合并
 
 
 class ClassTypeEnum(enum.Enum):
@@ -109,7 +110,8 @@ class AttendanceStatusEnum(enum.Enum):
 class SemesterStatusEnum(enum.Enum):
     """学期状态枚举"""
     PLANNING = "planning"      # 规划中
-    ACTIVE = "active"          # 进行中
+    IN_PROGRESS = "in_progress"  # 进行中
+    ACTIVE = "active"          # 激活中
     COMPLETED = "completed"    # 已结束
     SETTLED = "settled"        # 已结算
     ARCHIVED = "archived"      # 已归档

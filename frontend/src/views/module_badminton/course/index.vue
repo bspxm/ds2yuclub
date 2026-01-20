@@ -184,18 +184,17 @@
       </div>
 
       <!-- 表格区域 -->
-      <el-table
-        ref="tableRef"
-        v-loading="loading"
-        :data="pageTableData"
-        highlight-current-row
-        class="data-table__content"
-        height="450"
-        max-height="450"
-        border
-        stripe
-        @selection-change="handleSelectionChange"
-      >
+      <div class="data-table__content-wrapper">
+        <el-table
+          ref="tableRef"
+          v-loading="loading"
+          :data="pageTableData"
+          highlight-current-row
+          class="data-table__content"
+          border
+          stripe
+          @selection-change="handleSelectionChange"
+        >
         <template #empty>
           <el-empty :image-size="80" description="暂无数据" />
         </template>
@@ -308,6 +307,7 @@
           </template>
         </el-table-column>
       </el-table>
+      </div>
 
       <!-- 分页区域 -->
       <template #footer>
@@ -772,4 +772,22 @@ onMounted(() => {
 });
 </script>
 
-<style lang="scss" scoped></style>
+<style scoped>
+/* 使表格容器使用flex布局自动填充剩余空间 */
+.data-table {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.data-table__content-wrapper {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.data-table__content {
+  flex: 1;
+}
+</style>

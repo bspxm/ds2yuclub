@@ -17,6 +17,7 @@ from .model import *
 from .crud import *
 from .schema import *
 from app.common.response import PaginatedResponse
+from ..schema import SimpleResponse
 
 from app.api.v1.module_system.auth.schema import AuthSchema
 
@@ -36,7 +37,7 @@ class SemesterService:
         )
         if not semester:
             raise CustomException(msg="学期不存在")
-        return SemesterOutSchema.model_validate(semester).model_dump()
+        return SemesterOutSchema.model_validate(semester).model_dump(mode='json')
 
     @classmethod
     async def list_service(cls, auth: AuthSchema, search: Optional[dict] = None, order_by: Optional[list[dict]] = None) -> list[dict]:
@@ -46,7 +47,7 @@ class SemesterService:
             order_by=order_by,
             preload=["created_by"]
         )
-        return [SemesterOutSchema.model_validate(semester).model_dump() for semester in semesters]
+        return [SemesterOutSchema.model_validate(semester).model_dump(mode='json') for semester in semesters]
 
     @classmethod
     async def page_service(cls, auth: AuthSchema, page_no: int, page_size: int, search: Optional[dict | SemesterQueryParam] = None, order_by: Optional[list[dict]] = None) -> dict:
@@ -81,14 +82,14 @@ class SemesterService:
         """创建学期"""
         # 检查学期日期是否重叠
         # TODO: 实现日期重叠检查
-        
+
         semester = await SemesterCRUD(auth).create_crud(data=data)
         if not semester:
             raise CustomException(msg="创建学期失败")
         return SimpleResponse(
             success=True,
             message="学期创建成功",
-            data=SemesterOutSchema.model_validate(semester).model_dump()
+            data=SemesterOutSchema.model_validate(semester).model_dump(mode='json')
         ).model_dump()
 
     @classmethod
@@ -100,7 +101,7 @@ class SemesterService:
         return SimpleResponse(
             success=True,
             message="学期更新成功",
-            data=SemesterOutSchema.model_validate(semester).model_dump()
+            data=SemesterOutSchema.model_validate(semester).model_dump(mode='json')
         ).model_dump()
 
     @classmethod
@@ -133,7 +134,7 @@ class SemesterService:
             return SimpleResponse(
                 success=True,
                 message="获取当前学期成功",
-                data=SemesterOutSchema.model_validate(semester).model_dump()
+                data=SemesterOutSchema.model_validate(semester).model_dump(mode='json')
             ).model_dump()
         
         # 2. 如果没有进行中的学期，查找未开始的学期（按开始日期升序，找到即将开始的）
@@ -148,7 +149,7 @@ class SemesterService:
             return SimpleResponse(
                 success=True,
                 message="获取即将开始的学期成功",
-                data=SemesterOutSchema.model_validate(semester).model_dump()
+                data=SemesterOutSchema.model_validate(semester).model_dump(mode='json')
             ).model_dump()
         
         # 3. 如果都没有，返回最近结束的学期
@@ -162,7 +163,7 @@ class SemesterService:
             return SimpleResponse(
                 success=True,
                 message="获取最近结束的学期成功",
-                data=SemesterOutSchema.model_validate(semester).model_dump()
+                data=SemesterOutSchema.model_validate(semester).model_dump(mode='json')
             ).model_dump()
         
         # 4. 没有任何学期
@@ -238,7 +239,7 @@ class SemesterService:
             success=True,
             message=f"学期「{semester.name}」已成功关闭",
             data={
-                "semester": SemesterOutSchema.model_validate(updated_semester).model_dump(),
+                "semester": SemesterOutSchema.model_validate(updated_semester).model_dump(mode='json'),
                 "settlement_summary": settlement_result.get("data", {}),
                 "carry_over_report": carry_over_report,
                 "next_steps": [

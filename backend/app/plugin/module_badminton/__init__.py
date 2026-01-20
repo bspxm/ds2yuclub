@@ -14,11 +14,20 @@
 __version__ = "1.0.0"
 
 # ============================================================================
-# 数据模型重新导出
+# 先导入所有模型，确保 SQLAlchemy 能够正确解析关系
 # ============================================================================
 
-from .model import (
-    # 枚举类型
+from .student.model import StudentModel, ParentStudentModel, AbilityAssessmentModel
+from .tournament.model import TournamentModel, TournamentGroupModel, TournamentParticipantModel, TournamentMatchModel
+from .course.model import CourseModel, StudentCourseModel
+from .leave.model import LeaveRequestModel
+from .semester.model import SemesterModel
+from .class_.model import ClassModel
+from .purchase.model import PurchaseModel
+from .attendance.model import ClassAttendanceModel
+from .schedule.model import ClassScheduleModel, ScheduleStatusEnum, ScheduleTypeEnum
+
+from .enums import (
     GenderEnum,
     HandednessEnum,
     RelationTypeEnum,
@@ -32,34 +41,51 @@ from .model import (
     PurchaseStatusEnum,
     AttendanceStatusEnum,
     SemesterStatusEnum,
-    ScheduleStatusEnum,
-    ScheduleTypeEnum,
+)
+
+__all__ = [
+    # 枚举类型
+    "GenderEnum",
+    "HandednessEnum",
+    "RelationTypeEnum",
+    "TournamentTypeEnum",
+    "TournamentStatusEnum",
+    "MatchStatusEnum",
+    "CourseTypeEnum",
+    "LeaveStatusEnum",
+    "SemesterTypeEnum",
+    "ClassTypeEnum",
+    "PurchaseStatusEnum",
+    "AttendanceStatusEnum",
+    "SemesterStatusEnum",
+    "ScheduleStatusEnum",
+    "ScheduleTypeEnum",
     
     # 学员相关模型
-    StudentModel,
-    ParentStudentModel,
-    AbilityAssessmentModel,
+    "StudentModel",
+    "ParentStudentModel",
+    "AbilityAssessmentModel",
     
     # 赛事相关模型
-    TournamentModel,
-    TournamentGroupModel,
-    TournamentParticipantModel,
-    TournamentMatchModel,
+    "TournamentModel",
+    "TournamentGroupModel",
+    "TournamentParticipantModel",
+    "TournamentMatchModel",
     
     # 课程相关模型（旧系统）
-    CourseModel,
-    StudentCourseModel,
+    "CourseModel",
+    "StudentCourseModel",
     
     # 请假相关模型
-    LeaveRequestModel,
+    "LeaveRequestModel",
     
     # 学期制课时结算系统模型
-    SemesterModel,
-    ClassModel,
-    PurchaseModel,
-    ClassAttendanceModel,
-    ClassScheduleModel,
-)
+    "SemesterModel",
+    "ClassModel",
+    "PurchaseModel",
+    "ClassAttendanceModel",
+    "ClassScheduleModel",
+]
 
 __all__ = [
     # 枚举类型

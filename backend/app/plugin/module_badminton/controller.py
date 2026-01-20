@@ -569,12 +569,11 @@ async def semester_update(
 
 @BadmintonRouter.delete("/semesters", summary="删除学期", description="批量删除学期")
 async def semester_delete(
-    ids: str = Query(..., description="学期ID列表，用逗号分隔"),
+    ids: list[int],
     auth: AuthSchema = Depends(AuthPermission(["module_badminton:semester:delete"]))
 ) -> JSONResponse:
     """删除学期"""
-    id_list = [int(id) for id in ids.split(",")]
-    result = await SemesterService.delete_service(auth, id_list)
+    result = await SemesterService.delete_service(auth, ids)
     return SuccessResponse(data=result, msg="学期删除成功")
 
 @BadmintonRouter.get("/semesters/current", summary="当前学期", description="获取当前活跃学期")

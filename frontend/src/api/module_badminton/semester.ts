@@ -73,7 +73,7 @@ export interface SemesterTable extends BaseType {
   semester_type?: string;
   start_date?: string;
   end_date?: string;
-  total_weeks?: number;
+  week_count?: number;
   status?: string;
   description?: string;
   created_by?: CommonType;
@@ -86,7 +86,7 @@ export interface SemesterForm extends BaseFormType {
   semester_type?: string;
   start_date?: string;
   end_date?: string;
-  total_weeks?: number;
+  week_count?: number;
   status?: string;
   description?: string;
 }

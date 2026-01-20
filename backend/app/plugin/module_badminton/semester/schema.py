@@ -6,7 +6,7 @@ from datetime import date, datetime, time
 from typing import Optional
 
 from fastapi import Query
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator, model_serializer
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_serializer, field_serializer
 
 from app.api.v1.module_system.user.schema import UserOutSchema
 from app.core.base_schema import BaseSchema, UserBySchema
@@ -25,12 +25,12 @@ class SemesterCreateSchema(BaseModel):
     """学期创建模型"""
     name: str = Field(..., description='学期名称')
     semester_type: SemesterTypeEnum = Field(default=SemesterTypeEnum.REGULAR, description='学期类型')
-    start_date: DateStr = Field(..., description='开始日期')
-    end_date: DateStr = Field(..., description='结束日期')
+    start_date: date = Field(..., description='开始日期')
+    end_date: date = Field(..., description='结束日期')
     week_count: int = Field(default=0, description='总周数')
     status: SemesterStatusEnum = Field(default=SemesterStatusEnum.PLANNING, description='学期状态')
     is_current: bool = Field(default=False, description='是否当前学期')
-    settlement_date: Optional[DateStr] = Field(None, description='结算日期')
+    settlement_date: Optional[date] = Field(None, description='结算日期')
     carry_over_enabled: bool = Field(default=True, description='允许课时结转')
     max_carry_over_sessions: int = Field(default=5, description='最大结转课时数')
     description: Optional[str] = Field(None, description='学期描述')
@@ -46,9 +46,20 @@ class SemesterCreateSchema(BaseModel):
             raise ValueError('学期名称长度必须在2-64个字符之间')
         return v
 
+    @field_validator('start_date', 'end_date', 'settlement_date')
+    @classmethod
+    def validate_date(cls, v: str | date) -> date:
+        """验证日期字段，将字符串转换为date对象"""
+        if isinstance(v, str):
+            try:
+                return datetime.strptime(v, '%Y-%m-%d').date()
+            except ValueError:
+                raise ValueError('日期格式无效，请使用 YYYY-MM-DD 格式')
+        return v
+
     @field_validator('end_date')
     @classmethod
-    def validate_end_date(cls, v: DateStr, info) -> DateStr:
+    def validate_end_date(cls, v: date, info) -> date:
         """验证结束日期"""
         start_date = info.data.get('start_date')
         if start_date and v < start_date:
@@ -59,12 +70,23 @@ class SemesterUpdateSchema(SemesterCreateSchema):
     """学期更新模型"""
     name: Optional[str] = Field(None, description='学期名称')
     semester_type: Optional[SemesterTypeEnum] = Field(None, description='学期类型')
-    start_date: Optional[DateStr] = Field(None, description='开始日期')
-    end_date: Optional[DateStr] = Field(None, description='结束日期')
+    start_date: Optional[date] = Field(None, description='开始日期')
+    end_date: Optional[date] = Field(None, description='结束日期')
 
 class SemesterOutSchema(SemesterCreateSchema, BaseSchema, UserBySchema):
     """学期响应模型"""
-    model_config = ConfigDict(from_attributes=True, use_enum_values=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+        use_enum_values=True
+    )
+
+    @field_serializer('start_date', 'end_date', 'settlement_date')
+    @classmethod
+    def serialize_dates(cls, value: date | None) -> str | None:
+        """序列化日期字段"""
+        if value is None:
+            return None
+        return value.isoformat()
 
 
 class SemesterQueryParam:

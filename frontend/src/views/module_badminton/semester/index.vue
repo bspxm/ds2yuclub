@@ -21,8 +21,7 @@
             clearable
           >
             <el-option value="regular" label="常规学期" />
-            <el-option value="summer" label="暑假" />
-            <el-option value="winter" label="寒假" />
+            <el-option value="wintersummer" label="寒暑假" />
           </el-select>
         </el-form-item>
         <el-form-item prop="status" label="学期状态">
@@ -32,9 +31,9 @@
             style="width: 120px"
             clearable
           >
-            <el-option value="not_started" label="未开始" />
+            <el-option value="planning" label="规划中" />
             <el-option value="in_progress" label="进行中" />
-            <el-option value="ended" label="已结束" />
+            <el-option value="completed" label="已结束" />
           </el-select>
         </el-form-item>
         <el-form-item v-if="isExpand" prop="start_date" label="开始日期范围">
@@ -160,18 +159,17 @@
       </div>
 
       <!-- 表格区域 -->
-      <el-table
-        ref="tableRef"
-        v-loading="loading"
-        :data="pageTableData"
-        highlight-current-row
-        class="data-table__content"
-        height="450"
-        max-height="450"
-        border
-        stripe
-        @selection-change="handleSelectionChange"
-      >
+      <div class="data-table__content-wrapper">
+        <el-table
+          ref="tableRef"
+          v-loading="loading"
+          :data="pageTableData"
+          highlight-current-row
+          class="data-table__content"
+          border
+          stripe
+          @selection-change="handleSelectionChange"
+        >
         <template #empty>
           <el-empty :image-size="80" description="暂无数据" />
         </template>
@@ -204,8 +202,8 @@
           min-width="100"
         >
           <template #default="scope">
-            <el-tag :type="scope.row.semester_type === 'regular' ? 'primary' : scope.row.semester_type === 'summer' ? 'warning' : 'info'">
-              {{ scope.row.semester_type === 'regular' ? '常规学期' : scope.row.semester_type === 'summer' ? '暑假' : '寒假' }}
+            <el-tag :type="scope.row.semester_type === 'regular' ? 'primary' : 'warning'">
+              {{ scope.row.semester_type === 'regular' ? '常规学期' : '寒暑假' }}
             </el-tag>
           </template>
         </el-table-column>
@@ -222,9 +220,9 @@
           min-width="110"
         />
         <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'total_weeks')?.show"
+          v-if="tableColumns.find((col) => col.prop === 'week_count')?.show"
           label="总周数"
-          prop="total_weeks"
+          prop="week_count"
           min-width="90"
         />
         <el-table-column
@@ -234,8 +232,8 @@
           min-width="90"
         >
           <template #default="scope">
-            <el-tag :type="scope.row.status === 'not_started' ? 'info' : scope.row.status === 'in_progress' ? 'success' : 'warning'">
-              {{ scope.row.status === 'not_started' ? '未开始' : scope.row.status === 'in_progress' ? '进行中' : '已结束' }}
+            <el-tag :type="scope.row.status === 'planning' ? 'info' : scope.row.status === 'in_progress' ? 'success' : 'warning'">
+              {{ scope.row.status === 'planning' ? '规划中' : scope.row.status === 'in_progress' ? '进行中' : '已结束' }}
             </el-tag>
           </template>
         </el-table-column>
@@ -286,6 +284,7 @@
           </template>
         </el-table-column>
       </el-table>
+      </div>
 
       <!-- 分页区域 -->
       <template #footer>
@@ -312,13 +311,13 @@
             {{ detailFormData.name }}
           </el-descriptions-item>
           <el-descriptions-item label="学期类型">
-            <el-tag :type="detailFormData.semester_type === 'regular' ? 'primary' : detailFormData.semester_type === 'summer' ? 'warning' : 'info'">
-              {{ detailFormData.semester_type === 'regular' ? '常规学期' : detailFormData.semester_type === 'summer' ? '暑假' : '寒假' }}
+            <el-tag :type="detailFormData.semester_type === 'regular' ? 'primary' : 'warning'">
+              {{ detailFormData.semester_type === 'regular' ? '常规学期' :  '寒暑假' }}
             </el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="学期状态">
-            <el-tag :type="detailFormData.status === 'not_started' ? 'info' : detailFormData.status === 'in_progress' ? 'success' : 'warning'">
-              {{ detailFormData.status === 'not_started' ? '未开始' : detailFormData.status === 'in_progress' ? '进行中' : '已结束' }}
+            <el-tag :type="detailFormData.status === 'planning' ? 'info' : detailFormData.status === 'in_progress' ? 'success' : 'warning'">
+              {{ detailFormData.status === 'planning' ? '规划中' : detailFormData.status === 'in_progress' ? '进行中' : '已结束' }}
             </el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="开始日期">
@@ -328,7 +327,7 @@
             {{ detailFormData.end_date }}
           </el-descriptions-item>
           <el-descriptions-item label="总周数">
-            {{ detailFormData.total_weeks || 0 }}
+            {{ detailFormData.week_count || 0 }}
           </el-descriptions-item>
           <el-descriptions-item label="状态">
             <el-tag :type="detailFormData.status === '0' ? 'success' : 'info'">
@@ -373,8 +372,7 @@
               <el-form-item label="学期类型" prop="semester_type">
                 <el-select v-model="formData.semester_type" placeholder="请选择学期类型" style="width: 100%">
                   <el-option value="regular" label="常规学期" />
-                  <el-option value="summer" label="暑假" />
-                  <el-option value="winter" label="寒假" />
+                  <el-option value="wintersummer" label="寒暑假" />
                 </el-select>
               </el-form-item>
             </el-col>
@@ -406,15 +404,15 @@
             <!-- 第三行：总周数、学期状态 -->
             <el-col :span="12">
               <el-form-item label="总周数">
-                <el-input-number v-model="formData.total_weeks" :min="1" :max="52" placeholder="总周数" style="width: 100%" />
+                <el-input-number v-model="formData.week_count" :min="1" :max="52" placeholder="总周数" style="width: 100%" />
               </el-form-item>
             </el-col>
             <el-col :span="12">
               <el-form-item label="学期状态" prop="status">
                 <el-select v-model="formData.status" placeholder="请选择学期状态" style="width: 100%">
-                  <el-option value="not_started" label="未开始" />
+                  <el-option value="planning" label="规划中" />
                   <el-option value="in_progress" label="进行中" />
-                  <el-option value="ended" label="已结束" />
+                  <el-option value="completed" label="已结束" />
                 </el-select>
               </el-form-item>
             </el-col>
@@ -483,7 +481,7 @@ const tableColumns = ref([
   { prop: "semester_type", label: "学期类型", show: true },
   { prop: "start_date", label: "开始日期", show: true },
   { prop: "end_date", label: "结束日期", show: true },
-  { prop: "total_weeks", label: "总周数", show: true },
+  { prop: "week_count", label: "总周数", show: true },
   { prop: "status", label: "状态", show: true },
   { prop: "created_time", label: "创建时间", show: true },
   { prop: "operation", label: "操作", show: true },
@@ -524,8 +522,8 @@ const formData = reactive<SemesterForm>({
   semester_type: "regular",
   start_date: "",
   end_date: "",
-  total_weeks: 16,
-  status: "not_started",
+  week_count: 16,
+  status: "planning",
   description: undefined,
 });
 
@@ -583,8 +581,8 @@ const initialFormData: SemesterForm = {
   semester_type: "regular",
   start_date: "",
   end_date: "",
-  total_weeks: 16,
-  status: "not_started",
+  week_count: 16,
+  status: "planning",
   description: undefined,
 };
 
@@ -683,3 +681,23 @@ onMounted(() => {
   loadingData();
 });
 </script>
+
+<style scoped>
+/* 使表格容器使用flex布局自动填充剩余空间 */
+.data-table {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.data-table__content-wrapper {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.data-table__content {
+  flex: 1;
+}
+</style>
