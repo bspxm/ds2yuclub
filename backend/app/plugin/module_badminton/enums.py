@@ -137,8 +137,6 @@ class ScheduleTypeEnum(enum.Enum):
 
 class ClassStatusEnum(enum.Enum):
     """班级状态枚举"""
-    ACTIVE = "active"              # 激活中
-    INACTIVE = "inactive"          # 未激活
-    FULL = "full"                  # 已满员
-    CLOSED = "closed"              # 已关闭
-    ARCHIVED = "archived"          # 已归档
+    PENDING = "pending"            # 未开始
+    ACTIVE = "active"              # 进行中
+    ENDED = "ended"                # 已结束

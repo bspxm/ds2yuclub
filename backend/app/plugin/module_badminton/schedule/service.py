@@ -22,6 +22,7 @@ from ..class_.schema import (
     ClassScheduleQueryParam
 )
 from app.common.response import PaginatedResponse
+from ..response import SimpleResponse
 
 from app.api.v1.module_system.auth.schema import AuthSchema
 

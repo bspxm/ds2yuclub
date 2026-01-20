@@ -17,7 +17,7 @@ from .model import *
 from .crud import *
 from .schema import *
 from app.common.response import PaginatedResponse
-from ..schema import SimpleResponse
+from ..response import SimpleResponse
 
 from app.api.v1.module_system.auth.schema import AuthSchema
 

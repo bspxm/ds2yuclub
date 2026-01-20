@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, time
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from sqlalchemy import Boolean, Date, DateTime, Enum, ForeignKey, Integer, SmallInteger, Text, Time
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -119,17 +119,20 @@ class ClassAttendanceModel(ModelMixin, UserMixin):
         foreign_keys=[student_id],
         lazy="selectin"
     )
-    class_ref: Mapped["ClassModel"] = relationship(
+    class_ref: Mapped[Any] = relationship(
+        "ClassModel",
         back_populates="attendance_records",
         foreign_keys=[class_id],
         lazy="selectin"
     )
-    schedule: Mapped["ClassScheduleModel"] = relationship(
+    schedule: Mapped[Any] = relationship(
+        "ClassScheduleModel",
         back_populates="attendance_records",
         foreign_keys=[schedule_id],
         lazy="selectin"
     )
-    purchase: Mapped["PurchaseModel"] = relationship(
+    purchase: Mapped[Any] = relationship(
+        "PurchaseModel",
         back_populates="attendance_records",
         foreign_keys=[purchase_id],
         lazy="selectin"

@@ -25,16 +25,21 @@ class ClassCreateSchema(BaseModel):
     semester_id: int = Field(..., description='学期ID')
     name: str = Field(..., description='班级名称')
     class_type: ClassTypeEnum = Field(default=ClassTypeEnum.FIXED, description='班级类型')
-    coach_id: int = Field(..., description='教练ID')
+    coach_id: Optional[int] = Field(None, description='教练ID')
     total_sessions: int = Field(..., description='总课时数')
-    session_duration: int = Field(default=90, description='单次课时长(分钟)')
-    session_price: float = Field(..., description='课时单价')
+    session_duration: Optional[int] = Field(90, description='单次课时长(分钟)')
+    session_price: Optional[float] = Field(None, description='课时单价')
     max_students: int = Field(default=10, description='最大学员数')
     min_students: int = Field(default=1, description='最小学员数')
     start_date: Optional[DateStr] = Field(None, description='开始日期')
     end_date: Optional[DateStr] = Field(None, description='结束日期')
+    weekly_schedule: Optional[str] = Field(None, description='每周排班(如：周一、周三、周五)')
+    time_slots_json: Optional[str] = Field(None, description='时间段JSON配置')
+    location: Optional[str] = Field(None, description='上课地点')
+    class_status: ClassStatusEnum = Field(default=ClassStatusEnum.PENDING, description='班级状态')
     is_active: bool = Field(default=True, description='是否激活')
     enrollment_open: bool = Field(default=True, description='是否开放报名')
+    fee_per_session: Optional[float] = Field(None, description='每节课费用')
     description: Optional[str] = Field(None, description='班级描述')
     notes: Optional[str] = Field(None, description='备注')
 
@@ -44,12 +49,30 @@ class ClassUpdateSchema(ClassCreateSchema):
     name: Optional[str] = Field(None, description='班级名称')
     class_type: Optional[ClassTypeEnum] = Field(None, description='班级类型')
     coach_id: Optional[int] = Field(None, description='教练ID')
+    class_status: Optional[ClassStatusEnum] = Field(None, description='班级状态')
     total_sessions: Optional[int] = Field(None, description='总课时数')
     session_price: Optional[float] = Field(None, description='课时单价')
+
+# 关联对象的简单Schema定义
+class SemesterSimpleSchema(BaseModel):
+    """学期简单信息"""
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name: str
+
+class UserSimpleSchema(BaseModel):
+    """用户简单信息"""
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name: str
 
 class ClassOutSchema(ClassCreateSchema, BaseSchema, UserBySchema):
     """班级响应模型"""
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
+    
+    # 关联对象
+    semester: Optional[SemesterSimpleSchema] = Field(None, description='学期信息')
+    coach_user: Optional[UserSimpleSchema] = Field(None, description='教练信息')
 
 class ClassAttendanceCreateSchema(BaseModel):
     """班级考勤创建模型"""

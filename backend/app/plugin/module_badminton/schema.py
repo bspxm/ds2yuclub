@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from app.api.v1.module_system.user.schema import UserOutSchema
 from app.core.base_schema import BaseSchema, UserBySchema
 from app.core.validator import DateStr, DateTimeStr, TimeStr
+from .response import SimpleResponse
 
 from .model import (
     GenderEnum,
@@ -100,13 +101,6 @@ from .class_.schema import (
 # ============================================================================
 # 通用响应模型
 # ============================================================================
-
-class SimpleResponse(BaseModel):
-    """简单响应模型"""
-    success: bool = Field(..., description="是否成功")
-    message: str = Field(..., description="响应消息")
-    data: Optional[dict] = Field(None, description="响应数据")
-
 
 class PaginatedResponse(BaseModel):
     """分页响应模型"""

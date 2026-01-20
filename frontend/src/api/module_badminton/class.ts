@@ -64,6 +64,7 @@ export interface ClassPageQuery extends PageQuery {
   class_type?: string;
   semester_id?: number;
   status?: string;
+  class_status?: string;
   coach_id?: number;
 }
 
@@ -81,6 +82,7 @@ export interface ClassTable extends BaseType {
   class_time?: string;
   duration_minutes?: number;
   weekly_schedule?: string;
+  time_slots_json?: string;
   location?: string;
   coach_id?: number;
   coach?: {
@@ -91,6 +93,7 @@ export interface ClassTable extends BaseType {
   sessions_per_week?: number;
   total_sessions?: number;
   status?: string;
+  class_status?: string;
   description?: string;
   created_by?: CommonType;
   updated_by?: CommonType;
@@ -102,14 +105,16 @@ export interface ClassForm extends BaseFormType {
   class_type?: string;
   semester_id?: number;
   max_students?: number;
-  class_time?: string;
-  duration_minutes?: number;
   weekly_schedule?: string;
+  weekly_schedule_days?: string[];
+  time_slots?: { [day: string]: string[] };
+  time_slots_json?: string;
   location?: string;
   coach_id?: number;
   fee_per_session?: number;
   sessions_per_week?: number;
   total_sessions?: number;
   status?: string;
+  class_status?: string;
   description?: string;
 }

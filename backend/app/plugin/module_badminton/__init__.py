@@ -15,6 +15,7 @@ __version__ = "1.0.0"
 
 # ============================================================================
 # 先导入所有模型，确保 SQLAlchemy 能够正确解析关系
+# 注意：导入顺序很重要，有依赖关系的模型需要先导入
 # ============================================================================
 
 from .student.model import StudentModel, ParentStudentModel, AbilityAssessmentModel
@@ -22,10 +23,11 @@ from .tournament.model import TournamentModel, TournamentGroupModel, TournamentP
 from .course.model import CourseModel, StudentCourseModel
 from .leave.model import LeaveRequestModel
 from .semester.model import SemesterModel
+# 先导入schedule模型，因为ClassModel依赖它
+from .schedule.model import ClassScheduleModel, ScheduleStatusEnum, ScheduleTypeEnum
 from .class_.model import ClassModel
 from .purchase.model import PurchaseModel
 from .attendance.model import ClassAttendanceModel
-from .schedule.model import ClassScheduleModel, ScheduleStatusEnum, ScheduleTypeEnum
 
 from .enums import (
     GenderEnum,

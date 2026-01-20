@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import enum
 from datetime import date, datetime, time
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from sqlalchemy import Boolean, Date, DateTime, Enum, ForeignKey, Integer, SmallInteger, String, Text, Time
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -121,7 +121,8 @@ class ClassScheduleModel(ModelMixin, UserMixin):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True, comment='备注')
     
     # 关联关系
-    class_ref: Mapped["ClassModel"] = relationship(
+    class_ref: Mapped[Any] = relationship(
+        "ClassModel",
         back_populates="schedules",
         foreign_keys=[class_id],
         lazy="selectin"

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import Boolean, Date, Enum, ForeignKey, Integer, SmallInteger, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -54,12 +54,14 @@ class SemesterModel(ModelMixin, UserMixin):
     description: Mapped[str | None] = mapped_column(Text, nullable=True, comment='学期描述')
 
     # 关联关系
-    classes: Mapped[list["ClassModel"]] = relationship(
+    classes: Mapped[list[Any]] = relationship(
+        "ClassModel",
         back_populates="semester",
         lazy="selectin",
         cascade="all, delete-orphan"
     )
-    purchases: Mapped[list["PurchaseModel"]] = relationship(
+    purchases: Mapped[list[Any]] = relationship(
+        "PurchaseModel",
         back_populates="semester",
         lazy="selectin",
         cascade="all, delete-orphan"
