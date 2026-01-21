@@ -10,8 +10,15 @@
         :inline="true"
         @submit.prevent="handleQuery"
       >
-        <el-form-item prop="student_id" label="学员ID">
-          <el-input-number v-model="queryFormData.student_id" placeholder="学员ID" :min="1" clearable style="width: 120px" />
+        <el-form-item prop="student_id" label="学员">
+          <el-select v-model="queryFormData.student_id" placeholder="学员" style="width: 200px" clearable filterable>
+            <el-option
+              v-for="student in studentList"
+              :key="student.id"
+              :label="`${student.name}:${calculateAge(student.birth_date)}岁:${student.level || '未设置'}:${student.group_name || '未设置'}`"
+              :value="student.id"
+            />
+          </el-select>
         </el-form-item>
         <el-form-item prop="purchase_type" label="购买类型">
           <el-select
@@ -37,11 +44,25 @@
             <el-option value="expired" label="已过期" />
           </el-select>
         </el-form-item>
-        <el-form-item v-if="isExpand" prop="semester_id" label="学期ID">
-          <el-input-number v-model="queryFormData.semester_id" placeholder="学期ID" :min="1" clearable style="width: 120px" />
+        <el-form-item prop="semester_id" label="学期">
+          <el-select v-model="queryFormData.semester_id" placeholder="学期" style="width: 150px" clearable>
+            <el-option
+              v-for="semester in semesterList"
+              :key="semester.id"
+              :label="semester.name"
+              :value="semester.id"
+            />
+          </el-select>
         </el-form-item>
-        <el-form-item v-if="isExpand" prop="class_id" label="班级ID">
-          <el-input-number v-model="queryFormData.class_id" placeholder="班级ID" :min="1" clearable style="width: 120px" />
+        <el-form-item prop="class_id" label="班级">
+          <el-select v-model="queryFormData.class_id" placeholder="班级" style="width: 150px" clearable>
+            <el-option
+              v-for="cls in classList"
+              :key="cls.id"
+              :label="cls.name"
+              :value="cls.id"
+            />
+          </el-select>
         </el-form-item>
         <!-- 查询、重置、展开/收起按钮 -->
         <el-form-item>
@@ -103,6 +124,16 @@
                 @click="handleOpenDialog('create')"
               >
                 新增购买记录
+              </el-button>
+            </el-col>
+            <el-col :span="1.5">
+              <el-button
+                v-hasPerm="['module_badminton:purchase:create']"
+                type="primary"
+                icon="document-add"
+                @click="handleOpenBatchDialog"
+              >
+                批量新增
               </el-button>
             </el-col>
             <el-col :span="1.5">
@@ -204,7 +235,7 @@
         <el-table-column
           v-if="tableColumns.find((col) => col.prop === 'class')?.show"
           label="班级"
-          prop="class.name"
+          prop="class_ref.name"
           min-width="120"
         />
         <el-table-column
@@ -342,7 +373,7 @@
             {{ detailFormData.semester?.name || detailFormData.semester_id }}
           </el-descriptions-item>
           <el-descriptions-item label="班级">
-            {{ detailFormData.class?.name || detailFormData.class_id }}
+            {{ detailFormData.class_ref?.name || detailFormData.class_id }}
           </el-descriptions-item>
           <el-descriptions-item label="购买类型">
             <el-tag :type="detailFormData.purchase_type === 'package' ? 'primary' : 'success'">
@@ -405,22 +436,43 @@
           label-position="right"
         >
           <el-row :gutter="20">
-            <!-- 第一行：学员ID、学期ID -->
+            <!-- 第一行：学员、学期 -->
             <el-col :span="12">
-              <el-form-item label="学员ID" prop="student_id">
-                <el-input-number v-model="formData.student_id" :min="1" placeholder="学员ID" style="width: 100%" />
+              <el-form-item label="学员" prop="student_id">
+                <el-select v-model="formData.student_id" placeholder="请选择学员" style="width: 100%" clearable filterable>
+                  <el-option
+                    v-for="student in studentList"
+                    :key="student.id"
+                    :label="`${student.name}:${calculateAge(student.birth_date)}岁:${student.level || '未设置'}:${student.group_name || '未设置'}`"
+                    :value="student.id"
+                  />
+                </el-select>
               </el-form-item>
             </el-col>
             <el-col :span="12">
-              <el-form-item label="学期ID" prop="semester_id">
-                <el-input-number v-model="formData.semester_id" :min="1" placeholder="学期ID" style="width: 100%" />
+              <el-form-item label="学期" prop="semester_id">
+                <el-select v-model="formData.semester_id" placeholder="请选择学期" style="width: 100%" clearable>
+                  <el-option
+                    v-for="semester in semesterList"
+                    :key="semester.id"
+                    :label="semester.name"
+                    :value="semester.id"
+                  />
+                </el-select>
               </el-form-item>
             </el-col>
             
             <!-- 第二行：班级ID、购买类型 -->
             <el-col :span="12">
-              <el-form-item label="班级ID">
-                <el-input-number v-model="formData.class_id" :min="1" placeholder="班级ID" style="width: 100%" />
+              <el-form-item label="班级">
+                <el-select v-model="formData.class_id" placeholder="请选择班级" style="width: 100%" clearable>
+                  <el-option
+                    v-for="cls in classList"
+                    :key="cls.id"
+                    :label="cls.name"
+                    :value="cls.id"
+                  />
+                </el-select>
               </el-form-item>
             </el-col>
             <el-col :span="12">
@@ -434,13 +486,13 @@
             
             <!-- 第三行：购买课次、单价 -->
             <el-col :span="12">
-              <el-form-item label="购买课次" prop="session_count">
-                <el-input-number v-model="formData.session_count" :min="1" placeholder="购买课次" style="width: 100%" />
+              <el-form-item label="购买课次">
+                <el-input-number v-model="formData.session_count" :min="1" disabled style="width: 100%" />
               </el-form-item>
             </el-col>
             <el-col :span="12">
-              <el-form-item label="单价" prop="unit_price">
-                <el-input-number v-model="formData.unit_price" :min="0" :step="10" placeholder="单价" style="width: 100%" />
+              <el-form-item label="单价">
+                <el-input-number v-model="formData.unit_price" :min="0" :step="10" disabled style="width: 100%" />
               </el-form-item>
             </el-col>
             
@@ -518,6 +570,202 @@
         </div>
       </template>
     </el-dialog>
+
+    <!-- 批量新增弹窗 -->
+    <el-dialog
+      v-model="batchDialogVisible"
+      title="批量新增购买记录"
+      width="1200px"
+      :close-on-click-modal="false"
+      @close="handleCloseBatchDialog"
+    >
+      <el-row :gutter="20">
+        <!-- 左侧：学员选择 -->
+        <el-col :span="8">
+          <el-card shadow="never">
+            <template #header>
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span>选择学员（{{ batchSelectedStudents.length }} 人）</span>
+                <el-tag type="info" size="small">已选择 {{ batchSelectedStudents.length }} 人</el-tag>
+              </div>
+            </template>
+            
+            <!-- 筛选区域 -->
+            <div style="margin-bottom: 15px;">
+              <el-input
+                v-model="batchStudentSearch"
+                placeholder="搜索：姓名、手机号或年龄（如：张三、138...、8岁）"
+                clearable
+                style="width: 100%; margin-bottom: 10px;"
+              >
+                <template #prefix>
+                  <el-icon><Search /></el-icon>
+                </template>
+              </el-input>
+              <el-row :gutter="10">
+                <el-col :span="12">
+                  <el-select v-model="batchGroupFilter" placeholder="筛选组别" clearable style="width: 100%">
+                    <el-option label="全部组别" value="" />
+                    <el-option
+                      v-for="group in uniqueGroups"
+                      :key="group"
+                      :label="group"
+                      :value="group"
+                    />
+                  </el-select>
+                </el-col>
+                <el-col :span="12">
+                  <el-select v-model="batchLevelFilter" placeholder="筛选水平" clearable style="width: 100%">
+                    <el-option label="全部水平" value="" />
+                    <el-option
+                      v-for="level in uniqueLevels"
+                      :key="level"
+                      :label="level"
+                      :value="level"
+                    />
+                  </el-select>
+                </el-col>
+              </el-row>
+            </div>
+            
+            <!-- 学员列表 -->
+            <div style="height: 450px; overflow-y: auto;">
+              <el-checkbox-group v-model="batchSelectedStudents">
+                <div
+                  v-for="student in filteredStudents"
+                  :key="student.id"
+                  style="padding: 8px; border-bottom: 1px solid #f0f0f0;"
+                >
+                  <el-checkbox :label="student.id">
+                    <span style="margin-left: 8px;">
+                      {{ student.name }}:{{ calculateAge(student.birth_date) }}岁:{{ student.level || '未设置' }}:{{ student.group_name || '未设置' }}
+                      <span style="color: #909399; font-size: 12px; margin-left: 8px;">
+                        {{ student.mobile || '无手机号' }}
+                      </span>
+                    </span>
+                  </el-checkbox>
+                </div>
+              </el-checkbox-group>
+              <el-empty v-if="filteredStudents.length === 0" description="暂无学员" />
+            </div>
+          </el-card>
+        </el-col>
+        
+        <!-- 右侧：购买信息 -->
+        <el-col :span="16">
+          <el-card shadow="never">
+            <template #header>
+              <span>购买信息</span>
+            </template>
+            
+            <el-form
+              ref="batchFormRef"
+              :model="batchFormData"
+              :rules="batchRules"
+              label-suffix=":"
+              label-width="100px"
+              label-position="right"
+            >
+              <el-row :gutter="20">
+                <el-col :span="12">
+                  <el-form-item label="学期" prop="semester_id">
+                    <el-select v-model="batchFormData.semester_id" placeholder="请选择学期" style="width: 100%" clearable>
+                      <el-option
+                        v-for="semester in semesterList"
+                        :key="semester.id"
+                        :label="semester.name"
+                        :value="semester.id"
+                      />
+                    </el-select>
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="班级" prop="class_id">
+                    <el-select v-model="batchFormData.class_id" placeholder="请选择班级" style="width: 100%" clearable>
+                      <el-option
+                        v-for="cls in classList"
+                        :key="cls.id"
+                        :label="cls.name"
+                        :value="cls.id"
+                      />
+                    </el-select>
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="购买日期" prop="purchase_date">
+                    <el-date-picker
+                      v-model="batchFormData.purchase_date"
+                      type="date"
+                      placeholder="请选择购买日期"
+                      style="width: 100%"
+                      value-format="YYYY-MM-DD"
+                    />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="总课时" prop="total_sessions">
+                    <el-input-number v-model="batchFormData.total_sessions" :min="1" disabled style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="有效期开始" prop="valid_from">
+                    <el-date-picker
+                      v-model="batchFormData.valid_from"
+                      type="date"
+                      placeholder="请选择有效期开始"
+                      style="width: 100%"
+                      value-format="YYYY-MM-DD"
+                    />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="有效期截止" prop="valid_until">
+                    <el-date-picker
+                      v-model="batchFormData.valid_until"
+                      type="date"
+                      placeholder="请选择有效期截止"
+                      style="width: 100%"
+                      value-format="YYYY-MM-DD"
+                    />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="原价" prop="original_price">
+                    <el-input-number v-model="batchFormData.original_price" :min="0" :step="10" disabled style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="实付价格" prop="actual_price">
+                    <el-input-number v-model="batchFormData.actual_price" :min="0" :step="10" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="24">
+                  <el-form-item label="购买备注">
+                    <el-input
+                      v-model="batchFormData.purchase_notes"
+                      :rows="3"
+                      :maxlength="500"
+                      show-word-limit
+                      type="textarea"
+                      placeholder="请输入购买备注"
+                    />
+                  </el-form-item>
+                </el-col>
+              </el-row>
+            </el-form>
+          </el-card>
+        </el-col>
+      </el-row>
+      
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="handleCloseBatchDialog">取消</el-button>
+          <el-button type="primary" @click="handleBatchSubmit" :disabled="batchSelectedStudents.length === 0">
+            确定（{{ batchSelectedStudents.length }} 人）
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -527,10 +775,13 @@ defineOptions({
   inheritAttrs: false,
 });
 
-import { ref, reactive, onMounted } from "vue";
+import { ref, reactive, onMounted, computed, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { QuestionFilled, ArrowUp, ArrowDown } from "@element-plus/icons-vue";
-import PurchaseAPI, { PurchaseTable, PurchaseForm, PurchasePageQuery } from "@/api/module_badminton/purchase";
+import { QuestionFilled, ArrowUp, ArrowDown, Search } from "@element-plus/icons-vue";
+import PurchaseAPI, { PurchaseTable, PurchaseForm, PurchasePageQuery, BatchPurchaseForm } from "@/api/module_badminton/purchase";
+import SemesterAPI, { SemesterTable } from "@/api/module_badminton/semester";
+import ClassAPI, { ClassTable } from "@/api/module_badminton/class";
+import StudentAPI, { StudentTable } from "@/api/module_badminton/student";
 
 const visible = ref(true);
 const queryFormRef = ref();
@@ -604,14 +855,173 @@ const dialogVisible = reactive({
 
 // 表单验证规则
 const rules = reactive({
-  student_id: [{ required: true, message: "请输入学员ID", trigger: "blur" }],
-  semester_id: [{ required: true, message: "请输入学期ID", trigger: "blur" }],
+  student_id: [{ required: true, message: "请选择学员", trigger: "change" }],
+  semester_id: [{ required: true, message: "请选择学期", trigger: "change" }],
   purchase_type: [{ required: true, message: "请选择购买类型", trigger: "blur" }],
-  session_count: [{ required: true, message: "请输入购买课次", trigger: "blur" }],
-  unit_price: [{ required: true, message: "请输入单价", trigger: "blur" }],
   purchase_date: [{ required: true, message: "请选择购买日期", trigger: "blur" }],
   status: [{ required: true, message: "请选择购买状态", trigger: "blur" }],
 });
+
+// 学期列表
+const semesterList = ref<SemesterTable[]>([]);
+
+// 班级列表
+const classList = ref<ClassTable[]>([]);
+
+// 学员列表
+const studentList = ref<StudentTable[]>([]);
+
+// 批量新增弹窗相关
+const batchDialogVisible = ref(false);
+const batchFormRef = ref();
+const batchSelectedStudents = ref<number[]>([]);
+const batchStudentSearch = ref("");
+const batchGroupFilter = ref("");
+const batchLevelFilter = ref("");
+
+// 批量新增表单
+const batchFormData = reactive<BatchPurchaseForm>({
+  student_ids: [],
+  semester_id: undefined,
+  class_id: undefined,
+  purchase_date: "",
+  total_sessions: 0,
+  valid_from: "",
+  valid_until: "",
+  original_price: 0,
+  actual_price: 0,
+  discount_rate: 1.0,
+  purchase_notes: undefined,
+});
+
+// 批量新增表单验证规则
+const batchRules = reactive({
+  semester_id: [{ required: true, message: "请选择学期", trigger: "change" }],
+  class_id: [{ required: true, message: "请选择班级", trigger: "change" }],
+  purchase_date: [{ required: true, message: "请选择购买日期", trigger: "blur" }],
+  total_sessions: [{ required: true, message: "请输入购买课次", trigger: "blur" }],
+  valid_from: [{ required: true, message: "请选择有效期开始", trigger: "blur" }],
+  valid_until: [{ required: true, message: "请选择有效期截止", trigger: "blur" }],
+  original_price: [{ required: true, message: "请输入原价", trigger: "blur" }],
+  actual_price: [{ required: true, message: "请输入实付价格", trigger: "blur" }],
+});
+
+// 计算属性：过滤后的学员列表
+const filteredStudents = computed(() => {
+  return studentList.value.filter((student) => {
+    // 智能搜索：匹配姓名、手机号或年龄
+    let matchSearch = true;
+    if (batchStudentSearch.value) {
+      const searchTerm = batchStudentSearch.value.toLowerCase().trim();
+      
+      // 尝试匹配姓名
+      const matchName = student.name?.toLowerCase().includes(searchTerm);
+      
+      // 尝试匹配手机号
+      const matchPhone = student.mobile?.includes(searchTerm);
+      
+      // 尝试匹配年龄（输入"8"匹配8岁，"8岁"也匹配8岁）
+      const age = calculateAge(student.birth_date);
+      const matchAge = searchTerm.includes('岁') 
+        ? searchTerm === `${age}岁`
+        : searchTerm === age.toString();
+      
+      matchSearch = matchName || matchPhone || matchAge;
+    }
+    
+    // 组别筛选
+    const matchGroup = !batchGroupFilter.value || 
+      student.group_name === batchGroupFilter.value;
+    
+    // 水平筛选
+    const matchLevel = !batchLevelFilter.value || 
+      student.level === batchLevelFilter.value;
+    
+    return matchSearch && matchGroup && matchLevel;
+  });
+});
+
+// 计算属性：唯一的组别列表
+const uniqueGroups = computed(() => {
+  const groups = studentList.value
+    .map((s) => s.group_name)
+    .filter((g): g is string => !!g);
+  return [...new Set(groups)].sort();
+});
+
+// 计算属性：唯一的水平列表
+const uniqueLevels = computed(() => {
+  const levels = studentList.value
+    .map((s) => s.level)
+    .filter((l): l is string => !!l);
+  return [...new Set(levels)].sort();
+});
+
+// 计算属性：批量总金额
+const batchTotalAmount = computed(() => {
+  return (batchFormData.session_count || 0) * (batchFormData.unit_price || 0);
+});
+
+// 计算年龄
+function calculateAge(birthDate: string | undefined): number {
+  if (!birthDate) return 0;
+  const birth = new Date(birthDate);
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
+  return age;
+}
+
+// 加载学期列表（过滤掉已结束的学期）
+async function loadSemesterList() {
+  try {
+    const response = await SemesterAPI.getSemesterList({
+      page_no: 1,
+      page_size: 100, // 获取学期列表
+    });
+    // 过滤掉已结束状态的学期
+    semesterList.value = response.data.data.items.filter(
+      (semester: SemesterTable) => semester.status !== 'settled'
+    );
+  } catch (error: any) {
+    console.error("加载学期列表失败:", error);
+  }
+}
+
+// 加载班级列表（过滤掉已结束的班级）
+async function loadClassList() {
+  try {
+    const response = await ClassAPI.getClassList({
+      page_no: 1,
+      page_size: 100, // 获取班级列表
+    });
+    // 过滤掉已结束状态的班级
+    classList.value = response.data.data.items.filter(
+      (cls: ClassTable) => cls.class_status !== 'completed' && cls.class_status !== 'cancelled'
+    );
+  } catch (error: any) {
+    console.error("加载班级列表失败:", error);
+  }
+}
+
+// 加载学员列表（只显示启用状态的学员）
+async function loadStudentList() {
+  try {
+    const response = await StudentAPI.getStudentList({
+      page_no: 1,
+      page_size: 100,
+    });
+    // 过滤掉禁用状态的学员（status !== '0' 表示禁用）
+    studentList.value = response.data.data.items.filter(
+      (student) => student.status === '0'
+    );
+  } catch (error: any) {
+    console.error("加载学员列表失败:", error);
+  }
+}
 
 // 计算总金额
 function calculateTotalAmount() {
@@ -619,6 +1029,23 @@ function calculateTotalAmount() {
     formData.total_amount = formData.session_count * formData.unit_price;
   }
 }
+
+// 监听班级选择变化，自动填充学期、购买课次和单价
+watch(() => formData.class_id, (newClassId) => {
+  if (newClassId && classList.value.length > 0) {
+    const selectedClass = classList.value.find(cls => cls.id === newClassId);
+    if (selectedClass) {
+      // 自动填充学期ID
+      if (selectedClass.semester_id) {
+        formData.semester_id = selectedClass.semester_id;
+      }
+      // 自动填充购买课次和单价
+      formData.session_count = selectedClass.total_sessions || 0;
+      formData.unit_price = selectedClass.fee_per_session || 0;
+      calculateTotalAmount();
+    }
+  }
+});
 
 // 监听购买课次和单价变化
 watch(() => [formData.session_count, formData.unit_price], () => {
@@ -754,6 +1181,77 @@ async function handleDelete(ids: number[]) {
   }
 }
 
+// 打开批量新增弹窗
+async function handleOpenBatchDialog() {
+  batchSelectedStudents.value = [];
+  batchStudentSearch.value = "";
+  batchGroupFilter.value = "";
+  batchLevelFilter.value = "";
+  batchFormData.student_ids = [];
+  batchFormData.semester_id = undefined;
+  batchFormData.class_id = undefined;
+  batchFormData.purchase_date = "";
+  batchFormData.total_sessions = 0;
+  batchFormData.valid_from = "";
+  batchFormData.valid_until = "";
+  batchFormData.original_price = 0;
+  batchFormData.actual_price = 0;
+  batchFormData.discount_rate = 1.0;
+  batchFormData.purchase_notes = undefined;
+  batchDialogVisible.value = true;
+}
+
+// 关闭批量新增弹窗
+async function handleCloseBatchDialog() {
+  batchDialogVisible.value = false;
+  batchSelectedStudents.value = [];
+  batchStudentSearch.value = "";
+  batchGroupFilter.value = "";
+  batchLevelFilter.value = "";
+}
+
+// 批量提交
+async function handleBatchSubmit() {
+  if (!batchFormRef.value) return;
+  
+  if (batchSelectedStudents.value.length === 0) {
+    ElMessage.warning("请至少选择一名学员");
+    return;
+  }
+  
+  await batchFormRef.value.validate(async (valid: boolean) => {
+    if (!valid) return;
+    
+    try {
+      batchFormData.student_ids = batchSelectedStudents.value;
+      await PurchaseAPI.batchCreatePurchase(batchFormData);
+      ElMessage.success(`成功创建 ${batchSelectedStudents.value.length} 条购买记录`);
+      batchDialogVisible.value = false;
+      loadingData();
+    } catch (error: any) {
+      console.error(error);
+      ElMessage.error("批量创建失败");
+    }
+  });
+}
+
+// 监听班级选择变化，自动填充学期、购买课次和单价
+watch(() => batchFormData.class_id, (newClassId) => {
+  if (newClassId && classList.value.length > 0) {
+    const selectedClass = classList.value.find(cls => cls.id === newClassId);
+    if (selectedClass) {
+      // 自动填充学期ID
+      if (selectedClass.semester_id) {
+        batchFormData.semester_id = selectedClass.semester_id;
+      }
+      // 自动填充购买课次和单价
+      batchFormData.total_sessions = selectedClass.total_sessions || 0;
+      batchFormData.original_price = selectedClass.fee_per_session || 0;
+      batchFormData.actual_price = selectedClass.fee_per_session || 0;
+    }
+  }
+});
+
 // 刷新
 async function handleRefresh() {
   loadingData();
@@ -762,6 +1260,9 @@ async function handleRefresh() {
 // 页面加载时获取数据
 onMounted(() => {
   loadingData();
+  loadSemesterList();
+  loadClassList();
+  loadStudentList();
 });
 </script>
 

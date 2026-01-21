@@ -400,11 +400,11 @@
           <el-descriptions-item label="所属校区">
             {{ detailFormData.campus || '未设置' }}
           </el-descriptions-item>
-          <el-descriptions-item label="紧急联系人">
-            {{ detailFormData.emergency_contact || '未设置' }}
+          <el-descriptions-item label="联系人">
+            {{ detailFormData.contact || '未设置' }}
           </el-descriptions-item>
-          <el-descriptions-item label="紧急电话">
-            {{ detailFormData.emergency_phone || '未设置' }}
+          <el-descriptions-item label="手机号码">
+            {{ detailFormData.mobile || '未设置' }}
           </el-descriptions-item>
           <el-descriptions-item label="总比赛场次">
             {{ detailFormData.total_matches || 0 }}
@@ -531,22 +531,22 @@
               </el-form-item>
             </el-col>
             
-            <!-- 第六行：所属校区、紧急联系人 -->
+            <!-- 第六行：所属校区、联系人 -->
             <el-col :span="12">
               <el-form-item label="所属校区">
                 <el-input v-model="formData.campus" placeholder="请输入所属校区" :maxlength="128" />
               </el-form-item>
             </el-col>
             <el-col :span="12">
-              <el-form-item label="紧急联系人">
-                <el-input v-model="formData.emergency_contact" placeholder="请输入紧急联系人" :maxlength="32" />
+              <el-form-item label="联系人">
+                <el-input v-model="formData.contact" placeholder="请输入联系人" :maxlength="32" />
               </el-form-item>
             </el-col>
             
-            <!-- 第七行：紧急电话、状态 -->
+            <!-- 第七行：手机号码、状态 -->
             <el-col :span="12">
-              <el-form-item label="紧急电话">
-                <el-input v-model="formData.emergency_phone" placeholder="请输入紧急联系电话" :maxlength="20" />
+              <el-form-item label="手机号码">
+                <el-input v-model="formData.mobile" placeholder="请输入手机号码" :maxlength="20" />
               </el-form-item>
             </el-col>
             <el-col :span="12">
@@ -782,8 +782,8 @@ const formData = reactive<StudentForm>({
   level: undefined,
   group_name: undefined,
   campus: undefined,
-  emergency_contact: undefined,
-  emergency_phone: undefined,
+  contact: undefined,
+  mobile: undefined,
   status: "0",
   description: undefined,
 });
@@ -848,8 +848,8 @@ const initialFormData: StudentForm = {
   level: undefined,
   group_name: undefined,
   campus: undefined,
-  emergency_contact: undefined,
-  emergency_phone: undefined,
+  contact: undefined,
+  mobile: undefined,
   status: "0",
   description: undefined,
 };

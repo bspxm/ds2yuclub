@@ -112,7 +112,8 @@ class UserModel(ModelMixin, UserMixin):
     students: Mapped[list["StudentModel"]] = relationship(
         secondary="badminton_parent_student",
         back_populates="parents",
-        lazy="selectin"
+        lazy="selectin",
+        overlaps="student"
     )
     
     # 作为教练评估的记录

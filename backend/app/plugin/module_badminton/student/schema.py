@@ -33,8 +33,8 @@ class StudentCreateSchema(BaseModel):
     level: Optional[str] = Field(None, description='技术水平等级')
     group_name: Optional[str] = Field(None, description='所属组别')
     campus: Optional[str] = Field(None, description='所属校区')
-    emergency_contact: Optional[str] = Field(None, description='紧急联系人')
-    emergency_phone: Optional[str] = Field(None, description='紧急联系电话')
+    contact: Optional[str] = Field(None, description='联系人')
+    mobile: Optional[str] = Field(None, description='手机号码')
 
     @field_validator('name')
     @classmethod
@@ -47,10 +47,10 @@ class StudentCreateSchema(BaseModel):
             raise ValueError('姓名长度必须在2-32个字符之间')
         return v
 
-    @field_validator('emergency_phone')
+    @field_validator('mobile')
     @classmethod
-    def validate_phone(cls, v: Optional[str]) -> Optional[str]:
-        """验证电话号码"""
+    def validate_mobile(cls, v: Optional[str]) -> Optional[str]:
+        """验证手机号码"""
         if v is None:
             return v
         v = v.strip()

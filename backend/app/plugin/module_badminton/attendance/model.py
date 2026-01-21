@@ -152,5 +152,6 @@ class ClassAttendanceModel(ModelMixin, UserMixin):
     )
     makeup_attendance: Mapped["ClassAttendanceModel"] = relationship(
         foreign_keys=[original_attendance_id],
-        lazy="selectin"
+        lazy="selectin",
+        overlaps="original_attendance"
     )

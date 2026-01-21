@@ -95,7 +95,7 @@ class PurchaseService:
             search={
                 "student_id": data.student_id,
                 "is_settled": True,
-                "remaining_sessions__gt": 0  # 剩余课时大于0
+                "remaining_sessions": ("gt", 0)  # 剩余课时大于0
             },
             order_by=[{"settlement_date": "desc"}]
         )
@@ -158,6 +158,61 @@ class PurchaseService:
             success=True,
             message=f"购买记录创建成功{'（已应用结转课时）' if carry_over_sessions > 0 else ''}",
             data=response_data
+        ).model_dump()
+
+    @classmethod
+    async def batch_create_service(cls, auth: AuthSchema, data: BatchPurchaseCreateSchema) -> dict:
+        """批量创建购买记录"""
+        results = []
+        success_count = 0
+        failed_count = 0
+        
+        # 遍历每个学员ID，创建购买记录
+        for student_id in data.student_ids:
+            try:
+                # 为每个学员创建购买记录
+                purchase_data = PurchaseCreateSchema(
+                    student_id=student_id,
+                    class_id=data.class_id,
+                    semester_id=data.semester_id,
+                    purchase_date=data.purchase_date,
+                    total_sessions=data.total_sessions,
+                    valid_from=data.valid_from,
+                    valid_until=data.valid_until,
+                    original_price=data.original_price,
+                    actual_price=data.actual_price,
+                    discount_rate=data.discount_rate,
+                    purchase_notes=data.purchase_notes
+                )
+                
+                # 调用单个创建服务
+                result = await cls.create_service(auth, purchase_data)
+                
+                results.append({
+                    "student_id": student_id,
+                    "success": True,
+                    "data": result
+                })
+                success_count += 1
+                
+            except Exception as e:
+                logger.error(f"批量创建购买记录失败 - 学员ID: {student_id}, 错误: {str(e)}")
+                results.append({
+                    "student_id": student_id,
+                    "success": False,
+                    "error": str(e)
+                })
+                failed_count += 1
+        
+        return SimpleResponse(
+            success=failed_count == 0,
+            message=f"批量创建完成：成功{success_count}条，失败{failed_count}条",
+            data={
+                "total": len(data.student_ids),
+                "success_count": success_count,
+                "failed_count": failed_count,
+                "results": results
+            }
         ).model_dump()
 
     @classmethod

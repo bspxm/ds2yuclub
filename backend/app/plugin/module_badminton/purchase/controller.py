@@ -19,7 +19,7 @@ from .service import *
 # purchase模块路由器
 PurchaseRouter = APIRouter(
     route_class=OperationLogRoute,
-    prefix="/purchase",
+    prefix="/purchases",
     tags=["purchase管理"]
 )
 
@@ -31,6 +31,16 @@ async def purchases_by_student(
     """学员购买记录"""
     result = await PurchaseService.get_by_student_service(auth, student_id)
     return SuccessResponse(data=result, msg="学员购买记录获取成功")
+
+
+@PurchaseRouter.post("/batch", summary="批量创建购买记录", description="为多个学员批量创建购买记录")
+async def batch_create_purchases(
+    data: BatchPurchaseCreateSchema,
+    auth: AuthSchema = Depends(AuthPermission(["module_badminton:purchase:create"]))
+) -> JSONResponse:
+    """批量创建购买记录"""
+    result = await PurchaseService.batch_create_service(auth, data)
+    return SuccessResponse(data=result, msg=result.get("message", "批量创建完成"))
 
 
 # ============================================================================

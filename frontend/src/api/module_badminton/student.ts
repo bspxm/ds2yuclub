@@ -118,8 +118,8 @@ export interface StudentTable extends BaseType {
   level?: string;
   group_name?: string;
   campus?: string;
-  emergency_contact?: string;
-  emergency_phone?: string;
+  contact?: string;
+  mobile?: string;
   total_matches?: number;
   wins?: number;
   losses?: number;

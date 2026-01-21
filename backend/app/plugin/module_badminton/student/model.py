@@ -40,9 +40,9 @@ class StudentModel(ModelMixin, UserMixin):
     group_name: Mapped[str | None] = mapped_column(String(64), nullable=True, comment='所属组别')
     campus: Mapped[str | None] = mapped_column(String(128), nullable=True, comment='所属校区')
     
-    # 联系方式（备用）
-    emergency_contact: Mapped[str | None] = mapped_column(String(32), nullable=True, comment='紧急联系人')
-    emergency_phone: Mapped[str | None] = mapped_column(String(20), nullable=True, comment='紧急联系电话')
+    # 联系方式
+    contact: Mapped[str | None] = mapped_column(String(32), nullable=True, comment='联系人')
+    mobile: Mapped[str | None] = mapped_column(String(20), nullable=True, comment='手机号码')
     
     # 统计信息
     total_matches: Mapped[int] = mapped_column(Integer, default=0, nullable=False, comment='总比赛场次')
@@ -54,7 +54,8 @@ class StudentModel(ModelMixin, UserMixin):
     parents: Mapped[list["UserModel"]] = relationship(
         secondary="badminton_parent_student",
         lazy="selectin",
-        back_populates="students"
+        back_populates="students",
+        overlaps="parent"
     )
     assessments: Mapped[list["AbilityAssessmentModel"]] = relationship(
         back_populates="student",
@@ -115,7 +116,7 @@ class ParentStudentModel(ModelMixin):
     parent: Mapped["UserModel"] = relationship(
         foreign_keys=[parent_id],
         lazy="selectin",
-        overlaps="parents"
+        overlaps="students"
     )
     student: Mapped["StudentModel"] = relationship(
         foreign_keys=[student_id],

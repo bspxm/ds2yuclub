@@ -12,6 +12,15 @@ const PurchaseAPI = {
     });
   },
 
+  // 批量创建购买记录
+  batchCreatePurchase(body: BatchPurchaseForm) {
+    return request<ApiResponse>({
+      url: `${API_PATH}/batch`,
+      method: "post",
+      data: body,
+    });
+  },
+
   // 购买记录列表（分页）
   getPurchaseList(query: PurchasePageQuery) {
     return request<ApiResponse<PageResult<PurchaseTable[]>>>({
@@ -82,7 +91,7 @@ export interface PurchaseTable extends BaseType {
     name: string;
   };
   class_id?: number;
-  class?: {
+  class_ref?: {
     id: number;
     name: string;
   };
@@ -114,4 +123,19 @@ export interface PurchaseForm extends BaseFormType {
   end_date?: string;
   status?: string;
   description?: string;
+}
+
+// 批量创建购买记录的表单数据
+export interface BatchPurchaseForm {
+  student_ids: number[];
+  semester_id: number;
+  class_id: number;
+  purchase_date: string;
+  total_sessions: number;
+  valid_from: string;
+  valid_until: string;
+  original_price: number;
+  actual_price: number;
+  discount_rate?: number;
+  purchase_notes?: string;
 }
