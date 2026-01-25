@@ -32,6 +32,15 @@ async def classes_by_semester(
     result = await ClassService.get_by_semester_service(auth, semester_id)
     return SuccessResponse(data=result, msg="学期班级获取成功")
 
+@Class_Router.get("/{class_id}/available-time-slots", summary="班级可用时间段", description="获取班级的可用时间段，根据班级类型返回不同选择逻辑")
+async def get_available_time_slots(
+    class_id: int,
+    auth: AuthSchema = Depends(AuthPermission(["module_badminton:class:list"]))
+) -> JSONResponse:
+    """获取班级可用时间段"""
+    result = await ClassService.get_available_time_slots(auth, class_id)
+    return SuccessResponse(data=result, msg="班级可用时间段获取成功")
+
 
 # ============================================================================
 # 学期制课时结算系统 - 购买记录管理 API

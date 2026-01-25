@@ -112,3 +112,104 @@ class ClassService:
             success=True,
             message="班级删除成功"
         ).model_dump()
+
+    @classmethod
+    async def get_by_semester_service(cls, auth: AuthSchema, semester_id: int) -> list[dict]:
+        """获取指定学期的所有班级"""
+        search = {"semester_id": ("eq", semester_id)}
+        classes = await ClassCRUD(auth).list_crud(
+            search=search,
+            order_by=[{'id': 'asc'}],
+            preload=["semester", "coach_user"]
+        )
+        return [ClassOutSchema.model_validate(class_obj).model_dump() for class_obj in classes]
+
+    @classmethod
+    async def get_available_time_slots(cls, auth: AuthSchema, class_id: int) -> dict:
+        """
+        获取班级可用时间段
+
+        根据班级类型返回不同的时间段：
+        - 固定班（FIXED）：返回该班级每周固定的上课时间段，这些时间段会重复total_sessions次
+        - 自选天（FLEXIBLE）：返回该班级所有可选时间段，学员需要从中选择每周课次数量（不是总课时数）
+
+        Args:
+            auth: 认证信息
+            class_id: 班级ID
+
+        Returns:
+            dict: 包含班级信息、类型和可用时间段的字典
+        """
+        # 获取班级信息
+        class_obj = await ClassCRUD(auth).get_by_id_crud(
+            id=class_id,
+            preload=["semester", "coach_user"]
+        )
+        if not class_obj:
+            raise CustomException(msg="班级不存在")
+
+        # 解析时间段JSON配置
+        import json
+        time_slots = []
+        
+        if class_obj.time_slots_json:
+            try:
+                time_slots_config = json.loads(class_obj.time_slots_json)
+                
+                # 定义星期映射
+                day_names = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+                
+                # 定义时间段映射
+                time_slot_names = {
+                    'A': '08:00-09:30',
+                    'B': '09:30-11:00',
+                    'C': '14:00-15:30',
+                    'D': '15:30-17:00',
+                    'E': '18:00-19:30'
+                }
+                
+                # 遍历每一天的时间段配置
+                slot_id = 1
+                for day, slots in time_slots_config.items():
+                    if slots:  # 如果该天有可选时间段
+                        day_index = day_names.index(day) if day in day_names else 0
+                        for slot_code in slots:
+                            if slot_code in time_slot_names:
+                                time_range = time_slot_names[slot_code]
+                                start_time, end_time = time_range.split('-')
+                                
+                                time_slots.append({
+                                    "id": slot_id,
+                                    "day_of_week": day,
+                                    "day": day,
+                                    "day_index": day_index,
+                                    "slot_code": slot_code,
+                                    "start_time": start_time,
+                                    "end_time": end_time,
+                                    "duration_minutes": 90,
+                                    "location": class_obj.location,
+                                    "display_text": f"{day} {time_range}"
+                                })
+                                slot_id += 1
+                                
+            except json.JSONDecodeError:
+                # 如果JSON解析失败，返回空列表
+                pass
+
+        # 计算每周课次（总课时数 / 周数）
+        # 假设学期为16周（可以根据实际情况调整）
+        weeks_per_semester = 16
+        sessions_per_week = class_obj.total_sessions // weeks_per_semester if weeks_per_semester > 0 else 0
+
+        # 返回结果
+        result = {
+            "class_id": class_obj.id,
+            "class_name": class_obj.name,
+            "class_type": class_obj.class_type.value if class_obj.class_type else None,
+            "total_sessions": class_obj.total_sessions,
+            "sessions_per_week": sessions_per_week,
+            "time_slots": time_slots,
+            "class_type_display": "固定天训练" if class_obj.class_type and class_obj.class_type.value == "fixed" else "自选天训练"
+        }
+
+        return result

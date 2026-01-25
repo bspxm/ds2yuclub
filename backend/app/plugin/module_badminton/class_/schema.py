@@ -3,10 +3,10 @@ class_模块 - Schema定义
 """
 
 from datetime import date, datetime, time
-from typing import Optional
+from typing import Optional, Any
 
 from fastapi import Query
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator, model_serializer
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator, model_serializer, field_serializer, BeforeValidator
 
 from app.api.v1.module_system.user.schema import UserOutSchema
 from app.core.base_schema import BaseSchema, UserBySchema
@@ -19,6 +19,18 @@ from ..enums import (
     ScheduleStatusEnum,
     ScheduleTypeEnum
 )
+
+# ============================================================================
+# 辅助函数
+# ============================================================================
+
+def enum_to_str(value: Any) -> str:
+    """将枚举值转换为字符串"""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value
+    return value.value if hasattr(value, 'value') else str(value)
 
 class ClassCreateSchema(BaseModel):
     """班级创建模型"""
@@ -120,6 +132,9 @@ class ClassScheduleCreateSchema(BaseModel):
     court_number: Optional[str] = Field(None, description='场地号')
     max_attendance: Optional[int] = Field(None, description='最大考勤人数')
     notes: Optional[str] = Field(None, description='备注')
+    
+    # 配置模型以接受枚举输入
+    model_config = ConfigDict(from_attributes=True)
 
 class ClassScheduleUpdateSchema(ClassScheduleCreateSchema):
     """班级排课更新模型"""
@@ -134,6 +149,30 @@ class ClassScheduleUpdateSchema(ClassScheduleCreateSchema):
 class ClassScheduleOutSchema(ClassScheduleCreateSchema, BaseSchema, UserBySchema):
     """班级排课响应模型"""
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
+    
+    # 重写枚举字段以接受枚举输入
+    schedule_status: Optional[str] = Field(None, description='排课状态')
+    schedule_type: Optional[str] = Field(None, description='排课类型')
+    
+    @field_serializer('schedule_status', 'schedule_type')
+    @classmethod
+    def serialize_enums(cls, value: Any) -> str:
+        """序列化枚举字段为字符串"""
+        if value is None:
+            return None
+        if isinstance(value, str):
+            return value
+        return value.value if hasattr(value, 'value') else str(value)
+    
+    @field_validator('schedule_status', 'schedule_type', mode='before')
+    @classmethod
+    def validate_enums(cls, value: Any) -> str:
+        """验证枚举字段，接受枚举或字符串"""
+        if value is None:
+            return None
+        if isinstance(value, str):
+            return value
+        return value.value if hasattr(value, 'value') else str(value)
 
 
 class ClassQueryParam:

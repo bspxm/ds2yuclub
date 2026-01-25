@@ -54,6 +54,14 @@ const ClassAPI = {
       method: "get",
     });
   },
+
+  // 获取班级可用时间段
+  getAvailableTimeSlots(class_id: number) {
+    return request<ApiResponse<AvailableTimeSlotsResponse>>({
+      url: `${API_PATH}/${class_id}/available-time-slots`,
+      method: "get",
+    });
+  },
 };
 
 export default ClassAPI;
@@ -117,4 +125,31 @@ export interface ClassForm extends BaseFormType {
   status?: string;
   class_status?: string;
   description?: string;
+}
+
+// 时间段接口
+export interface TimeSlot {
+  id: number;
+  schedule_date?: string;
+  day_of_week?: number;
+  day?: string;  // 星期名称，如"周一"
+  day_index?: number;  // 星期索引，0-6
+  slot_code?: string;  // 时间段代码，如"A"、"B"
+  start_time?: string;
+  end_time?: string;
+  duration_minutes?: number;
+  location?: string;
+  schedule_status?: string;
+  display_text?: string;
+}
+
+// 班级可用时间段响应接口
+export interface AvailableTimeSlotsResponse {
+  class_id: number;
+  class_name?: string;
+  class_type?: string;
+  total_sessions?: number;
+  sessions_per_week: number;
+  time_slots: TimeSlot[];
+  class_type_display?: string;
 }

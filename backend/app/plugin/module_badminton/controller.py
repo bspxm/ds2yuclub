@@ -649,6 +649,15 @@ async def class_delete(
     result = await ClassService.delete_service(auth, id_list)
     return SuccessResponse(data=result, msg="班级删除成功")
 
+@BadmintonRouter.get("/classes/{class_id}/available-time-slots", summary="班级可用时间段", description="获取班级的可用时间段，根据班级类型返回不同选择逻辑")
+async def get_available_time_slots(
+    class_id: int,
+    auth: AuthSchema = Depends(AuthPermission(["module_badminton:class:list"]))
+) -> JSONResponse:
+    """获取班级可用时间段"""
+    result = await ClassService.get_available_time_slots(auth, class_id)
+    return SuccessResponse(data=result, msg="班级可用时间段获取成功")
+
 @BadmintonRouter.post("/purchases", summary="创建购买记录", description="创建新购买记录")
 async def purchase_create(
     data: PurchaseCreateSchema,

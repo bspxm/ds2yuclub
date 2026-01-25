@@ -545,6 +545,46 @@
             
             <!-- 第六行：备注（跨两列） -->
             <el-col :span="24">
+              <el-form-item label="上课时间段" prop="selected_time_slots">
+                <div v-if="!formData.class_id" style="color: #909399; font-size: 14px;">
+                  请先选择班级
+                </div>
+                <div v-else-if="loadingTimeSlotsSingle" style="text-align: center; padding: 20px;">
+                  <el-icon class="is-loading"><Loading /></el-icon>
+                  <span style="margin-left: 8px;">加载中...</span>
+                </div>
+                <div v-else-if="availableTimeSlotsSingle.length === 0" style="color: #f56c6c; font-size: 14px;">
+                  该班级暂无可用时间段
+                </div>
+                <div v-else>
+                  <el-checkbox-group v-model="formData.selected_time_slots" @change="handleTimeSlotChangeSingle">
+                    <div style="display: flex; flex-wrap: wrap; gap: 20px; max-height: 300px; overflow-y: auto; border: 1px solid #4c4d4f; border-radius: 4px; padding: 15px; background-color: #1e1e1e;">
+                      <div v-for="day in getUniqueDaysSingle()" :key="day" style="flex: 1; min-width: 200px; border: 1px solid #3e3e42; border-radius: 4px; padding: 10px; background-color: #252526;">
+                        <div style="margin-bottom: 10px; font-weight: bold; color: #ffffff; border-bottom: 1px solid #3e3e42; padding-bottom: 8px; font-size: 16px;">
+                          {{ day }}
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                          <div v-for="slot in getSlotsByDaySingle(day)" :key="slot.id" style="display: flex; align-items: center;">
+                            <el-checkbox :label="slot.id" :disabled="classTypeInfoSingle?.class_type === 'fixed'">
+                              <span style="margin-left: 8px; font-size: 14px; color: #cccccc;">
+                                {{ slot.start_time }}-{{ slot.end_time }}
+                              </span>
+                            </el-checkbox>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </el-checkbox-group>
+                  <div v-if="timeSlotWarningSingle" style="margin-top: 8px; color: #e6a23c; font-size: 12px;">
+                    <el-icon><WarningFilled /></el-icon>
+                    {{ timeSlotWarningSingle }}
+                  </div>
+                </div>
+              </el-form-item>
+            </el-col>
+            
+            <!-- 第七行：备注（跨两列） -->
+            <el-col :span="24">
               <el-form-item label="备注">
                 <el-input
                   v-model="formData.description"
@@ -681,7 +721,7 @@
                 </el-col>
                 <el-col :span="12">
                   <el-form-item label="班级" prop="class_id">
-                    <el-select v-model="batchFormData.class_id" placeholder="请选择班级" style="width: 100%" clearable>
+                    <el-select v-model="batchFormData.class_id" placeholder="请选择班级" style="width: 100%" clearable @change="handleClassChange">
                       <el-option
                         v-for="cls in classList"
                         :key="cls.id"
@@ -740,6 +780,44 @@
                   </el-form-item>
                 </el-col>
                 <el-col :span="24">
+                  <el-form-item label="上课时间段" prop="selected_time_slots">
+                    <div v-if="!batchFormData.class_id" style="color: #909399; font-size: 14px;">
+                      请先选择班级
+                    </div>
+                    <div v-else-if="loadingTimeSlots" style="text-align: center; padding: 20px;">
+                      <el-icon class="is-loading"><Loading /></el-icon>
+                      <span style="margin-left: 8px;">加载中...</span>
+                    </div>
+                    <div v-else-if="availableTimeSlots.length === 0" style="color: #f56c6c; font-size: 14px;">
+                      该班级暂无可用时间段
+                    </div>
+                    <div v-else>
+                      <el-checkbox-group v-model="batchFormData.selected_time_slots" @change="handleTimeSlotChange">
+                        <div style="display: flex; flex-wrap: wrap; gap: 20px; max-height: 300px; overflow-y: auto; border: 1px solid #4c4d4f; border-radius: 4px; padding: 15px; background-color: #1e1e1e;">
+                          <div v-for="day in getUniqueDays()" :key="day" style="flex: 1; min-width: 200px; border: 1px solid #3e3e42; border-radius: 4px; padding: 10px; background-color: #252526;">
+                            <div style="margin-bottom: 10px; font-weight: bold; color: #ffffff; border-bottom: 1px solid #3e3e42; padding-bottom: 8px; font-size: 16px;">
+                              {{ day }}
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                              <div v-for="slot in getSlotsByDay(day)" :key="slot.id" style="display: flex; align-items: center;">
+                                <el-checkbox :label="slot.id" :disabled="classTypeInfo?.class_type === 'fixed'">
+                                  <span style="margin-left: 8px; font-size: 14px; color: #cccccc;">
+                                    {{ slot.start_time }}-{{ slot.end_time }}
+                                  </span>
+                                </el-checkbox>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </el-checkbox-group>
+                      <div v-if="timeSlotWarning" style="margin-top: 8px; color: #e6a23c; font-size: 12px;">
+                        <el-icon><WarningFilled /></el-icon>
+                        {{ timeSlotWarning }}
+                      </div>
+                    </div>
+                  </el-form-item>
+                </el-col>
+                <el-col :span="24">
                   <el-form-item label="购买备注">
                     <el-input
                       v-model="batchFormData.purchase_notes"
@@ -777,10 +855,10 @@ defineOptions({
 
 import { ref, reactive, onMounted, computed, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { QuestionFilled, ArrowUp, ArrowDown, Search } from "@element-plus/icons-vue";
+import { QuestionFilled, ArrowUp, ArrowDown, Search, Loading, WarningFilled } from "@element-plus/icons-vue";
 import PurchaseAPI, { PurchaseTable, PurchaseForm, PurchasePageQuery, BatchPurchaseForm } from "@/api/module_badminton/purchase";
 import SemesterAPI, { SemesterTable } from "@/api/module_badminton/semester";
-import ClassAPI, { ClassTable } from "@/api/module_badminton/class";
+import ClassAPI, { ClassTable, AvailableTimeSlotsResponse, TimeSlot } from "@/api/module_badminton/class";
 import StudentAPI, { StudentTable } from "@/api/module_badminton/student";
 
 const visible = ref(true);
@@ -844,6 +922,7 @@ const formData = reactive<PurchaseForm>({
   end_date: "",
   status: "pending",
   description: undefined,
+  selected_time_slots: [],
 });
 
 // 弹窗状态
@@ -860,6 +939,29 @@ const rules = reactive({
   purchase_type: [{ required: true, message: "请选择购买类型", trigger: "blur" }],
   purchase_date: [{ required: true, message: "请选择购买日期", trigger: "blur" }],
   status: [{ required: true, message: "请选择购买状态", trigger: "blur" }],
+  selected_time_slots: [
+    {
+      validator: (rule: any, value: number[], callback: any) => {
+        if (!classTypeInfoSingle.value) {
+          callback();
+          return;
+        }
+        const requiredCount = classTypeInfoSingle.value.sessions_per_week || 0;
+        if (classTypeInfoSingle.value.class_type === 'flexible') {
+          if (!value || value.length === 0) {
+            callback(new Error("请选择上课时间段"));
+          } else if (value.length !== requiredCount) {
+            callback(new Error(`请选择 ${requiredCount} 个上课时间段`));
+          } else {
+            callback();
+          }
+        } else {
+          callback();
+        }
+      },
+      trigger: "change"
+    }
+  ],
 });
 
 // 学期列表
@@ -879,8 +981,20 @@ const batchStudentSearch = ref("");
 const batchGroupFilter = ref("");
 const batchLevelFilter = ref("");
 
+// 单个新增表单相关
+const availableTimeSlotsSingle = ref([]);
+const classTypeInfoSingle = ref<any>(null);
+const loadingTimeSlotsSingle = ref(false);
+const timeSlotWarningSingle = ref("");
+
+// 时间段相关
+const availableTimeSlots = ref<TimeSlot[]>([]);
+const classTypeInfo = ref<AvailableTimeSlotsResponse | null>(null);
+const loadingTimeSlots = ref(false);
+const timeSlotWarning = ref("");
+
 // 批量新增表单
-const batchFormData = reactive<BatchPurchaseForm>({
+const batchFormData = reactive<BatchPurchaseForm & { selected_time_slots?: number[] }>({
   student_ids: [],
   semester_id: undefined,
   class_id: undefined,
@@ -892,6 +1006,7 @@ const batchFormData = reactive<BatchPurchaseForm>({
   actual_price: 0,
   discount_rate: 1.0,
   purchase_notes: undefined,
+  selected_time_slots: [],
 });
 
 // 批量新增表单验证规则
@@ -904,6 +1019,28 @@ const batchRules = reactive({
   valid_until: [{ required: true, message: "请选择有效期截止", trigger: "blur" }],
   original_price: [{ required: true, message: "请输入原价", trigger: "blur" }],
   actual_price: [{ required: true, message: "请输入实付价格", trigger: "blur" }],
+  selected_time_slots: [
+    {
+      validator: (rule: any, value: number[], callback: any) => {
+        if (!value || value.length === 0) {
+          callback(new Error("请选择上课时间段"));
+          return;
+        }
+        
+        // 如果是自选天班级，验证是否选择了足够的次数
+        if (classTypeInfo.value && classTypeInfo.value.class_type === 'flexible') {
+          const requiredCount = classTypeInfo.value.sessions_per_week || 0;
+          if (value.length !== requiredCount) {
+            callback();
+            return;
+          }
+        }
+        
+        callback();
+      },
+      trigger: "change"
+    }
+  ],
 });
 
 // 计算属性：过滤后的学员列表
@@ -959,7 +1096,7 @@ const uniqueLevels = computed(() => {
 
 // 计算属性：批量总金额
 const batchTotalAmount = computed(() => {
-  return (batchFormData.session_count || 0) * (batchFormData.unit_price || 0);
+  return (batchFormData.total_sessions || 0) * (batchFormData.actual_price || 0);
 });
 
 // 计算年龄
@@ -1045,6 +1182,8 @@ watch(() => formData.class_id, (newClassId) => {
       calculateTotalAmount();
     }
   }
+  // 加载班级可用时间段
+  handleClassChangeSingle(newClassId || 0);
 });
 
 // 监听购买课次和单价变化
@@ -1094,6 +1233,7 @@ const initialFormData: PurchaseForm = {
   end_date: "",
   status: "pending",
   description: undefined,
+  selected_time_slots: [],
 };
 
 // 重置表单
@@ -1104,6 +1244,11 @@ async function resetForm() {
   }
   // 完全重置 formData 为初始状态
   Object.assign(formData, initialFormData);
+  // 重置单个新增表单相关变量
+  availableTimeSlotsSingle.value = [];
+  classTypeInfoSingle.value = null;
+  loadingTimeSlotsSingle.value = false;
+  timeSlotWarningSingle.value = "";
 }
 
 // 行复选框选中项变化
@@ -1198,6 +1343,11 @@ async function handleOpenBatchDialog() {
   batchFormData.actual_price = 0;
   batchFormData.discount_rate = 1.0;
   batchFormData.purchase_notes = undefined;
+  batchFormData.selected_time_slots = [];
+  availableTimeSlots.value = [];
+  classTypeInfo.value = null;
+  loadingTimeSlots.value = false;
+  timeSlotWarning.value = "";
   batchDialogVisible.value = true;
 }
 
@@ -1217,6 +1367,21 @@ async function handleBatchSubmit() {
   if (batchSelectedStudents.value.length === 0) {
     ElMessage.warning("请至少选择一名学员");
     return;
+  }
+  
+  // 验证时间段选择
+  if (!batchFormData.selected_time_slots || batchFormData.selected_time_slots.length === 0) {
+    ElMessage.warning("请选择上课时间段");
+    return;
+  }
+  
+  // 如果是自选天班级，验证是否选择了足够的次数
+  if (classTypeInfo.value && classTypeInfo.value.class_type === 'flexible') {
+    const requiredCount = classTypeInfo.value.sessions_per_week || 0;
+    if (batchFormData.selected_time_slots.length !== requiredCount) {
+      ElMessage.warning(`请选择 ${requiredCount} 个上课时间段，当前已选择 ${batchFormData.selected_time_slots.length} 个`);
+      return;
+    }
   }
   
   await batchFormRef.value.validate(async (valid: boolean) => {
@@ -1251,6 +1416,151 @@ watch(() => batchFormData.class_id, (newClassId) => {
     }
   }
 });
+
+// 处理班级变化，加载可用时间段
+async function handleClassChange(classId: number) {
+  if (!classId) {
+    availableTimeSlots.value = [];
+    classTypeInfo.value = null;
+    batchFormData.selected_time_slots = [];
+    timeSlotWarning.value = "";
+    return;
+  }
+
+  loadingTimeSlots.value = true;
+  try {
+    const response = await ClassAPI.getAvailableTimeSlots(classId);
+    const data = response.data.data;
+    
+    availableTimeSlots.value = data.time_slots || [];
+    classTypeInfo.value = data;
+    
+    // 根据班级类型处理默认选择
+    if (data.class_type === 'fixed') {
+      // 固定班：默认全选
+      batchFormData.selected_time_slots = availableTimeSlots.value.map(slot => slot.id);
+      timeSlotWarning.value = "";
+    } else if (data.class_type === 'flexible') {
+      // 自选天：清空选择，需要用户手动选择
+      batchFormData.selected_time_slots = [];
+      timeSlotWarning.value = `请选择 ${data.sessions_per_week} 个上课时间段`;
+    }
+  } catch (error: any) {
+    console.error("加载班级可用时间段失败:", error);
+    ElMessage.error("加载班级可用时间段失败");
+    availableTimeSlots.value = [];
+    classTypeInfo.value = null;
+    batchFormData.selected_time_slots = [];
+  } finally {
+    loadingTimeSlots.value = false;
+  }
+}
+
+// 处理时间段选择变化
+function handleTimeSlotChange(selectedSlots: any[]) {
+  if (!classTypeInfo.value) return;
+
+  const requiredCount = classTypeInfo.value.sessions_per_week || 0;
+  const selectedCount = selectedSlots.length;
+
+  if (classTypeInfo.value.class_type === 'flexible') {
+    if (selectedCount < requiredCount) {
+      timeSlotWarning.value = `已选择 ${selectedCount} 个时间段，还需选择 ${requiredCount - selectedCount} 个`;
+    } else if (selectedCount > requiredCount) {
+      timeSlotWarning.value = `已选择 ${selectedCount} 个时间段，超出 ${selectedCount - requiredCount} 个`;
+    } else {
+      timeSlotWarning.value = "";
+    }
+  }
+}
+
+// 获取所有不重复的星期
+function getUniqueDays(): string[] {
+  const days = availableTimeSlots.value.map(slot => slot.day).filter((d): d is string => d !== undefined);
+  const dayOrder = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+  // 按星期顺序排序
+  return [...new Set(days)].sort((a, b) => dayOrder.indexOf(a) - dayOrder.indexOf(b));
+}
+
+// 获取指定星期的时间段
+function getSlotsByDay(day: string) {
+  const slots = availableTimeSlots.value.filter(slot => slot.day === day);
+  // 按开始时间排序
+  return slots.sort((a, b) => {
+    if (!a.start_time || !b.start_time) return 0;
+    return a.start_time.localeCompare(b.start_time);
+  });
+}
+
+// 单个新增表单的辅助函数
+function getUniqueDaysSingle(): string[] {
+  const days = availableTimeSlotsSingle.value.map(slot => slot.day).filter((d): d is string => d !== undefined);
+  const dayOrder = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+  return [...new Set(days)].sort((a, b) => dayOrder.indexOf(a) - dayOrder.indexOf(b));
+}
+
+function getSlotsByDaySingle(day: string) {
+  const slots = availableTimeSlotsSingle.value.filter(slot => slot.day === day);
+  return slots.sort((a, b) => {
+    if (!a.start_time || !b.start_time) return 0;
+    return a.start_time.localeCompare(b.start_time);
+  });
+}
+
+function handleTimeSlotChangeSingle(selectedSlots: any[]) {
+  if (!classTypeInfoSingle.value) return;
+
+  const requiredCount = classTypeInfoSingle.value.sessions_per_week || 0;
+  const selectedCount = selectedSlots.length;
+
+  if (classTypeInfoSingle.value.class_type === 'flexible') {
+    if (selectedCount < requiredCount) {
+      timeSlotWarningSingle.value = `已选择 ${selectedCount} 个时间段，还需选择 ${requiredCount - selectedCount} 个`;
+    } else if (selectedCount > requiredCount) {
+      timeSlotWarningSingle.value = `已选择 ${selectedCount} 个时间段，超出 ${selectedCount - requiredCount} 个`;
+    } else {
+      timeSlotWarningSingle.value = "";
+    }
+  }
+}
+
+async function handleClassChangeSingle(classId: number) {
+  if (!classId) {
+    availableTimeSlotsSingle.value = [];
+    classTypeInfoSingle.value = null;
+    formData.selected_time_slots = [];
+    timeSlotWarningSingle.value = "";
+    return;
+  }
+
+  loadingTimeSlotsSingle.value = true;
+  try {
+    const response = await ClassAPI.getAvailableTimeSlots(classId);
+    const data = response.data.data;
+    
+    availableTimeSlotsSingle.value = data.time_slots || [];
+    classTypeInfoSingle.value = data;
+    
+    // 根据班级类型处理默认选择
+    if (data.class_type === 'fixed') {
+      // 固定班：默认全选
+      formData.selected_time_slots = availableTimeSlotsSingle.value.map(slot => slot.id);
+      timeSlotWarningSingle.value = "";
+    } else if (data.class_type === 'flexible') {
+      // 自选天：清空选择，需要用户手动选择
+      formData.selected_time_slots = [];
+      timeSlotWarningSingle.value = `请选择 ${data.sessions_per_week} 个上课时间段`;
+    }
+  } catch (error: any) {
+    console.error("加载班级可用时间段失败:", error);
+    ElMessage.error("加载班级可用时间段失败");
+    availableTimeSlotsSingle.value = [];
+    classTypeInfoSingle.value = null;
+    formData.selected_time_slots = [];
+  } finally {
+    loadingTimeSlotsSingle.value = false;
+  }
+}
 
 // 刷新
 async function handleRefresh() {

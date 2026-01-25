@@ -39,11 +39,11 @@ const ClassScheduleAPI = {
   },
 
   // 删除排课记录（批量）
-  deleteClassSchedule(body: number[]) {
+  deleteClassSchedule(ids: number[]) {
     return request<ApiResponse>({
       url: `${API_PATH}`,
       method: "delete",
-      data: body,
+      params: { ids: ids.join(',') },
     });
   },
 

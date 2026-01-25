@@ -48,11 +48,11 @@ const PurchaseAPI = {
   },
 
   // 删除购买记录（批量）
-  deletePurchase(body: number[]) {
+  deletePurchase(ids: number[]) {
     return request<ApiResponse>({
       url: `${API_PATH}`,
       method: "delete",
-      data: body,
+      params: { ids: ids.join(',') },
     });
   },
 
@@ -123,6 +123,7 @@ export interface PurchaseForm extends BaseFormType {
   end_date?: string;
   status?: string;
   description?: string;
+  selected_time_slots?: number[];
 }
 
 // 批量创建购买记录的表单数据
