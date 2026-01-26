@@ -30,6 +30,23 @@ class PurchaseCreateSchema(BaseModel):
     actual_price: float = Field(..., description='实付价格')
     discount_rate: float = Field(default=1.0, description='折扣率')
     purchase_notes: Optional[str] = Field(None, description='购买备注')
+    selected_time_slots: Optional[list[int]] = Field(None, description='已选上课时间段ID列表')
+
+    @field_validator('selected_time_slots', mode='before')
+    @classmethod
+    def parse_time_slots(cls, value: Any) -> Optional[list[int]]:
+        """解析时间段JSON字符串为列表"""
+        if value is None:
+            return None
+        if isinstance(value, list):
+            return value
+        if isinstance(value, str):
+            try:
+                import json
+                return json.loads(value)
+            except (json.JSONDecodeError, ValueError):
+                return None
+        return None
 
     @field_validator('purchase_date', 'valid_from', 'valid_until')
     @classmethod
@@ -56,6 +73,7 @@ class BatchPurchaseCreateSchema(BaseModel):
     actual_price: float = Field(..., description='实付价格')
     discount_rate: float = Field(default=1.0, description='折扣率')
     purchase_notes: Optional[str] = Field(None, description='购买备注')
+    selected_time_slots: Optional[list[int]] = Field(None, description='已选上课时间段ID列表')
 
     @field_validator('purchase_date', 'valid_from', 'valid_until')
     @classmethod
@@ -86,6 +104,39 @@ class PurchaseOutSchema(PurchaseCreateSchema, BaseSchema, UserBySchema):
     student: Optional[Any] = Field(default=None, description='学员信息')
     semester: Optional[Any] = Field(default=None, description='学期信息')
     class_ref: Optional[Any] = Field(default=None, description='班级信息')
+
+    # 覆盖 selected_time_slots 字段，支持从数据库JSON字符串读取
+    selected_time_slots: Optional[list[int]] = Field(default=None, description='已选上课时间段ID列表')
+
+    # 自定义序列化方法，确保 selected_time_slots 正确转换为列表
+    @model_serializer(mode='wrap')
+    def serialize_model(self, handler):
+        data = handler(self)
+        # 如果 selected_time_slots 是字符串，转换为列表
+        if isinstance(data.get('selected_time_slots'), str):
+            try:
+                import json
+                data['selected_time_slots'] = json.loads(data['selected_time_slots'])
+            except (json.JSONDecodeError, ValueError):
+                data['selected_time_slots'] = None
+        return data
+
+    # 字段验证器：将JSON字符串转换为列表
+    @field_validator('selected_time_slots', mode='before')
+    @classmethod
+    def parse_time_slots(cls, value: Any) -> Optional[list[int]]:
+        """解析时间段JSON字符串为列表"""
+        if value is None:
+            return None
+        if isinstance(value, list):
+            return value
+        if isinstance(value, str):
+            try:
+                import json
+                return json.loads(value)
+            except (json.JSONDecodeError, ValueError):
+                return None
+        return None
 
     # 前端兼容的 computed fields
     @computed_field
@@ -143,6 +194,15 @@ class PurchaseOutSchema(PurchaseCreateSchema, BaseSchema, UserBySchema):
         if hasattr(value, 'model_dump'):
             return value.model_dump()
         return None
+
+    @field_serializer('selected_time_slots')
+    @classmethod
+    def serialize_time_slots(cls, value: Optional[list[int]]) -> Optional[str]:
+        """序列化时间段列表为JSON字符串"""
+        if value is None:
+            return None
+        import json
+        return json.dumps(value)
 
     @field_serializer('purchase_date', 'valid_from', 'valid_until', 'start_date', 'end_date')
     @classmethod

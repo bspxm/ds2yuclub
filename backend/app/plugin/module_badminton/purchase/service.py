@@ -82,9 +82,15 @@ class PurchaseService:
         """创建购买记录"""
         # 检查学员是否已购买该班级（同一学期内）
         # TODO: 实现重复购买检查
-        
+
         # 保存原始购买课时数
         original_total = data.total_sessions
+
+        # 转换 selected_time_slots 为 JSON 字符串存储
+        import json
+        purchase_data = data.model_dump(exclude_none=True)
+        if purchase_data.get('selected_time_slots') is not None:
+            purchase_data['selected_time_slots'] = json.dumps(purchase_data['selected_time_slots'])
         
         # 检查是否有结转课时可以应用
         carry_over_sessions = 0
@@ -114,9 +120,6 @@ class PurchaseService:
         
         # 如果有结转课时，更新购买数据
         if carry_over_sessions > 0:
-            # 创建新的购买数据，包含结转课时
-            purchase_data = data.model_dump()
-            
             # 总课时 = 新购买课时 + 结转课时
             new_total_sessions = original_total + carry_over_sessions
             purchase_data["total_sessions"] = new_total_sessions
@@ -125,12 +128,9 @@ class PurchaseService:
                 f"{purchase_data.get('purchase_notes', '')} "
                 f"[包含结转课时：{carry_over_sessions}节，来自{len(carry_over_details)}个历史购买]"
             ).strip()
-            
-            # 使用更新后的数据创建购买记录
-            data = PurchaseCreateSchema(**purchase_data)
-        
+
         # 创建购买记录
-        purchase = await PurchaseCRUD(auth).create_crud(data=data)
+        purchase = await PurchaseCRUD(auth).create_crud(data=purchase_data)
         if not purchase:
             raise CustomException(msg="创建购买记录失败")
         
@@ -166,24 +166,29 @@ class PurchaseService:
         results = []
         success_count = 0
         failed_count = 0
-        
+
         # 遍历每个学员ID，创建购买记录
         for student_id in data.student_ids:
             try:
                 # 为每个学员创建购买记录
-                purchase_data = PurchaseCreateSchema(
-                    student_id=student_id,
-                    class_id=data.class_id,
-                    semester_id=data.semester_id,
-                    purchase_date=data.purchase_date,
-                    total_sessions=data.total_sessions,
-                    valid_from=data.valid_from,
-                    valid_until=data.valid_until,
-                    original_price=data.original_price,
-                    actual_price=data.actual_price,
-                    discount_rate=data.discount_rate,
-                    purchase_notes=data.purchase_notes
-                )
+                import json
+                purchase_data = {
+                    "student_id": student_id,
+                    "class_id": data.class_id,
+                    "semester_id": data.semester_id,
+                    "purchase_date": data.purchase_date,
+                    "total_sessions": data.total_sessions,
+                    "valid_from": data.valid_from,
+                    "valid_until": data.valid_until,
+                    "original_price": data.original_price,
+                    "actual_price": data.actual_price,
+                    "discount_rate": data.discount_rate,
+                    "purchase_notes": data.purchase_notes
+                }
+
+                # 转换 selected_time_slots 为 JSON 字符串存储
+                if hasattr(data, 'selected_time_slots') and data.selected_time_slots:
+                    purchase_data['selected_time_slots'] = json.dumps(data.selected_time_slots)
                 
                 # 调用单个创建服务
                 result = await cls.create_service(auth, purchase_data)
@@ -218,7 +223,13 @@ class PurchaseService:
     @classmethod
     async def update_service(cls, auth: AuthSchema, purchase_id: int, data: PurchaseUpdateSchema) -> dict:
         """更新购买记录"""
-        purchase = await PurchaseCRUD(auth).update_crud(id=purchase_id, data=data)
+        # 转换 selected_time_slots 为 JSON 字符串存储
+        import json
+        update_data = data.model_dump(exclude_none=True)
+        if update_data.get('selected_time_slots') is not None:
+            update_data['selected_time_slots'] = json.dumps(update_data['selected_time_slots'])
+
+        purchase = await PurchaseCRUD(auth).update_crud(id=purchase_id, data=update_data)
         if not purchase:
             raise CustomException(msg="购买记录不存在或更新失败")
         return SimpleResponse(

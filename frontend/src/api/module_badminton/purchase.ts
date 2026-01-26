@@ -107,6 +107,7 @@ export interface PurchaseTable extends BaseType {
   description?: string;
   created_by?: CommonType;
   updated_by?: CommonType;
+  selected_time_slots?: number[];
 }
 
 // 购买记录表单数据

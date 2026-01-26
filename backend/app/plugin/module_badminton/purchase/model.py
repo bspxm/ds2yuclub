@@ -74,6 +74,9 @@ class PurchaseModel(ModelMixin, UserMixin):
     # 描述信息
     purchase_notes: Mapped[str | None] = mapped_column(Text, nullable=True, comment='购买备注')
     
+    # 时间段选择（JSON格式存储时间段ID列表）
+    selected_time_slots: Mapped[str | None] = mapped_column(Text, nullable=True, comment='已选上课时间段ID列表（JSON格式）')
+    
     # 关联关系
     student: Mapped[Any] = relationship(
         "StudentModel",

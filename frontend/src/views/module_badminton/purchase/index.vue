@@ -361,10 +361,13 @@
       v-model="dialogVisible.visible"
       :title="dialogVisible.title"
       width="800px"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
       @close="handleCloseDialog"
     >
       <!-- 详情 -->
       <template v-if="dialogVisible.type === 'detail'">
+        <div v-loading="dialogLoading" element-loading-text="加载中...">
         <el-descriptions :column="2" border>
           <el-descriptions-item label="学员" :span="2">
             {{ detailFormData.student?.name || detailFormData.student_id }}
@@ -424,9 +427,11 @@
             {{ detailFormData.description || '无' }}
           </el-descriptions-item>
         </el-descriptions>
+        </div>
       </template>
       <!-- 新增、编辑表单 -->
       <template v-else>
+        <div v-loading="dialogLoading" element-loading-text="加载中...">
         <el-form
           ref="dataFormRef"
           :model="formData"
@@ -549,9 +554,9 @@
                 <div v-if="!formData.class_id" style="color: #909399; font-size: 14px;">
                   请先选择班级
                 </div>
-                <div v-else-if="loadingTimeSlotsSingle" style="text-align: center; padding: 20px;">
-                  <el-icon class="is-loading"><Loading /></el-icon>
-                  <span style="margin-left: 8px;">加载中...</span>
+                <div v-else-if="loadingTimeSlotsSingle" style="text-align: center; padding: 40px; background-color: var(--el-fill-color-lighter); border-radius: 4px; border: 1px dashed var(--el-border-color-darker);">
+                  <el-icon class="is-loading" :size="32" color="var(--el-color-primary)"><Loading /></el-icon>
+                  <div style="margin-top: 12px; color: var(--el-text-color-regular); font-size: 14px;">加载上课时间段中...</div>
                 </div>
                 <div v-else-if="availableTimeSlotsSingle.length === 0" style="color: #f56c6c; font-size: 14px;">
                   该班级暂无可用时间段
@@ -598,8 +603,8 @@
             </el-col>
           </el-row>
         </el-form>
+        </div>
       </template>
-
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="handleCloseDialog">取消</el-button>
@@ -870,6 +875,7 @@ const selectionRows = ref<PurchaseTable[]>([]);
 const loading = ref(false);
 const isExpand = ref(false);
 const isExpandable = ref(true);
+const dialogLoading = ref(false);
 
 // 分页表单
 const pageTableData = ref<PurchaseTable[]>([]);
@@ -1182,8 +1188,11 @@ watch(() => formData.class_id, (newClassId) => {
       calculateTotalAmount();
     }
   }
-  // 加载班级可用时间段
-  handleClassChangeSingle(newClassId || 0);
+  // 加载班级可用时间段，保留已选的时间段
+  const currentSelectedSlots = formData.selected_time_slots && formData.selected_time_slots.length > 0 
+    ? formData.selected_time_slots 
+    : null;
+  handleClassChangeSingle(newClassId || 0, currentSelectedSlots);
 });
 
 // 监听购买课次和单价变化
@@ -1268,19 +1277,65 @@ async function handleOpenDialog(type: "create" | "update" | "detail", id?: numbe
   // 每次打开弹窗前先重置表单
   resetForm();
   dialogVisible.type = type;
+  
+  // 先显示弹窗，提升响应速度
+  dialogVisible.visible = true;
+  
   if (id) {
-    const response = await PurchaseAPI.getPurchaseDetail(id);
-    if (type === "detail") {
-      dialogVisible.title = "购买记录详情";
-      Object.assign(detailFormData.value, response.data.data);
-    } else if (type === "update") {
-      dialogVisible.title = "修改购买记录";
-      Object.assign(formData, response.data.data);
-    }
-  } else {
+  
+      // 设置加载状态
+  
+      dialogLoading.value = true;
+  
+      try {
+  
+        const response = await PurchaseAPI.getPurchaseDetail(id);
+  
+        if (type === "detail") {
+  
+          dialogVisible.title = "购买记录详情";
+  
+          Object.assign(detailFormData.value, response.data.data);
+  
+        } else if (type === "update") {
+  
+          dialogVisible.title = "修改购买记录";
+  
+          Object.assign(formData, response.data.data);
+  
+  
+  
+          // 保存已选的时间段
+  
+          const savedSelectedSlots = formData.selected_time_slots || [];
+  
+  
+  
+          // 如果有班级ID，加载该班级的可用时间段，并保留已选的时间段
+  
+          if (formData.class_id) {
+  
+            await handleClassChangeSingle(formData.class_id, savedSelectedSlots);
+  
+          }
+  
+        }
+  
+      } catch (error) {
+  
+        console.error('获取购买记录详情失败:', error);
+  
+        ElMessage.error('获取购买记录详情失败');
+  
+      } finally {
+  
+        dialogLoading.value = false;
+  
+      }
+  
+    } else {
     dialogVisible.title = "新增购买记录";
   }
-  dialogVisible.visible = true;
 }
 
 // 提交表单
@@ -1524,7 +1579,7 @@ function handleTimeSlotChangeSingle(selectedSlots: any[]) {
   }
 }
 
-async function handleClassChangeSingle(classId: number) {
+async function handleClassChangeSingle(classId: number, preserveSelectedSlots: number[] | null = null) {
   if (!classId) {
     availableTimeSlotsSingle.value = [];
     classTypeInfoSingle.value = null;
@@ -1547,9 +1602,14 @@ async function handleClassChangeSingle(classId: number) {
       formData.selected_time_slots = availableTimeSlotsSingle.value.map(slot => slot.id);
       timeSlotWarningSingle.value = "";
     } else if (data.class_type === 'flexible') {
-      // 自选天：清空选择，需要用户手动选择
-      formData.selected_time_slots = [];
-      timeSlotWarningSingle.value = `请选择 ${data.sessions_per_week} 个上课时间段`;
+      // 自选天：如果需要保留已选时间段，则使用它们；否则清空选择
+      if (preserveSelectedSlots && preserveSelectedSlots.length > 0) {
+        formData.selected_time_slots = preserveSelectedSlots;
+        timeSlotWarningSingle.value = "";
+      } else {
+        formData.selected_time_slots = [];
+        timeSlotWarningSingle.value = `请选择 ${data.sessions_per_week} 个上课时间段`;
+      }
     }
   } catch (error: any) {
     console.error("加载班级可用时间段失败:", error);
