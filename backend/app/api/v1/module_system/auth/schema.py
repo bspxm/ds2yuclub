@@ -55,3 +55,52 @@ class CaptchaOutSchema(BaseModel):
     enable: bool = Field(default=True, description='是否启用验证码')
     key: str = Field(..., min_length=1, description='验证码唯一标识')
     img_base: str = Field(..., min_length=1, description='Base64编码的验证码图片')
+
+
+class WechatAuthorizeRequestSchema(BaseModel):
+    """微信授权请求模型"""
+    model_config = ConfigDict(from_attributes=True)
+
+    state: str = Field(..., min_length=1, description='状态码，用于防CSRF攻击')
+
+
+class WechatCallbackRequestSchema(BaseModel):
+    """微信回调请求模型"""
+    model_config = ConfigDict(from_attributes=True)
+
+    code: str = Field(..., min_length=1, description='微信授权码')
+    state: str = Field(..., min_length=1, description='状态码')
+
+
+class WechatQRCodeSchema(BaseModel):
+    """微信二维码响应模型"""
+    model_config = ConfigDict(from_attributes=True)
+
+    qr_code_url: str = Field(..., description='微信二维码URL')
+    state: str = Field(..., description='状态码')
+    expires_in: int = Field(..., description='过期时间(秒)')
+
+
+class WechatUserInfoSchema(BaseModel):
+    """微信用户信息模型"""
+    model_config = ConfigDict(from_attributes=True)
+
+    openid: str = Field(..., description='微信OpenID')
+    nickname: str = Field(..., description='昵称')
+    headimgurl: str | None = Field(default=None, description='头像URL')
+    sex: int | None = Field(default=None, description='性别(0:未知 1:男 2:女)')
+    province: str | None = Field(default=None, description='省份')
+    city: str | None = Field(default=None, description='城市')
+    country: str | None = Field(default=None, description='国家')
+    unionid: str | None = Field(default=None, description='微信UnionID')
+
+
+class WechatLoginSchema(BaseModel):
+    """微信登录请求模型"""
+    model_config = ConfigDict(from_attributes=True)
+
+    openid: str = Field(..., min_length=1, description='微信OpenID')
+    unionid: str | None = Field(default=None, description='微信UnionID')
+    nickname: str | None = Field(default=None, description='昵称')
+    headimgurl: str | None = Field(default=None, description='头像URL')
+    login_type: str = Field(default="微信登录", description='登录类型')

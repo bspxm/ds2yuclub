@@ -91,10 +91,10 @@ from .class_.schema import (
 )
 
 from .class_.schema import (
-    ClassScheduleCreateSchema,
-    ClassScheduleUpdateSchema,
     ClassScheduleOutSchema,
-    ClassScheduleQueryParam
+    ClassScheduleQueryParam,
+    ClassScheduleCreateV2Schema,
+    AvailableStudentSchema
 )
 
 
@@ -156,8 +156,8 @@ __all__ = [
     'ClassAttendanceOutSchema',
     'ClassAttendanceQueryParam',
     # 排课相关
-    'ClassScheduleCreateSchema',
-    'ClassScheduleUpdateSchema',
     'ClassScheduleOutSchema',
     'ClassScheduleQueryParam',
+    'ClassScheduleCreateV2Schema',
+    'AvailableStudentSchema',
 ]

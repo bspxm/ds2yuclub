@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from app.api.v1.module_system.dept.model import DeptModel
     from app.api.v1.module_system.position.model import PositionModel
     from app.api.v1.module_system.role.model import RoleModel
+    from app.plugin.module_badminton.group.model import AbilityGroupModel
 
 
 class UserRolesModel(MappedBase):
@@ -122,6 +123,14 @@ class UserModel(ModelMixin, UserMixin):
         lazy="selectin",
         cascade="all, delete-orphan",
         foreign_keys="AbilityAssessmentModel.coach_id"
+    )
+    
+    # 作为教练的能力分组记录
+    groups: Mapped[list["AbilityGroupModel"]] = relationship(
+        secondary="badminton_group_coach",
+        back_populates="coaches",
+        lazy="selectin",
+        overlaps="coach"
     )
     
     # 作为教练的课程记录

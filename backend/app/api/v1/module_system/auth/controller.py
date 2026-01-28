@@ -12,8 +12,17 @@ from app.core.logger import log
 from app.core.router_class import OperationLogRoute
 from app.core.security import CustomOAuth2PasswordRequestForm
 
-from .schema import CaptchaOutSchema, JWTOutSchema, LogoutPayloadSchema, RefreshTokenPayloadSchema
-from .service import CaptchaService, LoginService
+from .schema import (
+    CaptchaOutSchema,
+    JWTOutSchema,
+    LogoutPayloadSchema,
+    RefreshTokenPayloadSchema,
+    WechatAuthorizeRequestSchema,
+    WechatCallbackRequestSchema,
+    WechatQRCodeSchema,
+    WechatLoginSchema,
+)
+from .service import CaptchaService, LoginService, WechatOAuthService
 
 AuthRouter = APIRouter(route_class=OperationLogRoute, prefix="/auth", tags=["认证授权"])
 
@@ -120,3 +129,76 @@ async def logout_controller(
         log.info('退出成功')
         return SuccessResponse(msg='退出成功')
     return ErrorResponse(msg='退出失败')
+
+
+@AuthRouter.post("/wechat/authorize", summary="微信扫码登录授权", description="获取微信扫码登录二维码", response_model=WechatQRCodeSchema)
+async def wechat_authorize_controller(
+    request_data: WechatAuthorizeRequestSchema
+) -> JSONResponse:
+    """
+    微信扫码登录授权
+
+    参数:
+    - request_data (WechatAuthorizeRequestSchema): 微信授权请求模型
+
+    返回:
+    - WechatQRCodeSchema: 包含二维码URL和状态码的响应模型
+
+    异常:
+    - CustomException: 微信OAuth未启用时抛出异常。
+    """
+    qr_code_info = WechatOAuthService.get_wechat_qr_code_service(request_data=request_data)
+    log.info('获取微信二维码成功')
+    return SuccessResponse(data=qr_code_info.model_dump(), msg='获取微信二维码成功')
+
+
+@AuthRouter.post("/wechat/callback", summary="微信OAuth回调", description="微信OAuth回调处理", dependencies=[Depends(get_current_user)])
+async def wechat_callback_controller(
+    request: Request,
+    redis: Annotated[Redis, Depends(redis_getter)],
+    db: Annotated[AsyncSession, Depends(db_getter)],
+    callback_data: WechatCallbackRequestSchema
+) -> JSONResponse:
+    """
+    微信OAuth回调处理
+
+    参数:
+    - request (Request): FastAPI请求对象
+    - redis (Redis): Redis客户端对象
+    - db (AsyncSession): 数据库会话对象
+    - callback_data (WechatCallbackRequestSchema): 微信回调数据模型
+
+    返回:
+    - JSONResponse: 包含access_token和用户信息的响应模型
+
+    异常:
+    - CustomException: 回调处理失败时抛出异常。
+    """
+    # 通过授权码获取access_token
+    token_info = await WechatOAuthService.get_wechat_access_token_service(code=callback_data.code)
+    access_token = token_info.get('access_token')
+    openid = token_info.get('openid')
+
+    # 获取微信用户信息
+    user_info = await WechatOAuthService.get_wechat_user_info_service(access_token=access_token, openid=openid)
+
+    # 执行微信登录
+    login_token = await WechatOAuthService.wechat_login_service(
+        request=request,
+        redis=redis,
+        db=db,
+        login_data=WechatLoginSchema(
+            openid=openid,
+            unionid=user_info.unionid,
+            nickname=user_info.nickname,
+            headimgurl=user_info.headimgurl,
+            login_type="微信登录"
+        )
+    )
+
+    log.info(f"微信登录成功,openid:{openid},昵称:{user_info.nickname}")
+
+    return SuccessResponse(data={
+        'token': login_token.model_dump(),
+        'user_info': user_info.model_dump()
+    }, msg='微信登录成功')

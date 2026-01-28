@@ -119,20 +119,20 @@ class SemesterStatusEnum(enum.Enum):
 
 class ScheduleStatusEnum(enum.Enum):
     """排课状态枚举"""
-    SCHEDULED = "scheduled"        # 已安排
-    CONFIRMED = "confirmed"        # 已确认
-    IN_PROGRESS = "in_progress"    # 进行中
-    COMPLETED = "completed"        # 已完成
-    CANCELLED = "cancelled"        # 已取消
-    MAKEUP = "makeup"              # 补课
+    SCHEDULED = "SCHEDULED"        # 已安排
+    CONFIRMED = "CONFIRMED"        # 已确认
+    IN_PROGRESS = "IN_PROGRESS"    # 进行中
+    COMPLETED = "COMPLETED"        # 已完成
+    CANCELLED = "CANCELLED"        # 已取消
+    MAKEUP = "MAKEUP"              # 补课
 
 
 class ScheduleTypeEnum(enum.Enum):
     """排课类型枚举"""
-    REGULAR = "regular"            # 常规课
-    MAKEUP = "makeup"              # 补课
-    EXTRA = "extra"                # 加课
-    CANCELLED = "cancelled"        # 取消课（占位）
+    REGULAR = "REGULAR"            # 常规课
+    MAKEUP = "MAKEUP"              # 补课
+    EXTRA = "EXTRA"                # 加课
+    CANCELLED = "CANCELLED"        # 取消课（占位）
 
 
 class ClassStatusEnum(enum.Enum):

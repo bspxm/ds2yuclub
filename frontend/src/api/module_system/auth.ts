@@ -36,6 +36,22 @@ const AuthAPI = {
       data: body,
     });
   },
+
+  getWechatQRCode(body: WechatAuthorizeRequest) {
+    return request<ApiResponse<WechatQRCodeResponse>>({
+      url: `${API_PATH}/wechat/authorize`,
+      method: "post",
+      data: body,
+    });
+  },
+
+  wechatCallback(body: WechatCallbackRequest) {
+    return request<ApiResponse<WechatLoginResult>>({
+      url: `${API_PATH}/wechat/callback`,
+      method: "post",
+      data: body,
+    });
+  },
 };
 
 export default AuthAPI;
@@ -73,4 +89,49 @@ export interface CaptchaInfo {
 /** 退出登录操作 */
 export interface LogoutBody {
   token: string;
+}
+
+/** 微信授权请求 */
+export interface WechatAuthorizeRequest {
+  state: string;
+}
+
+/** 微信回调请求 */
+export interface WechatCallbackRequest {
+  code: string;
+  state: string;
+}
+
+/** 微信二维码响应 */
+export interface WechatQRCodeResponse {
+  qr_code_url: string;
+  state: string;
+  expires_in: number;
+}
+
+/** 微信登录响应 */
+export interface WechatLoginResult {
+  token: LoginResult;
+  user_info: WechatUserInfo;
+}
+
+/** 微信用户信息 */
+export interface WechatUserInfo {
+  openid: string;
+  nickname: string;
+  headimgurl?: string;
+  sex?: number;
+  province?: string;
+  city?: string;
+  country?: string;
+  unionid?: string;
+}
+
+/** 微信登录请求 */
+export interface WechatLoginFormData {
+  openid: string;
+  unionid?: string;
+  nickname?: string;
+  headimgurl?: string;
+  login_type: string;
 }

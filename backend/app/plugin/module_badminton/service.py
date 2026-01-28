@@ -73,8 +73,7 @@ from .schema import (
     ClassAttendanceCreateSchema,
     ClassAttendanceUpdateSchema,
     ClassAttendanceOutSchema,
-    ClassScheduleCreateSchema,
-    ClassScheduleUpdateSchema,
+    ClassScheduleCreateV2Schema,
     ClassScheduleOutSchema
 )
 

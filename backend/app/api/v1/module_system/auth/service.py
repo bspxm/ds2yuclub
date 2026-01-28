@@ -30,6 +30,11 @@ from .schema import (
     JWTPayloadSchema,
     LogoutPayloadSchema,
     RefreshTokenPayloadSchema,
+    WechatAuthorizeRequestSchema,
+    WechatCallbackRequestSchema,
+    WechatQRCodeSchema,
+    WechatUserInfoSchema,
+    WechatLoginSchema,
 )
 
 CaptchaKey = NewType('CaptchaKey', str)
@@ -369,4 +374,238 @@ class CaptchaService:
         # 验证成功后删除验证码,避免重复使用
         await RedisCURD(redis).delete(redis_key)
         log.info(f'验证码校验成功,key:{key}')
+        return True
+
+
+class WechatOAuthService:
+    """微信OAuth服务"""
+
+    @classmethod
+    def get_wechat_qr_code_service(cls, request_data: WechatAuthorizeRequestSchema) -> WechatQRCodeSchema:
+        """
+        生成微信扫码登录二维码
+
+        参数:
+        - request_data (WechatAuthorizeRequestSchema): 微信授权请求模型
+
+        返回:
+        - WechatQRCodeSchema: 包含二维码URL和状态码的响应模型
+
+        异常:
+        - CustomException: 微信OAuth未启用时抛出异常
+        """
+        if not settings.WECHAT_OAUTH_ENABLE:
+            raise CustomException(msg="未启用微信OAuth登录")
+
+        # 微信扫码登录授权URL
+        qr_code_url = (
+            f"https://open.weixin.qq.com/connect/qrconnect"
+            f"?appid={settings.WECHAT_APPID}"
+            f"&redirect_uri={settings.WECHAT_REDIRECT_URI}"
+            f"&response_type=code"
+            f"&scope=snsapi_login"
+            f"&state={request_data.state}#wechat_redirect"
+        )
+
+        log.info(f"生成微信二维码成功,state:{request_data.state}")
+
+        return WechatQRCodeSchema(
+            qr_code_url=qr_code_url,
+            state=request_data.state,
+            expires_in=120  # 二维码有效期2分钟
+        )
+
+    @classmethod
+    async def get_wechat_access_token_service(cls, code: str) -> dict:
+        """
+        通过微信授权码获取access_token
+
+        参数:
+        - code (str): 微信授权码
+
+        返回:
+        - dict: 包含access_token、openid等信息的字典
+
+        异常:
+        - CustomException: 获取access_token失败时抛出异常
+        """
+        if not settings.WECHAT_OAUTH_ENABLE:
+            raise CustomException(msg="未启用微信OAuth登录")
+
+        # 微信OAuth获取access_token的API地址
+        token_url = (
+            f"https://api.weixin.qq.com/sns/oauth2/access_token"
+            f"?appid={settings.WECHAT_APPID}"
+            f"&secret={settings.WECHAT_APPSECRET}"
+            f"&code={code}"
+            f"&grant_type=authorization_code"
+        )
+
+        import httpx
+        async with httpx.AsyncClient() as client:
+            response = await client.get(token_url)
+            result = response.json()
+
+        if 'errcode' in result:
+            error_msg = result.get('errmsg', '未知错误')
+            log.error(f"获取微信access_token失败,errcode:{result.get('errcode')},errmsg:{error_msg}")
+            raise CustomException(msg=f"获取微信access_token失败:{error_msg}")
+
+        log.info(f"获取微信access_token成功,openid:{result.get('openid')}")
+        return result
+
+    @classmethod
+    async def get_wechat_user_info_service(cls, access_token: str, openid: str) -> WechatUserInfoSchema:
+        """
+        获取微信用户信息
+
+        参数:
+        - access_token (str): 微信access_token
+        - openid (str): 微信openid
+
+        返回:
+        - WechatUserInfoSchema: 微信用户信息模型
+
+        异常:
+        - CustomException: 获取用户信息失败时抛出异常
+        """
+        if not settings.WECHAT_OAUTH_ENABLE:
+            raise CustomException(msg="未启用微信OAuth登录")
+
+        # 微信获取用户信息的API地址
+        user_info_url = (
+            f"https://api.weixin.qq.com/sns/userinfo"
+            f"?access_token={access_token}"
+            f"&openid={openid}"
+            "&lang=zh_CN"
+        )
+
+        import httpx
+        async with httpx.AsyncClient() as client:
+            response = await client.get(user_info_url)
+            result = response.json()
+
+        if 'errcode' in result:
+            error_msg = result.get('errmsg', '未知错误')
+            log.error(f"获取微信用户信息失败,errcode:{result.get('errcode')},errmsg:{error_msg}")
+            raise CustomException(msg=f"获取微信用户信息失败:{error_msg}")
+
+        user_info = WechatUserInfoSchema(
+            openid=result.get('openid'),
+            nickname=result.get('nickname'),
+            headimgurl=result.get('headimgurl'),
+            sex=result.get('sex'),
+            province=result.get('province'),
+            city=result.get('city'),
+            country=result.get('country'),
+            unionid=result.get('unionid')
+        )
+
+        log.info(f"获取微信用户信息成功,openid:{user_info.openid},nickname:{user_info.nickname}")
+        return user_info
+
+    @classmethod
+    async def wechat_login_service(cls, request: Request, redis: Redis, db: AsyncSession, login_data: WechatLoginSchema) -> JWTOutSchema:
+        """
+        微信登录服务
+
+        参数:
+        - request (Request): FastAPI请求对象
+        - redis (Redis): Redis客户端对象
+        - db (AsyncSession): 数据库会话对象
+        - login_data (WechatLoginSchema): 微信登录数据模型
+
+        返回:
+        - JWTOutSchema: 包含访问令牌和刷新令牌的响应模型
+
+        异常:
+        - CustomException: 登录失败时抛出异常
+        """
+        if not settings.WECHAT_OAUTH_ENABLE:
+            raise CustomException(msg="未启用微信OAuth登录")
+
+        # 用户认证
+        auth = AuthSchema(db=db)
+
+        # 检查用户是否已存在（通过wx_login字段）
+        user = await UserCRUD(auth).get_by_wx_login_crud(wx_login=login_data.openid)
+
+        if user:
+            # 用户已存在，直接登录
+            log.info(f"微信用户已存在,openid:{login_data.openid},用户名:{user.username}")
+        else:
+            # 用户不存在，自动注册
+            log.info(f"微信用户不存在,自动注册,openid:{login_data.openid},昵称:{login_data.nickname}")
+
+            # 生成用户名（使用微信openid）
+            username = f"wx_{login_data.openid}"
+
+            # 检查用户名是否已存在
+            existing_user = await UserCRUD(auth).get_by_username_crud(username=username)
+            if existing_user:
+                username = f"wx_{login_data.openid}_{get_random_character()}"
+
+            # 默认密码（随机生成）
+            default_password = get_random_character(16)
+
+            # 创建新用户
+            user = await UserCRUD(auth).create_crud({
+                'username': username,
+                'password': PwdUtil.hash_password(default_password),
+                'name': login_data.nickname or '微信用户',
+                'mobile': None,  # 微信扫码登录时手机号可能为空
+                'avatar': login_data.headimgurl,
+                'wx_login': login_data.openid,
+                'status': '0',  # 启用状态
+                'is_superuser': False,
+                'gender': str(login_data.sex) if login_data.sex else '2'
+            })
+
+            if not user:
+                raise CustomException(msg="微信用户注册失败")
+
+            # 分配家长角色
+            await cls.assign_parent_role_service(db=db, user_id=user.id)
+
+            log.info(f"微信用户注册成功,用户名:{user.username},openid:{login_data.openid}")
+
+        # 更新最后登录时间
+        user = await UserCRUD(auth).update_last_login_crud(id=user.id)
+        if not user:
+            raise CustomException(msg="用户不存在")
+
+        # 创建token
+        token = await LoginService.create_token_service(request=request, redis=redis, user=user, login_type=login_data.login_type)
+
+        return token
+
+    @classmethod
+    async def assign_parent_role_service(cls, db: AsyncSession, user_id: int) -> bool:
+        """
+        为用户分配家长角色
+
+        参数:
+        - db (AsyncSession): 数据库会话对象
+        - user_id (int): 用户ID
+
+        返回:
+        - bool: 分配成功返回True
+
+        异常:
+        - CustomException: 分配角色失败时抛出异常
+        """
+        from app.api.v1.module_system.role.crud import RoleCRUD
+
+        auth = AuthSchema(db=db)
+
+        # 查找家长角色
+        parent_role = await RoleCRUD(auth).get_by_code_crud(code='parent')
+        if not parent_role:
+            log.warning("未找到家长角色，跳过角色分配")
+            return False
+
+        # 为用户分配家长角色
+        await UserCRUD(auth).assign_role_crud(user_id=user_id, role_id=parent_role.id)
+
+        log.info(f"为用户{user_id}分配家长角色成功")
         return True

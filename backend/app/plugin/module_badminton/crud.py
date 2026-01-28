@@ -56,8 +56,6 @@ from .schema import (
     PurchaseUpdateSchema,
     ClassAttendanceCreateSchema,
     ClassAttendanceUpdateSchema,
-    ClassScheduleCreateSchema,
-    ClassScheduleUpdateSchema,
     SimpleResponse,
     PaginatedResponse
 )
@@ -109,8 +107,6 @@ __all__ = [
     'PurchaseUpdateSchema',
     'ClassAttendanceCreateSchema',
     'ClassAttendanceUpdateSchema',
-    'ClassScheduleCreateSchema',
-    'ClassScheduleUpdateSchema',
     'SimpleResponse',
     'PaginatedResponse',
 ]

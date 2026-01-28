@@ -113,6 +113,32 @@ export const useUserStore = defineStore("user", {
       );
     },
 
+    // 微信登录
+    async wechatLogin(wechatLoginData: any) {
+      // 微信登录实际上是调用后端的微信登录API
+      // 这里暂时直接使用用户信息进行登录，实际需要调用后端接口
+      const response = await AuthAPI.wechatCallback({
+        code: wechatLoginData.code || "",
+        state: wechatLoginData.state || ""
+      });
+
+      if (response.data.code === ResultEnum.SUCCESS) {
+        // 设置token
+        Auth.setTokens(
+          response.data.data.token.access_token,
+          response.data.data.token.refresh_token,
+          true // 微信登录默认记住
+        );
+
+        // 获取用户信息
+        await this.getUserInfo();
+
+        return Promise.resolve();
+      } else {
+        return Promise.reject(new Error(response.data.msg || "微信登录失败"));
+      }
+    },
+
     // 登出
     async logout() {
       const response = await AuthAPI.logout({ token: Auth.getAccessToken() });

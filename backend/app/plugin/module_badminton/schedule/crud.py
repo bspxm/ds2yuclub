@@ -9,13 +9,13 @@ from app.core.base_crud import CRUDBase
 from app.core.database import SessionDep
 
 from .model import *
-from ..class_.schema import ClassScheduleCreateSchema, ClassScheduleUpdateSchema
+from ..class_.schema import ClassScheduleCreateV2Schema
 
 # ============================================================================
 # 排课记录 CRUD
 # ============================================================================
 
-class ClassScheduleCRUD(CRUDBase[ClassScheduleModel, ClassScheduleCreateSchema, ClassScheduleUpdateSchema]):
+class ClassScheduleCRUD(CRUDBase[ClassScheduleModel, ClassScheduleCreateV2Schema, ClassScheduleCreateV2Schema]):
     """排课记录数据层"""
 
     def __init__(self, auth: AuthSchema) -> None:
@@ -29,11 +29,11 @@ class ClassScheduleCRUD(CRUDBase[ClassScheduleModel, ClassScheduleCreateSchema, 
         """排课记录列表"""
         return await self.list(search=search, order_by=order_by, preload=preload)
 
-    async def create_crud(self, data: ClassScheduleCreateSchema) -> Optional[ClassScheduleModel]:
+    async def create_crud(self, data: ClassScheduleCreateV2Schema | dict) -> Optional[ClassScheduleModel]:
         """创建排课记录"""
         return await self.create(data=data)
 
-    async def update_crud(self, id: int, data: ClassScheduleUpdateSchema) -> Optional[ClassScheduleModel]:
+    async def update_crud(self, id: int, data: ClassScheduleCreateV2Schema) -> Optional[ClassScheduleModel]:
         """更新排课记录"""
         return await self.update(id=id, data=data)
 

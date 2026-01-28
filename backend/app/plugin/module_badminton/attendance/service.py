@@ -62,25 +62,72 @@ class ClassAttendanceService:
             search_dict = vars(search)
         else:
             search_dict = search or {}
-        
+
         order_by_list = order_by or [{'id': 'asc'}]
         offset = (page_no - 1) * page_size
 
+        # 不使用 out_schema，直接获取原始对象以避免加载过多关联数据
         result = await ClassAttendanceCRUD(auth).page_crud(
             offset=offset,
             limit=page_size,
             order_by=order_by_list,
             search=search_dict,
             preload=["student", "class_ref", "schedule", "purchase", "coach_user"],
-            out_schema=ClassAttendanceOutSchema
+            out_schema=None
         )
-        
-        return PaginatedResponse(
-            total=result["total"],
-            page_no=page_no,
-            page_size=page_size,
-            items=result["items"]
-        ).model_dump()
+
+        # 手动构建返回数据，只包含必要的字段
+        items = []
+        for attendance in result["items"]:
+            item = {
+                'id': attendance.id,
+                'uuid': attendance.uuid,
+                'student_id': attendance.student_id,
+                'class_id': attendance.class_id,
+                'schedule_id': attendance.schedule_id,
+                'purchase_id': attendance.purchase_id,
+                'attendance_date': attendance.attendance_date.isoformat() if attendance.attendance_date else None,
+                'start_time': attendance.start_time.isoformat() if attendance.start_time else None,
+                'end_time': attendance.end_time.isoformat() if attendance.end_time else None,
+                'duration_minutes': attendance.duration_minutes,
+                'attendance_status': attendance.attendance_status.value if attendance.attendance_status else None,
+                'is_leave': attendance.is_leave,
+                'session_deducted': attendance.session_deducted,
+                'is_auto_deduct': attendance.is_auto_deduct,
+                'notes': attendance.notes,
+                'status': attendance.status,
+                'created_time': attendance.created_time.isoformat() if attendance.created_time else None,
+                'updated_time': attendance.updated_time.isoformat() if attendance.updated_time else None,
+                # 关联对象
+                'student': {
+                    'id': attendance.student.id,
+                    'name': attendance.student.name
+                } if attendance.student else None,
+                'class_ref': {
+                    'id': attendance.class_ref.id,
+                    'name': attendance.class_ref.name
+                } if attendance.class_ref else None,
+                'schedule': {
+                    'id': attendance.schedule.id,
+                    'schedule_date': attendance.schedule.schedule_date.isoformat() if attendance.schedule and attendance.schedule.schedule_date else None
+                } if attendance.schedule else None,
+                'purchase': {
+                    'id': attendance.purchase.id,
+                    'purchase_date': attendance.purchase.purchase_date.isoformat() if attendance.purchase and attendance.purchase.purchase_date else None
+                } if attendance.purchase else None,
+                'coach_user': {
+                    'id': attendance.coach_user.id,
+                    'name': attendance.coach_user.name
+                } if attendance.coach_user else None,
+            }
+            items.append(item)
+
+        return {
+            "total": result["total"],
+            "page_no": page_no,
+            "page_size": page_size,
+            "items": items
+        }
 
     @classmethod
     async def create_service(cls, auth: AuthSchema, data: ClassAttendanceCreateSchema) -> dict:

@@ -247,10 +247,58 @@ class UserService:
         if not auth.user or not auth.user.id:
             raise CustomException(msg="用户不存在")
         user = await UserCRUD(auth).get_by_id_crud(id=auth.user.id)
-        # 获取部门名称
+
+        # 手动构建用户信息，避免自动加载过多关联数据
+        user_dict = {
+            'id': user.id,
+            'uuid': user.uuid,
+            'username': user.username,
+            'name': user.name,
+            'mobile': user.mobile,
+            'email': user.email,
+            'gender': user.gender,
+            'avatar': user.avatar,
+            'is_superuser': user.is_superuser,
+            'last_login': user.last_login.isoformat() if user.last_login else None,
+            'gitee_login': user.gitee_login,
+            'github_login': user.github_login,
+            'wx_login': user.wx_login,
+            'qq_login': user.qq_login,
+            'dept_id': user.dept_id,
+            'status': user.status,
+            'description': user.description,
+            'created_time': user.created_time.isoformat() if user.created_time else None,
+            'updated_time': user.updated_time.isoformat() if user.updated_time else None,
+            'created_id': user.created_id,
+            'updated_id': user.updated_id,
+        }
+
+        # 获取部门信息
         if user and user.dept:
-            UserOutSchema.dept_name = user.dept.name
-        user_dict = UserOutSchema.model_validate(user).model_dump()
+            user_dict['dept'] = {
+                'id': user.dept.id,
+                'name': user.dept.name
+            }
+            user_dict['dept_name'] = user.dept.name
+
+        # 获取岗位信息
+        if user and user.positions:
+            user_dict['positions'] = [
+                {'id': pos.id, 'name': pos.name}
+                for pos in user.positions
+            ]
+
+        # 获取角色信息（只包含基本信息）
+        if user and user.roles:
+            user_dict['roles'] = [
+                {
+                    'id': role.id,
+                    'name': role.name,
+                    'code': role.code,
+                    'status': role.status
+                }
+                for role in user.roles
+            ]
 
         # 获取菜单权限
         if auth.user and auth.user.is_superuser:
@@ -306,7 +354,29 @@ class UserService:
                 raise CustomException(msg='更新失败，邮箱已存在')
         user_update_data = UserUpdateSchema(**data.model_dump())
         new_user = await UserCRUD(auth).update(id=auth.user.id, data=user_update_data)
-        return UserOutSchema.model_validate(new_user).model_dump()
+
+        # 手动构建返回数据，避免自动加载过多关联数据
+        return {
+            'id': new_user.id,
+            'uuid': new_user.uuid,
+            'username': new_user.username,
+            'name': new_user.name,
+            'mobile': new_user.mobile,
+            'email': new_user.email,
+            'gender': new_user.gender,
+            'avatar': new_user.avatar,
+            'is_superuser': new_user.is_superuser,
+            'last_login': new_user.last_login.isoformat() if new_user.last_login else None,
+            'gitee_login': new_user.gitee_login,
+            'github_login': new_user.github_login,
+            'wx_login': new_user.wx_login,
+            'qq_login': new_user.qq_login,
+            'dept_id': new_user.dept_id,
+            'status': new_user.status,
+            'description': new_user.description,
+            'created_time': new_user.created_time.isoformat() if new_user.created_time else None,
+            'updated_time': new_user.updated_time.isoformat() if new_user.updated_time else None,
+        }
 
     @classmethod
     async def set_user_available_service(cls, auth: AuthSchema, data: BatchSetAvailable) -> None:

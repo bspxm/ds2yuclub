@@ -35,6 +35,19 @@ class RoleCRUD(CRUDBase[RoleModel, RoleCreateSchema, RoleUpdateSchema]):
         """
         return await self.get(id=id, preload=preload)
 
+    async def get_by_code_crud(self, code: str, preload: list | None = None) -> RoleModel | None:
+        """
+        根据角色编码获取角色信息
+
+        参数:
+        - code (str): 角色编码
+        - preload (list | None): 预加载选项
+
+        返回:
+        - RoleModel | None: 角色模型对象
+        """
+        return await self.get(code=code, preload=preload)
+
     async def get_list_crud(self, search: dict | None = None, order_by: list | None = None, preload: list | None = None) -> Sequence[RoleModel]:
         """
         获取角色列表

@@ -119,34 +119,60 @@ class ClassAttendanceOutSchema(ClassAttendanceCreateSchema, BaseSchema, UserBySc
     """班级考勤响应模型"""
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
 
-class ClassScheduleCreateSchema(BaseModel):
-    """班级排课创建模型"""
-    class_id: int = Field(..., description='班级ID')
+class ClassScheduleCreateV2Schema(BaseModel):
+    """班级排课创建模型（V2版本）- 支持学员选择和自动创建考勤"""
+    semester_id: int = Field(..., description='学期ID')
     schedule_date: DateStr = Field(..., description='排课日期')
-    start_time: TimeStr = Field(..., description='开始时间')
-    end_time: TimeStr = Field(..., description='结束时间')
-    duration_minutes: int = Field(..., description='课时分钟数')
+    class_ids: list[int] = Field(..., description='班级ID列表（支持多选）')
+    coach_id: int = Field(..., description='教练ID')
+    time_slot_ids: list[int] = Field(..., description='时间段ID列表（1-65，格式：day_index*10+slot_id，支持多选）')
     schedule_status: ScheduleStatusEnum = Field(default=ScheduleStatusEnum.SCHEDULED, description='排课状态')
     schedule_type: ScheduleTypeEnum = Field(default=ScheduleTypeEnum.REGULAR, description='排课类型')
-    coach_id: int = Field(..., description='教练ID')
-    court_number: Optional[str] = Field(None, description='场地号')
-    max_attendance: Optional[int] = Field(None, description='最大考勤人数')
+    student_ids: list[int] = Field(..., description='学员ID列表')
+    location: Optional[str] = Field(None, description='具体位置')
+    topic: Optional[str] = Field(None, description='课程主题')
+    content_summary: Optional[str] = Field(None, description='内容摘要')
+    training_focus: Optional[str] = Field(None, description='训练重点')
+    equipment_needed: Optional[str] = Field(None, description='所需器材')
     notes: Optional[str] = Field(None, description='备注')
-    
+
     # 配置模型以接受枚举输入
     model_config = ConfigDict(from_attributes=True)
 
-class ClassScheduleUpdateSchema(ClassScheduleCreateSchema):
-    """班级排课更新模型"""
-    class_id: Optional[int] = Field(None, description='班级ID')
-    schedule_date: Optional[DateStr] = Field(None, description='排课日期')
-    start_time: Optional[TimeStr] = Field(None, description='开始时间')
-    end_time: Optional[TimeStr] = Field(None, description='结束时间')
-    schedule_status: Optional[ScheduleStatusEnum] = Field(None, description='排课状态')
-    schedule_type: Optional[ScheduleTypeEnum] = Field(None, description='排课类型')
-    coach_id: Optional[int] = Field(None, description='教练ID')
 
-class ClassScheduleOutSchema(ClassScheduleCreateSchema, BaseSchema, UserBySchema):
+class AvailableStudentSchema(BaseModel):
+    """可用学员信息模型"""
+    student_id: int = Field(..., description='学员ID', alias='id')
+    uuid: str = Field(..., description='学员UUID')
+    name: str = Field(..., description='学员姓名')
+    student_name: str = Field(..., description='学员姓名（别名，用于前端显示）')
+    english_name: Optional[str] = Field(None, description='英文名')
+    gender: Optional[str] = Field(None, description='性别')
+    birth_date: Optional[DateStr] = Field(None, description='出生日期')
+    level: Optional[str] = Field(None, description='技术水平等级')
+    group_name: Optional[str] = Field(None, description='所属组别')
+    total_sessions: int = Field(..., description='总课时数')
+    used_sessions: int = Field(..., description='已使用课时数')
+    remaining_sessions: int = Field(..., description='剩余课时数')
+    purchase_id: int = Field(..., description='购买记录ID')
+    valid_from: DateStr = Field(..., description='有效期开始日期')
+    valid_until: DateStr = Field(..., description='有效期结束日期')
+    
+    # 配置模型
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
+class TimeSlotSchema(BaseModel):
+    """时间段信息模型"""
+    id: int = Field(..., description='时间段ID')
+    code: str = Field(..., description='时间段代码（A-E）')
+    time_range: str = Field(..., description='时间段范围（如：08:00-09:30）')
+    duration_minutes: int = Field(..., description='时长（分钟）')
+    
+    # 配置模型
+    model_config = ConfigDict(from_attributes=True)
+
+class ClassScheduleOutSchema(ClassScheduleCreateV2Schema, BaseSchema, UserBySchema):
     """班级排课响应模型"""
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
     

@@ -28,6 +28,7 @@ from .schedule.model import ClassScheduleModel, ScheduleStatusEnum, ScheduleType
 from .class_.model import ClassModel
 from .purchase.model import PurchaseModel
 from .attendance.model import ClassAttendanceModel
+from .group.model import AbilityGroupModel, GroupCoachModel, GroupStudentModel
 
 from .enums import (
     GenderEnum,
@@ -87,6 +88,11 @@ __all__ = [
     "PurchaseModel",
     "ClassAttendanceModel",
     "ClassScheduleModel",
+    
+    # 能力分组管理模型
+    "AbilityGroupModel",
+    "GroupCoachModel",
+    "GroupStudentModel",
 ]
 
 __all__ = [
@@ -131,4 +137,9 @@ __all__ = [
     "PurchaseModel",
     "ClassAttendanceModel",
     "ClassScheduleModel",
+    
+    # 能力分组管理模型
+    "AbilityGroupModel",
+    "GroupCoachModel",
+    "GroupStudentModel",
 ]

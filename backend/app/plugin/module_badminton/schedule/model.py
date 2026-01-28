@@ -21,20 +21,20 @@ if TYPE_CHECKING:
 
 class ScheduleStatusEnum(enum.Enum):
     """排课状态枚举"""
-    SCHEDULED = "scheduled"        # 已安排
-    CONFIRMED = "confirmed"        # 已确认
-    IN_PROGRESS = "in_progress"    # 进行中
-    COMPLETED = "completed"        # 已完成
-    CANCELLED = "cancelled"        # 已取消
-    MAKEUP = "makeup"              # 补课
+    SCHEDULED = "SCHEDULED"        # 已安排
+    CONFIRMED = "CONFIRMED"        # 已确认
+    IN_PROGRESS = "IN_PROGRESS"    # 进行中
+    COMPLETED = "COMPLETED"        # 已完成
+    CANCELLED = "CANCELLED"        # 已取消
+    MAKEUP = "MAKEUP"              # 补课
 
 
 class ScheduleTypeEnum(enum.Enum):
     """排课类型枚举"""
-    REGULAR = "regular"            # 常规课
-    MAKEUP = "makeup"              # 补课
-    EXTRA = "extra"                # 加课
-    CANCELLED = "cancelled"        # 取消课（占位）
+    REGULAR = "REGULAR"            # 常规课
+    MAKEUP = "MAKEUP"              # 补课
+    EXTRA = "EXTRA"                # 加课
+    CANCELLED = "CANCELLED"        # 取消课（占位）
 
 
 # ============================================================================
@@ -47,7 +47,7 @@ class ClassScheduleModel(ModelMixin, UserMixin):
     """
     __tablename__: str = 'badminton_class_schedule'
     __table_args__: dict[str, str] = ({'comment': '班级排课表'})
-    __loader_options__: list[str] = ["class_ref", "coach_user", "created_by", "updated_by"]
+    __loader_options__: list[str] = ["class_ref", "coach_user", "attendance_records", "created_by", "updated_by"]
 
     # 关联信息
     class_id: Mapped[int] = mapped_column(
@@ -60,9 +60,10 @@ class ClassScheduleModel(ModelMixin, UserMixin):
     # 时间信息
     schedule_date: Mapped[date] = mapped_column(Date, nullable=False, comment='排课日期')
     day_of_week: Mapped[int] = mapped_column(SmallInteger, nullable=False, comment='星期几（0-6，0=周日）')
-    start_time: Mapped[time] = mapped_column(Time, nullable=False, comment='开始时间')
-    end_time: Mapped[time] = mapped_column(Time, nullable=False, comment='结束时间')
-    duration_minutes: Mapped[int] = mapped_column(SmallInteger, nullable=False, comment='课时分钟数')
+    time_slot_id: Mapped[int | None] = mapped_column(SmallInteger, nullable=True, comment='时间段ID（1-65，格式：day_index*10+slot_id，V2版本使用）')
+    start_time: Mapped[time | None] = mapped_column(Time, nullable=True, comment='开始时间（V1版本使用，V2版本从配置获取）')
+    end_time: Mapped[time | None] = mapped_column(Time, nullable=True, comment='结束时间（V1版本使用，V2版本从配置获取）')
+    duration_minutes: Mapped[int | None] = mapped_column(SmallInteger, nullable=True, comment='课时分钟数（V1版本使用，V2版本从配置获取）')
     
     # 排课信息
     schedule_type: Mapped[ScheduleTypeEnum] = mapped_column(

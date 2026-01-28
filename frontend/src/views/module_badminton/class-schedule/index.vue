@@ -138,19 +138,37 @@
         </el-table-column>
         <el-table-column label="班级" prop="class.name" min-width="120" />
         <el-table-column label="排课日期" prop="schedule_date" min-width="120" />
-        <el-table-column label="开始时间" prop="start_time" min-width="100" />
-        <el-table-column label="结束时间" prop="end_time" min-width="100" />
+        <el-table-column label="时间段" min-width="140">
+          <template #default="scope">
+            {{ getTimeSlotName(scope.row.time_slot_id) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="排课类型" min-width="100">
+          <template #default="scope">
+            <el-tag :type="scope.row.schedule_type === 'REGULAR' ? '' : scope.row.schedule_type === 'MAKEUP' ? 'warning' : scope.row.schedule_type === 'EXTRA' ? 'success' : 'info'">
+              {{ getScheduleTypeName(scope.row.schedule_type) }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="地点" prop="location" min-width="120" />
         <el-table-column label="教练" prop="coach.name" min-width="100" />
         <el-table-column label="排课状态" prop="schedule_status" min-width="90">
           <template #default="scope">
-            <el-tag :type="scope.row.schedule_status === 'scheduled' ? 'info' : scope.row.schedule_status === 'in_progress' ? 'success' : scope.row.schedule_status === 'completed' ? 'warning' : 'danger'">
-              {{ scope.row.schedule_status === 'scheduled' ? '已排课' : scope.row.schedule_status === 'in_progress' ? '进行中' : scope.row.schedule_status === 'completed' ? '已完成' : '已取消' }}
-            </el-tag>
+            <el-tag :type="scope.row.schedule_status === 'SCHEDULED' ? 'info' : scope.row.schedule_status === 'IN_PROGRESS' ? 'success' : scope.row.schedule_status === 'COMPLETED' ? 'warning' : 'danger'">
+                        {{ scope.row.schedule_status === 'SCHEDULED' ? '已排课' : scope.row.schedule_status === 'IN_PROGRESS' ? '进行中' : scope.row.schedule_status === 'COMPLETED' ? '已完成' : '已取消' }}
+                      </el-tag>          </template>
+        </el-table-column>
+        <el-table-column label="学员数" prop="student_count" min-width="80" align="center">
+          <template #default="scope">
+            {{ scope.row.student_count || scope.row.attendance_count || 0 }}
           </template>
         </el-table-column>
         <el-table-column label="出勤人数" prop="attendance_count" min-width="90" />
-        <el-table-column label="创建时间" prop="created_time" min-width="180" />
+        <el-table-column label="创建时间" prop="created_time" min-width="180">
+          <template #default="scope">
+            {{ formatDateTime(scope.row.created_time) }}
+          </template>
+        </el-table-column>
         <el-table-column fixed="right" label="操作" align="center" min-width="180">
           <template #default="scope">
             <el-button
@@ -203,7 +221,7 @@
     <el-dialog
       v-model="dialogVisible.visible"
       :title="dialogVisible.title"
-      width="700px"
+      width="1400px"
       @close="handleCloseDialog"
     >
       <!-- 详情 -->
@@ -215,14 +233,17 @@
           <el-descriptions-item label="排课日期">
             {{ detailFormData.schedule_date }}
           </el-descriptions-item>
+          <el-descriptions-item label="时间段ID">
+            {{ detailFormData.time_slot_id || '未设置' }}
+          </el-descriptions-item>
           <el-descriptions-item label="开始时间">
-            {{ detailFormData.start_time }}
+            {{ detailFormData.start_time || '从时间段配置获取' }}
           </el-descriptions-item>
           <el-descriptions-item label="结束时间">
-            {{ detailFormData.end_time }}
+            {{ detailFormData.end_time || '从时间段配置获取' }}
           </el-descriptions-item>
           <el-descriptions-item label="时长">
-            {{ detailFormData.duration_minutes }}分钟
+            {{ detailFormData.duration_minutes ? detailFormData.duration_minutes + '分钟' : '90分钟（从时间段配置获取）' }}
           </el-descriptions-item>
           <el-descriptions-item label="地点">
             {{ detailFormData.location || '未设置' }}
@@ -231,10 +252,9 @@
             {{ detailFormData.coach?.name || '未指定' }}
           </el-descriptions-item>
           <el-descriptions-item label="排课状态">
-            <el-tag :type="detailFormData.schedule_status === 'scheduled' ? 'info' : detailFormData.schedule_status === 'in_progress' ? 'success' : detailFormData.schedule_status === 'completed' ? 'warning' : 'danger'">
-              {{ detailFormData.schedule_status === 'scheduled' ? '已排课' : detailFormData.schedule_status === 'in_progress' ? '进行中' : detailFormData.schedule_status === 'completed' ? '已完成' : '已取消' }}
-            </el-tag>
-          </el-descriptions-item>
+            <el-tag :type="detailFormData.schedule_status === 'SCHEDULED' ? 'info' : detailFormData.schedule_status === 'IN_PROGRESS' ? 'success' : detailFormData.schedule_status === 'COMPLETED' ? 'warning' : 'danger'">
+                      {{ detailFormData.schedule_status === 'SCHEDULED' ? '已排课' : detailFormData.schedule_status === 'IN_PROGRESS' ? '进行中' : detailFormData.schedule_status === 'COMPLETED' ? '已完成' : '已取消' }}
+                    </el-tag>          </el-descriptions-item>
           <el-descriptions-item label="实际开始时间">
             {{ detailFormData.actual_start_time || '未记录' }}
           </el-descriptions-item>
@@ -263,87 +283,242 @@
       </template>
       <!-- 新增、编辑表单 -->
       <template v-else>
+        <!-- V2版本新增排课表单 -->
         <el-form
           ref="dataFormRef"
-          :model="formData"
-          :rules="rules"
+          :model="formDataV2"
+          :rules="rulesV2"
           label-suffix=":"
-          label-width="120px"
+          label-width="100px"
           label-position="right"
         >
           <el-row :gutter="20">
-            <el-col :span="24">
-              <el-form-item label="班级ID" prop="class_id">
-                <el-input-number v-model="formData.class_id" :min="1" placeholder="班级ID" style="width: 100%" />
-              </el-form-item>
+            <!-- 左侧：学员列表 -->
+            <el-col :span="10">
+              <el-card class="student-list-card">
+                <template #header>
+                  <div class="card-header">
+                    <span>可用学员列表</span>
+                    <el-tag size="small" type="info">已选择: {{ selectedStudentIds.length }} 人</el-tag>
+                  </div>
+                </template>
+                
+                <!-- 筛选区域 -->
+                <div style="margin-bottom: 15px;">
+                  <el-input
+                    v-model="studentSearch"
+                    placeholder="搜索学员姓名"
+                    clearable
+                    style="width: 100%; margin-bottom: 10px;"
+                  >
+                    <template #prefix>
+                      <el-icon><Search /></el-icon>
+                    </template>
+                  </el-input>
+                  <el-row :gutter="10">
+                    <el-col :span="12">
+                      <el-select v-model="groupFilter" placeholder="筛选组别" clearable style="width: 100%">
+                        <el-option label="全部组别" value="" />
+                        <el-option
+                          v-for="group in uniqueGroups"
+                          :key="group"
+                          :label="group"
+                          :value="group"
+                        />
+                      </el-select>
+                    </el-col>
+                    <el-col :span="12">
+                      <el-select v-model="levelFilter" placeholder="筛选水平" clearable style="width: 100%">
+                        <el-option label="全部水平" value="" />
+                        <el-option
+                          v-for="level in uniqueLevels"
+                          :key="level"
+                          :label="level"
+                          :value="level"
+                        />
+                      </el-select>
+                    </el-col>
+                  </el-row>
+                </div>
+                
+                <div v-if="availableStudents.length === 0" class="empty-tip">
+                  <el-empty description="请选择班级、日期和时间段后查看可用学员" :image-size="80" />
+                </div>
+                <div v-else-if="filteredStudents.length === 0" class="empty-tip">
+                  <el-empty description="没有符合条件的学员" :image-size="80" />
+                </div>
+                <el-checkbox-group v-else v-model="selectedStudentIds" class="student-checkbox-group">
+                  <el-checkbox
+                    v-for="student in filteredStudents"
+                    :key="student.student_id"
+                    :label="student.student_id"
+                    :disabled="student.remaining_sessions <= 0"
+                  >
+                    <div class="student-item">
+                      <div class="student-name">{{ student.student_name }}</div>
+                      <div class="student-info">
+                        <el-tag size="small" type="info">{{ student.birth_date ? calculateAge(student.birth_date) + '岁' : '未知年龄' }}</el-tag>
+                        <el-tag size="small" type="primary">{{ student.group_name || '未分组' }}</el-tag>
+                        <el-tag size="small" type="warning">{{ student.level || '未设置' }}</el-tag>
+                        <el-tag size="small" :type="student.remaining_sessions > 0 ? 'success' : 'danger'">
+                          剩余: {{ student.remaining_sessions }} / 总计: {{ student.total_sessions }}
+                        </el-tag>
+                      </div>
+                    </div>
+                  </el-checkbox>
+                </el-checkbox-group>
+              </el-card>
             </el-col>
-            <el-col :span="24">
-              <el-form-item label="排课日期" prop="schedule_date">
-                <el-date-picker
-                  v-model="formData.schedule_date"
-                  type="date"
-                  placeholder="请选择排课日期"
-                  style="width: 100%"
-                  value-format="YYYY-MM-DD"
-                />
-              </el-form-item>
-            </el-col>
-            <el-col :span="12">
-              <el-form-item label="开始时间" prop="start_time">
-                <el-time-picker
-                  v-model="formData.start_time"
-                  placeholder="请选择开始时间"
-                  style="width: 100%"
-                  value-format="HH:mm:ss"
-                />
-              </el-form-item>
-            </el-col>
-            <el-col :span="12">
-              <el-form-item label="结束时间">
-                <el-time-picker
-                  v-model="formData.end_time"
-                  placeholder="请选择结束时间"
-                  style="width: 100%"
-                  value-format="HH:mm:ss"
-                />
-              </el-form-item>
-            </el-col>
-            <el-col :span="12">
-              <el-form-item label="时长(分钟)">
-                <el-input-number v-model="formData.duration_minutes" :min="30" :max="240" :step="15" placeholder="时长" style="width: 100%" />
-              </el-form-item>
-            </el-col>
-            <el-col :span="12">
-              <el-form-item label="地点">
-                <el-input v-model="formData.location" placeholder="请输入上课地点" :maxlength="128" />
-              </el-form-item>
-            </el-col>
-            <el-col :span="12">
-              <el-form-item label="教练ID">
-                <el-input-number v-model="formData.coach_id" :min="1" placeholder="教练ID" style="width: 100%" />
-              </el-form-item>
-            </el-col>
-            <el-col :span="12">
-              <el-form-item label="排课状态" prop="schedule_status">
-                <el-select v-model="formData.schedule_status" placeholder="请选择排课状态" style="width: 100%">
-                  <el-option value="scheduled" label="已排课" />
-                  <el-option value="in_progress" label="进行中" />
-                  <el-option value="completed" label="已完成" />
-                  <el-option value="cancelled" label="已取消" />
-                </el-select>
-              </el-form-item>
-            </el-col>
-            <el-col :span="24">
-              <el-form-item label="备注">
-                <el-input
-                  v-model="formData.notes"
-                  :rows="3"
-                  :maxlength="500"
-                  show-word-limit
-                  type="textarea"
-                  placeholder="请输入备注"
-                />
-              </el-form-item>
+
+            <!-- 右侧：排课表单 -->
+            <el-col :span="14">
+                <el-row :gutter="20">
+                  <el-col :span="12">
+                    <el-form-item label="学期" prop="semester_id">
+                      <el-select
+                        v-model="formDataV2.semester_id"
+                        placeholder="请选择学期"
+                        style="width: 100%"
+                        @change="loadClasses"
+                      >
+                        <el-option
+                          v-for="semester in semesterList"
+                          :key="semester.id"
+                          :label="semester.name"
+                          :value="semester.id"
+                        />
+                      </el-select>
+                    </el-form-item>
+                  </el-col>
+                  <el-col :span="12">
+                    <el-form-item label="排课日期" prop="schedule_date">
+                      <el-date-picker
+                        v-model="formDataV2.schedule_date"
+                        type="date"
+                        placeholder="请选择排课日期"
+                        style="width: 100%"
+                        value-format="YYYY-MM-DD"
+                        :disabled-date="disabledDate"
+                      />
+                    </el-form-item>
+                  </el-col>
+                  <el-col :span="12">
+                    <el-form-item label="班级" prop="class_ids">
+                      <el-select
+                        v-model="formDataV2.class_ids"
+                        placeholder="请选择班级（可多选）"
+                        style="width: 100%"
+                        multiple
+                        :disabled="!formDataV2.semester_id"
+                      >
+                        <el-option
+                          v-for="cls in classList"
+                          :key="cls.id"
+                          :label="cls.name"
+                          :value="cls.id"
+                        />
+                      </el-select>
+                    </el-form-item>
+                  </el-col>
+                  <el-col :span="12">
+                    <el-form-item label="时间段" prop="time_slot_ids">
+                      <el-select
+                        v-model="formDataV2.time_slot_ids"
+                        placeholder="请选择时间段（可多选）"
+                        style="width: 100%"
+                        multiple
+                        :disabled="!formDataV2.class_ids || formDataV2.class_ids.length === 0"
+                      >
+                        <el-option-group
+                          v-for="group in groupedTimeSlots"
+                          :key="group.label"
+                          :label="group.label"
+                        >
+                          <el-option
+                            v-for="slot in group.slots"
+                            :key="slot.id"
+                            :label="slot.name"
+                            :value="slot.id"
+                          />
+                        </el-option-group>
+                      </el-select>
+                    </el-form-item>
+                  </el-col>
+                  <el-col :span="12">
+                    <el-form-item label="教练" prop="coach_id">
+                      <el-select
+                        v-model="formDataV2.coach_id"
+                        placeholder="请选择教练"
+                        style="width: 100%"
+                        filterable
+                      >
+                        <el-option
+                          v-for="coach in coachList"
+                          :key="coach.id"
+                          :label="coach.name"
+                          :value="coach.id"
+                        />
+                      </el-select>
+                    </el-form-item>
+                  </el-col>
+                  <el-col :span="12">
+                    <el-form-item label="排课状态" prop="schedule_status">
+                      <el-select
+                        v-model="formDataV2.schedule_status"
+                        placeholder="请选择排课状态"
+                        style="width: 100%"
+                      >
+                        <el-option value="SCHEDULED" label="已排课" />
+                        <el-option value="CONFIRMED" label="已确认" />
+                        <el-option value="IN_PROGRESS" label="进行中" />
+                        <el-option value="COMPLETED" label="已完成" />
+                        <el-option value="CANCELLED" label="已取消" />
+                      </el-select>
+                    </el-form-item>
+                  </el-col>
+                  <el-col :span="24">
+                    <el-form-item label="地点">
+                      <el-input
+                        v-model="formDataV2.location"
+                        placeholder="请输入上课地点"
+                        :maxlength="128"
+                      />
+                    </el-form-item>
+                  </el-col>
+                  <el-col :span="24">
+                    <el-form-item label="课程主题">
+                      <el-input
+                        v-model="formDataV2.topic"
+                        placeholder="请输入课程主题"
+                        :maxlength="256"
+                      />
+                    </el-form-item>
+                  </el-col>
+                  <el-col :span="24">
+                    <el-form-item label="内容摘要">
+                      <el-input
+                        v-model="formDataV2.content_summary"
+                        type="textarea"
+                        :rows="2"
+                        placeholder="请输入内容摘要"
+                        :maxlength="500"
+                        show-word-limit
+                      />
+                    </el-form-item>
+                  </el-col>
+                  <el-col :span="24">
+                    <el-form-item label="备注">
+                      <el-input
+                        v-model="formDataV2.notes"
+                        type="textarea"
+                        :rows="2"
+                        placeholder="请输入备注"
+                        :maxlength="500"
+                        show-word-limit
+                      />
+                    </el-form-item>
+                  </el-col>
+                </el-row>
             </el-col>
           </el-row>
         </el-form>
@@ -368,10 +543,13 @@ defineOptions({
   inheritAttrs: false,
 });
 
-import { ref, reactive, onMounted } from "vue";
+import { ref, reactive, onMounted, watch, computed } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { QuestionFilled } from "@element-plus/icons-vue";
-import ClassScheduleAPI, { ClassScheduleTable, ClassScheduleForm, ClassSchedulePageQuery } from "@/api/module_badminton/class-schedule";
+import { QuestionFilled, Search } from "@element-plus/icons-vue";
+import ClassScheduleAPI, { ClassScheduleTable, ClassSchedulePageQuery, AvailableStudentInfo, ClassScheduleCreateV2Form, TimeSlotInfo } from "@/api/module_badminton/class-schedule";
+import SemesterAPI from "@/api/module_badminton/semester";
+import ClassAPI from "@/api/module_badminton/class";
+import UserAPI from "@/api/module_system/user";
 
 const visible = ref(true);
 const queryFormRef = ref();
@@ -397,34 +575,412 @@ const queryFormData = reactive<ClassSchedulePageQuery>({
   schedule_status: undefined,
 });
 
-// 编辑表单
-const formData = reactive<ClassScheduleForm>({
-  id: undefined,
-  class_id: undefined,
-  schedule_date: "",
-  start_time: "",
-  end_time: "",
-  duration_minutes: 90,
-  location: "",
-  coach_id: undefined,
-  schedule_status: "scheduled",
-  notes: undefined,
-});
-
 // 弹窗状态
 const dialogVisible = reactive({
   title: "",
   visible: false,
-  type: "create" as "create" | "update" | "detail",
+  type: "create" | "update" | "detail",
 });
 
 // 表单验证规则
-const rules = reactive({
-  class_id: [{ required: true, message: "请输入班级ID", trigger: "blur" }],
-  schedule_date: [{ required: true, message: "请选择排课日期", trigger: "blur" }],
-  start_time: [{ required: true, message: "请选择开始时间", trigger: "blur" }],
-  schedule_status: [{ required: true, message: "请选择排课状态", trigger: "blur" }],
+const rulesV2 = reactive({
+  semester_id: [{ required: true, message: "请选择学期", trigger: "change" }],
+  schedule_date: [{ required: true, message: "请选择排课日期", trigger: "change" }],
+  class_ids: [{ required: true, message: "请选择班级", trigger: "change" }],
+  time_slot_ids: [{ required: true, message: "请选择时间段", trigger: "change" }],
+  coach_id: [{ required: true, message: "请选择教练", trigger: "change" }],
+  schedule_status: [{ required: true, message: "请选择排课状态", trigger: "change" }],
 });
+
+// ============================================================================
+// V2版本新增排课功能
+// ============================================================================
+
+// V2版本表单数据
+const formDataV2 = reactive<ClassScheduleCreateV2Form>({
+  semester_id: undefined,
+  schedule_date: "",
+  class_ids: [],
+  coach_id: undefined,
+  time_slot_ids: [],
+  schedule_status: undefined,
+  student_ids: [],
+  location: "",
+  topic: "",
+  content_summary: "",
+  notes: "",
+});
+
+// 学期列表
+const semesterList = ref<any[]>([]);
+
+// 班级列表
+const classList = ref<any[]>([]);
+
+// 教练列表
+const coachList = ref<any[]>([]);
+
+// 可用学员列表
+const availableStudents = ref<AvailableStudentInfo[]>([]);
+
+// 已选中学员ID列表
+const selectedStudentIds = ref<number[]>([]);
+
+// 学员搜索和筛选
+const studentSearch = ref("");
+const groupFilter = ref("");
+const levelFilter = ref("");
+
+// 计算年龄
+function calculateAge(birthDate?: string): number {
+  if (!birthDate) return 0;
+  const birth = new Date(birthDate);
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
+  return age;
+}
+
+// 过滤后的学员列表
+const filteredStudents = computed(() => {
+  return availableStudents.value.filter((student) => {
+    // 姓名搜索
+    let matchSearch = true;
+    if (studentSearch.value) {
+      matchSearch = student.student_name?.toLowerCase().includes(studentSearch.value.toLowerCase());
+    }
+    
+    // 组别筛选
+    let matchGroup = true;
+    if (groupFilter.value) {
+      matchGroup = student.group_name === groupFilter.value;
+    }
+    
+    // 水平筛选
+    let matchLevel = true;
+    if (levelFilter.value) {
+      matchLevel = student.level === levelFilter.value;
+    }
+    
+    return matchSearch && matchGroup && matchLevel;
+  });
+});
+
+// 获取时间段名称
+function getTimeSlotName(timeSlotId: number | undefined): string {
+  if (!timeSlotId) return '-';
+  const dayIndex = Math.floor(timeSlotId / 10);
+  const slotId = timeSlotId % 10;
+  const dayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+  const slotNames = ['', 'A', 'B', 'C', 'D', 'E'];
+  const timeSlot = timeSlotList.value.find(ts => ts.id === slotId);
+  return `${dayNames[dayIndex]} ${slotNames[slotId]} (${timeSlot?.name || '-'})`;
+}
+
+// 获取排课类型名称
+function getScheduleTypeName(type: string | undefined): string {
+  const typeMap: Record<string, string> = {
+    'REGULAR': '常规课',
+    'MAKEUP': '补课',
+    'EXTRA': '加课',
+    'CANCELLED': '取消课'
+  };
+  return type ? typeMap[type] || type : '-';
+}
+
+// 格式化日期时间
+function formatDateTime(dateStr: string | undefined): string {
+  if (!dateStr) return '-';
+  try {
+    const date = new Date(dateStr);
+    // 格式化为 YYYY-MM-DD HH:mm:ss
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+  } catch (e) {
+    return dateStr;
+  }
+}
+
+// 获取唯一的组别列表
+const uniqueGroups = computed(() => {
+  const groups = availableStudents.value
+    .map((s) => s.group_name)
+    .filter((g): g is string => !!g);
+  return [...new Set(groups)].sort();
+});
+
+// 获取唯一的水平列表
+const uniqueLevels = computed(() => {
+  const levels = availableStudents.value
+    .map((s) => s.level)
+    .filter((l): l is string => !!l);
+  return [...new Set(levels)].sort();
+});
+
+// 时间段列表
+const timeSlotList = ref<TimeSlotInfo[]>([
+  { id: 1, code: 'A', name: '08:00-09:30', start_time: '08:00', end_time: '09:30', duration_minutes: 90 },
+  { id: 2, code: 'B', name: '09:30-11:00', start_time: '09:30', end_time: '11:00', duration_minutes: 90 },
+  { id: 3, code: 'C', name: '14:00-15:30', start_time: '14:00', end_time: '15:30', duration_minutes: 90 },
+  { id: 4, code: 'D', name: '15:30-17:00', start_time: '15:30', end_time: '17:00', duration_minutes: 90 },
+  { id: 5, code: 'E', name: '18:00-19:30', start_time: '18:00', end_time: '19:30', duration_minutes: 90 },
+]);
+
+// 加载学期列表
+async function loadSemesters() {
+  try {
+    const response = await SemesterAPI.getSemesterList({ page_no: 1, page_size: 100 });
+    semesterList.value = response.data.data.items || [];
+  } catch (error: any) {
+    console.error("加载学期列表失败:", error);
+  }
+}
+
+// 加载班级列表（根据学期筛选）
+async function loadClasses() {
+  if (!formDataV2.semester_id) {
+    classList.value = [];
+    return;
+  }
+  try {
+    const response = await ClassAPI.getClassList({
+      page_no: 1,
+      page_size: 100,
+      semester_id: formDataV2.semester_id,
+    });
+    classList.value = response.data.data.items || [];
+  } catch (error: any) {
+    console.error("加载班级列表失败:", error);
+  }
+}
+
+// 加载教练列表
+async function loadCoaches() {
+  try {
+    const response = await UserAPI.listUser({
+      page_no: 1,
+      page_size: 100,
+    });
+    coachList.value = response.data.data.items || [];
+  } catch (error: any) {
+    console.error("加载教练列表失败:", error);
+  }
+}
+
+// 加载可用学员列表
+async function loadAvailableStudents() {
+  // 只在选择了班级、日期和时间段后才加载学员列表
+  if (!formDataV2.semester_id || !formDataV2.schedule_date || formDataV2.class_ids.length === 0 || formDataV2.time_slot_ids.length === 0) {
+    availableStudents.value = [];
+    selectedStudentIds.value = [];
+    return;
+  }
+  
+  // 清空之前选择的学员ID
+  selectedStudentIds.value = [];
+  
+  try {
+    const response = await ClassScheduleAPI.getAvailableStudents({
+      semester_id: formDataV2.semester_id,
+      schedule_date: formDataV2.schedule_date,
+      time_slot_ids: formDataV2.time_slot_ids,
+      class_ids: formDataV2.class_ids.length > 0 ? formDataV2.class_ids : undefined,
+    });
+    availableStudents.value = response.data.data || [];
+  } catch (error: any) {
+    console.error("加载可用学员列表失败:", error);
+    ElMessage.error("加载可用学员列表失败");
+  }
+}
+
+// 加载可用时间段（根据班级和日期的星期几）
+async function loadAvailableTimeSlots() {
+  // 只在选择了班级和日期后才加载时间段
+  if (!formDataV2.class_ids.length || !formDataV2.schedule_date) {
+    timeSlotList.value = [
+      { id: 1, code: 'A', name: '08:00-09:30', start_time: '08:00', end_time: '09:30', duration_minutes: 90, day: '默认' },
+      { id: 2, code: 'B', name: '09:30-11:00', start_time: '09:30', end_time: '11:00', duration_minutes: 90, day: '默认' },
+      { id: 3, code: 'C', name: '14:00-15:30', start_time: '14:00', end_time: '15:30', duration_minutes: 90, day: '默认' },
+      { id: 4, code: 'D', name: '15:30-17:00', start_time: '15:30', end_time: '17:00', duration_minutes: 90, day: '默认' },
+      { id: 5, code: 'E', name: '18:00-19:30', start_time: '18:00', end_time: '19:30', duration_minutes: 90, day: '默认' },
+    ];
+    return;
+  }
+
+  try {
+    // 计算星期几（0=周日，1=周一，...，6=周六），与后端保持一致
+    const date = new Date(formDataV2.schedule_date);
+    const dayOfWeek = date.getDay(); // 0=周日，1=周一，...，6=周六
+    // 不再调整，直接传递原始值
+
+    // 获取所有选定班级的时间段配置
+    let allTimeSlots: any[] = [];
+    for (const classId of formDataV2.class_ids) {
+      const response = await ClassAPI.getAvailableTimeSlots(classId, dayOfWeek);
+      console.log(`班级 ${classId} (星期${dayOfWeek}) 的时间段响应:`, response.data);
+      if (response.data && response.data.data && response.data.data.time_slots) {
+        console.log(`班级 ${classId} 的时间段数据:`, response.data.data.time_slots);
+        allTimeSlots = allTimeSlots.concat(response.data.data.time_slots);
+      }
+    }
+
+    console.log('合并后的时间段数据:', allTimeSlots);
+
+    // 去重时间段（按 day 和 slot_code 组合去重，避免不同班级的相同时间段代码冲突）
+    const uniqueTimeSlots = new Map();
+    for (const slot of allTimeSlots) {
+      const key = `${slot.day}_${slot.slot_code}`;
+      if (!uniqueTimeSlots.has(key)) {
+        uniqueTimeSlots.set(key, slot);
+      }
+    }
+
+    console.log('去重后的时间段数据:', Array.from(uniqueTimeSlots.values()));
+
+    // 更新时间段列表，保留 day 字段用于分组
+    timeSlotList.value = Array.from(uniqueTimeSlots.values()).map((slot: any) => ({
+      id: slot.id,
+      code: slot.slot_code,
+      name: `${slot.day} ${slot.slot_code} ${slot.start_time}-${slot.end_time}`,
+      start_time: slot.start_time,
+      end_time: slot.end_time,
+      duration_minutes: slot.duration_minutes,
+      day: slot.day, // 保留星期几用于分组
+    }));
+
+    console.log('最终的时间段列表:', timeSlotList.value);
+
+    // 如果之前选择的时间段不在新列表中，清空选择
+    const validTimeSlotIds = timeSlotList.value.map((s: any) => s.id);
+    formDataV2.time_slot_ids = formDataV2.time_slot_ids.filter((id: number) => validTimeSlotIds.includes(id));
+
+  } catch (error: any) {
+    console.error("加载可用时间段失败:", error);
+    ElMessage.error("加载可用时间段失败");
+    // 加载失败时使用默认时间段列表
+    timeSlotList.value = [
+      { id: 1, code: 'A', name: '08:00-09:30', start_time: '08:00', end_time: '09:30', duration_minutes: 90, day: '默认' },
+      { id: 2, code: 'B', name: '09:30-11:00', start_time: '09:30', end_time: '11:00', duration_minutes: 90, day: '默认' },
+      { id: 3, code: 'C', name: '14:00-15:30', start_time: '14:00', end_time: '15:30', duration_minutes: 90, day: '默认' },
+      { id: 4, code: 'D', name: '15:30-17:00', start_time: '15:30', end_time: '17:00', duration_minutes: 90, day: '默认' },
+      { id: 5, code: 'E', name: '18:00-19:30', start_time: '18:00', end_time: '19:30', duration_minutes: 90, day: '默认' },
+    ];
+  }
+}
+
+// 将时间段按星期几分组
+const groupedTimeSlots = computed(() => {
+  const groups: Array<{ label: string; slots: any[] }> = [];
+  const groupMap = new Map<string, any[]>();
+  
+  timeSlotList.value.forEach((slot: any) => {
+    const day = slot.day || '其他';
+    if (!groupMap.has(day)) {
+      groupMap.set(day, []);
+    }
+    groupMap.get(day)!.push(slot);
+  });
+
+  // 将 Map 转换为数组，方便 el-option-group 使用
+  groupMap.forEach((slots, day) => {
+    groups.push({ label: day, slots });
+  });
+
+  return groups;
+});
+
+// 监听学期变化，自动加载班级列表
+watch(() => formDataV2.semester_id, () => {
+  formDataV2.class_ids = [];
+  formDataV2.time_slot_ids = [];
+  formDataV2.student_ids = [];
+  selectedStudentIds.value = [];
+  availableStudents.value = [];
+  loadClasses();
+});
+
+// 监听班级和日期变化，重新加载可用时间段
+watch(() => [formDataV2.class_ids, formDataV2.schedule_date], () => {
+  // 清空时间段和学员选择
+  formDataV2.time_slot_ids = [];
+  formDataV2.student_ids = [];
+  selectedStudentIds.value = [];
+  availableStudents.value = [];
+  
+  // 加载可用时间段
+  if (formDataV2.class_ids.length > 0 && formDataV2.schedule_date) {
+    loadAvailableTimeSlots();
+  }
+});
+
+// 监听时间段变化，加载可用学员
+watch(() => formDataV2.time_slot_ids, () => {
+  // 清空学员选择
+  formDataV2.student_ids = [];
+  selectedStudentIds.value = [];
+  availableStudents.value = [];
+  
+  // 加载可用学员列表
+  if (formDataV2.time_slot_ids.length > 0) {
+    loadAvailableStudents();
+  }
+});
+
+// 学员选择变化
+watch(selectedStudentIds, (newIds) => {
+  formDataV2.student_ids = newIds;
+});
+
+// 重置V2表单
+function resetFormV2() {
+  Object.assign(formDataV2, {
+    semester_id: undefined,
+    schedule_date: "",
+    class_ids: [],
+    coach_id: undefined,
+    time_slot_ids: [],
+    schedule_status: undefined,
+    student_ids: [],
+    location: "",
+    topic: "",
+    content_summary: "",
+    notes: "",
+  });
+  selectedStudentIds.value = [];
+  availableStudents.value = [];
+}
+
+// 提交V2表单
+async function handleSubmitV2() {
+  if (!dataFormRef.value) return;
+  
+  await dataFormRef.value.validate(async (valid: boolean) => {
+    if (!valid) return;
+    
+    if (formDataV2.student_ids.length === 0) {
+      ElMessage.warning("请至少选择一名学员");
+      return;
+    }
+    
+    try {
+      await ClassScheduleAPI.createScheduleV2(formDataV2);
+      ElMessage.success("创建排课记录成功");
+      dialogVisible.visible = false;
+      loadingData();
+    } catch (error: any) {
+      console.error(error);
+      ElMessage.error("创建排课记录失败");
+    }
+  });
+}
 
 // 加载表格数据
 async function loadingData() {
@@ -453,30 +1009,6 @@ async function handleResetQuery() {
   loadingData();
 }
 
-// 定义初始表单数据常量
-const initialFormData: ClassScheduleForm = {
-  id: undefined,
-  class_id: undefined,
-  schedule_date: "",
-  start_time: "",
-  end_time: "",
-  duration_minutes: 90,
-  location: "",
-  coach_id: undefined,
-  schedule_status: "scheduled",
-  notes: undefined,
-};
-
-// 重置表单
-async function resetForm() {
-  if (dataFormRef.value) {
-    dataFormRef.value.resetFields();
-    dataFormRef.value.clearValidate();
-  }
-  // 完全重置 formData 为初始状态
-  Object.assign(formData, initialFormData);
-}
-
 // 行复选框选中项变化
 async function handleSelectionChange(selection: any) {
   selectIds.value = selection.map((item: any) => item.id);
@@ -486,14 +1018,15 @@ async function handleSelectionChange(selection: any) {
 // 关闭弹窗
 async function handleCloseDialog() {
   dialogVisible.visible = false;
-  resetForm();
+  resetFormV2();
 }
 
 // 打开弹窗
 async function handleOpenDialog(type: "create" | "update" | "detail", id?: number) {
   // 每次打开弹窗前先重置表单
-  resetForm();
+  resetFormV2();
   dialogVisible.type = type;
+  
   if (id) {
     const response = await ClassScheduleAPI.getClassScheduleDetail(id);
     if (type === "detail") {
@@ -501,12 +1034,34 @@ async function handleOpenDialog(type: "create" | "update" | "detail", id?: numbe
       Object.assign(detailFormData.value, response.data.data);
     } else if (type === "update") {
       dialogVisible.title = "修改排课记录";
-      Object.assign(formData, response.data.data);
+      Object.assign(formDataV2, response.data.data);
     }
   } else {
     dialogVisible.title = "新增排课记录";
+    // 加载V2版本所需的数据
+    await loadSemesters();
+    await loadCoaches();
   }
+  
   dialogVisible.visible = true;
+}
+
+// 禁用日期（不在学期范围内的日期）
+function disabledDate(time: Date) {
+  if (!formDataV2.semester_id) {
+    return false;
+  }
+  
+  const semester = semesterList.value.find(s => s.id === formDataV2.semester_id);
+  if (!semester) {
+    return false;
+  }
+  
+  const date = new Date(time);
+  const startDate = new Date(semester.start_date);
+  const endDate = new Date(semester.end_date);
+  
+  return date < startDate || date > endDate;
 }
 
 // 提交表单
@@ -518,14 +1073,14 @@ async function handleSubmit() {
     
     try {
       if (dialogVisible.type === "create") {
-        await ClassScheduleAPI.createClassSchedule(formData);
-        ElMessage.success("创建成功");
+        // 使用V2版本创建
+        await handleSubmitV2();
       } else if (dialogVisible.type === "update") {
-        await ClassScheduleAPI.updateClassSchedule(formData.id!, formData);
+        await ClassScheduleAPI.updateClassSchedule(formDataV2.id!, formDataV2);
         ElMessage.success("更新成功");
+        dialogVisible.visible = false;
+        loadingData();
       }
-      dialogVisible.visible = false;
-      loadingData();
     } catch (error: any) {
       console.error(error);
     }
@@ -580,5 +1135,70 @@ onMounted(() => {
 
 .data-table__content {
   flex: 1;
+}
+
+/* V2版本新增排课表单样式 */
+.schedule-create-v2 {
+  padding: 10px 0;
+}
+
+.student-list-card {
+  height: 600px;
+  overflow-y: auto;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: bold;
+}
+
+.empty-tip {
+  padding: 40px 0;
+  text-align: center;
+}
+
+.student-checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.student-checkbox-group :deep(.el-checkbox) {
+  width: 100%;
+  margin-right: 0;
+  padding: 12px;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 8px;
+  transition: all 0.3s;
+}
+
+.student-checkbox-group :deep(.el-checkbox:hover) {
+  border-color: var(--el-color-primary);
+  background-color: var(--el-color-primary-light-9);
+}
+
+.student-checkbox-group :deep(.el-checkbox.is-checked) {
+  border-color: var(--el-color-primary);
+  background-color: var(--el-color-primary-light-9);
+}
+
+.student-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.student-name {
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.student-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 </style>

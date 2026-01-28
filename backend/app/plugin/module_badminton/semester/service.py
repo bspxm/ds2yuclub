@@ -57,25 +57,49 @@ class SemesterService:
             search_dict = vars(search)
         else:
             search_dict = search or {}
-        
+
         order_by_list = order_by or [{'id': 'asc'}]
         offset = (page_no - 1) * page_size
 
+        # 不使用 out_schema，直接获取原始对象以避免加载过多关联数据
         result = await SemesterCRUD(auth).page_crud(
             offset=offset,
             limit=page_size,
             order_by=order_by_list,
             search=search_dict,
             preload=["created_by"],
-            out_schema=SemesterOutSchema
+            out_schema=None
         )
-        
-        return PaginatedResponse(
-            total=result["total"],
-            page_no=page_no,
-            page_size=page_size,
-            items=result["items"]
-        ).model_dump()
+
+        # 手动构建返回数据，只包含必要的字段
+        items = []
+        for semester in result["items"]:
+            item = {
+                'id': semester.id,
+                'uuid': semester.uuid,
+                'name': semester.name,
+                'semester_type': semester.semester_type.value if semester.semester_type else None,
+                'start_date': semester.start_date.isoformat() if semester.start_date else None,
+                'end_date': semester.end_date.isoformat() if semester.end_date else None,
+                'week_count': semester.week_count,
+                'status': semester.status.value if semester.status else None,
+                'is_current': semester.is_current,
+                'settlement_date': semester.settlement_date.isoformat() if semester.settlement_date else None,
+                'carry_over_enabled': semester.carry_over_enabled,
+                'max_carry_over_sessions': semester.max_carry_over_sessions,
+                'description': semester.description,
+                'status_flag': semester.status_flag,
+                'created_time': semester.created_time.isoformat() if semester.created_time else None,
+                'updated_time': semester.updated_time.isoformat() if semester.updated_time else None,
+            }
+            items.append(item)
+
+        return {
+            "total": result["total"],
+            "page_no": page_no,
+            "page_size": page_size,
+            "items": items
+        }
 
     @classmethod
     async def create_service(cls, auth: AuthSchema, data: SemesterCreateSchema) -> dict:

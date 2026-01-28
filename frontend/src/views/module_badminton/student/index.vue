@@ -298,7 +298,11 @@
           label="创建时间"
           prop="created_time"
           min-width="180"
-        />
+        >
+          <template #default="scope">
+            {{ formatDateTime(scope.row.created_time) }}
+          </template>
+        </el-table-column>
         <el-table-column
           v-if="tableColumns.find((col) => col.prop === 'operation')?.show"
           fixed="right"
@@ -430,10 +434,10 @@
             {{ detailFormData.updated_by?.name || '系统' }}
           </el-descriptions-item>
           <el-descriptions-item label="创建时间">
-            {{ detailFormData.created_time }}
+            {{ formatDateTime(detailFormData.created_time) }}
           </el-descriptions-item>
           <el-descriptions-item label="更新时间">
-            {{ detailFormData.updated_time }}
+            {{ formatDateTime(detailFormData.updated_time) }}
           </el-descriptions-item>
           <el-descriptions-item label="备注" :span="2">
             {{ detailFormData.description || '无' }}
@@ -750,6 +754,24 @@ function handleCreatedDateRangeChange(range: [Date, Date]) {
     queryFormData.created_time = [formatToDateTime(range[0]), formatToDateTime(range[1])];
   } else {
     queryFormData.created_time = undefined;
+  }
+}
+
+// 格式化时间（精确到秒）
+function formatDateTime(dateTime: string | null | undefined) {
+  if (!dateTime) return '';
+  try {
+    const date = new Date(dateTime);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+  } catch (error) {
+    console.error('时间格式化失败:', error);
+    return dateTime;
   }
 }
 

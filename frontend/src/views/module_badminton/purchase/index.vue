@@ -563,15 +563,15 @@
                 </div>
                 <div v-else>
                   <el-checkbox-group v-model="formData.selected_time_slots" @change="handleTimeSlotChangeSingle">
-                    <div style="display: flex; flex-wrap: wrap; gap: 20px; max-height: 300px; overflow-y: auto; border: 1px solid #4c4d4f; border-radius: 4px; padding: 15px; background-color: #1e1e1e;">
-                      <div v-for="day in getUniqueDaysSingle()" :key="day" style="flex: 1; min-width: 200px; border: 1px solid #3e3e42; border-radius: 4px; padding: 10px; background-color: #252526;">
-                        <div style="margin-bottom: 10px; font-weight: bold; color: #ffffff; border-bottom: 1px solid #3e3e42; padding-bottom: 8px; font-size: 16px;">
+                    <div style="display: flex; flex-wrap: wrap; gap: 20px; max-height: 300px; overflow-y: auto; border: 1px solid var(--el-border-color); border-radius: 4px; padding: 15px; background-color: var(--el-fill-color-blank);">
+                      <div v-for="day in getUniqueDaysSingle()" :key="day" style="flex: 1; min-width: 200px; border: 1px solid var(--el-border-color); border-radius: 4px; padding: 10px; background-color: var(--el-fill-color-light);">
+                        <div style="margin-bottom: 10px; font-weight: bold; color: var(--el-text-color-primary); border-bottom: 1px solid var(--el-border-color-light); padding-bottom: 8px; font-size: 16px;">
                           {{ day }}
                         </div>
                         <div style="display: flex; flex-direction: column; gap: 8px;">
                           <div v-for="slot in getSlotsByDaySingle(day)" :key="slot.id" style="display: flex; align-items: center;">
                             <el-checkbox :label="slot.id" :disabled="classTypeInfoSingle?.class_type === 'fixed'">
-                              <span style="margin-left: 8px; font-size: 14px; color: #cccccc;">
+                              <span style="margin-left: 8px; font-size: 14px; color: var(--el-text-color-regular);">
                                 {{ slot.start_time }}-{{ slot.end_time }}
                               </span>
                             </el-checkbox>
@@ -798,15 +798,15 @@
                     </div>
                     <div v-else>
                       <el-checkbox-group v-model="batchFormData.selected_time_slots" @change="handleTimeSlotChange">
-                        <div style="display: flex; flex-wrap: wrap; gap: 20px; max-height: 300px; overflow-y: auto; border: 1px solid #4c4d4f; border-radius: 4px; padding: 15px; background-color: #1e1e1e;">
-                          <div v-for="day in getUniqueDays()" :key="day" style="flex: 1; min-width: 200px; border: 1px solid #3e3e42; border-radius: 4px; padding: 10px; background-color: #252526;">
-                            <div style="margin-bottom: 10px; font-weight: bold; color: #ffffff; border-bottom: 1px solid #3e3e42; padding-bottom: 8px; font-size: 16px;">
+                        <div style="display: flex; flex-wrap: wrap; gap: 20px; max-height: 300px; overflow-y: auto; border: 1px solid var(--el-border-color); border-radius: 4px; padding: 15px; background-color: var(--el-fill-color-blank);">
+                          <div v-for="day in getUniqueDays()" :key="day" style="flex: 1; min-width: 200px; border: 1px solid var(--el-border-color); border-radius: 4px; padding: 10px; background-color: var(--el-fill-color-light);">
+                            <div style="margin-bottom: 10px; font-weight: bold; color: var(--el-text-color-primary); border-bottom: 1px solid var(--el-border-color-light); padding-bottom: 8px; font-size: 16px;">
                               {{ day }}
                             </div>
                             <div style="display: flex; flex-direction: column; gap: 8px;">
                               <div v-for="slot in getSlotsByDay(day)" :key="slot.id" style="display: flex; align-items: center;">
                                 <el-checkbox :label="slot.id" :disabled="classTypeInfo?.class_type === 'fixed'">
-                                  <span style="margin-left: 8px; font-size: 14px; color: #cccccc;">
+                                  <span style="margin-left: 8px; font-size: 14px; color: var(--el-text-color-regular);">
                                     {{ slot.start_time }}-{{ slot.end_time }}
                                   </span>
                                 </el-checkbox>

@@ -164,6 +164,14 @@ class Settings(BaseSettings):
     REQUEST_LIMITER_REDIS_PREFIX: str = 'fastapiadmin:request_limiter:'
 
     # ================================================= #
+    # ******************* 微信OAuth配置 ****************** #
+    # ================================================= #
+    WECHAT_OAUTH_ENABLE: bool = True                        # 是否启用微信OAuth登录
+    WECHAT_APPID: str = ''                                  # 微信开放平台APPID
+    WECHAT_APPSECRET: str = ''                              # 微信开放平台APPSECRET
+    WECHAT_REDIRECT_URI: str = 'http://localhost:5180/web'  # 微信OAuth回调地址
+
+    # ================================================= #
     # ******************* 重构配置 ******************* #
     # ================================================= #
     @property

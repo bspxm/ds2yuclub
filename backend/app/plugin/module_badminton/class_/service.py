@@ -57,25 +57,68 @@ class ClassService:
             search_dict = vars(search)
         else:
             search_dict = search or {}
-        
+
         order_by_list = order_by or [{'id': 'asc'}]
         offset = (page_no - 1) * page_size
 
+        # 不使用 out_schema，直接获取原始对象以避免加载过多关联数据
         result = await ClassCRUD(auth).page_crud(
             offset=offset,
             limit=page_size,
             order_by=order_by_list,
             search=search_dict,
             preload=["semester", "coach_user"],
-            out_schema=ClassOutSchema
+            out_schema=None
         )
-        
-        return PaginatedResponse(
-            total=result["total"],
-            page_no=page_no,
-            page_size=page_size,
-            items=result["items"]
-        ).model_dump()
+
+        # 手动构建返回数据，只包含必要的字段
+        items = []
+        for class_obj in result["items"]:
+            item = {
+                'id': class_obj.id,
+                'uuid': class_obj.uuid,
+                'semester_id': class_obj.semester_id,
+                'name': class_obj.name,
+                'class_type': class_obj.class_type.value if class_obj.class_type else None,
+                'coach_id': class_obj.coach_id,
+                'total_sessions': class_obj.total_sessions,
+                'session_duration': class_obj.session_duration,
+                'session_price': class_obj.session_price,
+                'max_students': class_obj.max_students,
+                'min_students': class_obj.min_students,
+                'current_students': class_obj.current_students,
+                'start_date': class_obj.start_date.isoformat() if class_obj.start_date else None,
+                'end_date': class_obj.end_date.isoformat() if class_obj.end_date else None,
+                'weekly_schedule': class_obj.weekly_schedule,
+                'time_slots_json': class_obj.time_slots_json,
+                'location': class_obj.location,
+                'class_status': class_obj.class_status.value if class_obj.class_status else None,
+                'is_active': class_obj.is_active,
+                'enrollment_open': class_obj.enrollment_open,
+                'fee_per_session': class_obj.fee_per_session,
+                'description': class_obj.description,
+                'notes': class_obj.notes,
+                'status': class_obj.status,
+                'created_time': class_obj.created_time.isoformat() if class_obj.created_time else None,
+                'updated_time': class_obj.updated_time.isoformat() if class_obj.updated_time else None,
+                # 关联对象
+                'semester': {
+                    'id': class_obj.semester.id,
+                    'name': class_obj.semester.name
+                } if class_obj.semester else None,
+                'coach_user': {
+                    'id': class_obj.coach_user.id,
+                    'name': class_obj.coach_user.name
+                } if class_obj.coach_user else None,
+            }
+            items.append(item)
+
+        return {
+            "total": result["total"],
+            "page_no": page_no,
+            "page_size": page_size,
+            "items": items
+        }
 
     @classmethod
     async def create_service(cls, auth: AuthSchema, data: ClassCreateSchema) -> dict:
@@ -125,21 +168,25 @@ class ClassService:
         return [ClassOutSchema.model_validate(class_obj).model_dump() for class_obj in classes]
 
     @classmethod
-    async def get_available_time_slots(cls, auth: AuthSchema, class_id: int) -> dict:
+    async def get_available_time_slots(cls, auth: AuthSchema, class_id: int, day_of_week: int | None = None) -> dict:
         """
         获取班级可用时间段
 
         根据班级类型返回不同的时间段：
         - 固定班（FIXED）：返回该班级每周固定的上课时间段，这些时间段会重复total_sessions次
         - 自选天（FLEXIBLE）：返回该班级所有可选时间段，学员需要从中选择每周课次数量（不是总课时数）
+        
+        如果指定了 day_of_week（星期几，0=周日，1=周一，...，6=周六），则只返回该星期的可用时间段
 
         Args:
             auth: 认证信息
             class_id: 班级ID
+            day_of_week: 星期几（可选，0=周日，1=周一，...，6=周六）
 
         Returns:
             dict: 包含班级信息、类型和可用时间段的字典
         """
+        logger.info(f"Service接收参数: class_id={class_id}, day_of_week={day_of_week}")
         # 获取班级信息
         class_obj = await ClassCRUD(auth).get_by_id_crud(
             id=class_id,
@@ -155,6 +202,7 @@ class ClassService:
         if class_obj.time_slots_json:
             try:
                 time_slots_config = json.loads(class_obj.time_slots_json)
+                logger.info(f"解析time_slots_json: {time_slots_config}")
                 
                 # 定义星期映射
                 day_names = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
@@ -168,15 +216,38 @@ class ClassService:
                     'E': '18:00-19:30'
                 }
                 
+                # 定义时间段ID映射
+                time_slot_ids = {
+                    'A': 1,
+                    'B': 2,
+                    'C': 3,
+                    'D': 4,
+                    'E': 5
+                }
+                
+                logger.info(f"筛选时间段 - day_of_week={day_of_week}, time_slots_config={time_slots_config}")
+                
                 # 遍历每一天的时间段配置
-                slot_id = 1
                 for day, slots in time_slots_config.items():
-                    if slots:  # 如果该天有可选时间段
+                    # 如果指定了 day_of_week，只处理该星期
+                    if day_of_week is not None:
                         day_index = day_names.index(day) if day in day_names else 0
+                        logger.info(f"检查星期: day={day}, day_index={day_index}, day_of_week={day_of_week}, 匹配: {day_index == day_of_week}")
+                        if day_index != day_of_week:
+                            logger.info(f"跳过: day_index({day_index}) != day_of_week({day_of_week})")
+                            continue
+                        else:
+                            logger.info(f"匹配成功: day={day}, day_index={day_index}")
+                    
+                    if slots:  # 如果该天有可选时间段
                         for slot_code in slots:
                             if slot_code in time_slot_names:
                                 time_range = time_slot_names[slot_code]
                                 start_time, end_time = time_range.split('-')
+                                day_index = day_names.index(day) if day in day_names else 0
+                                # 生成唯一ID：使用 day_index * 10 + slot_id 的方式
+                                # 例如：周六A = 6*10 + 1 = 61, 周日A = 0*10 + 1 = 1
+                                slot_id = day_index * 10 + time_slot_ids[slot_code]
                                 
                                 time_slots.append({
                                     "id": slot_id,
@@ -190,7 +261,6 @@ class ClassService:
                                     "location": class_obj.location,
                                     "display_text": f"{day} {time_range}"
                                 })
-                                slot_id += 1
                                 
             except json.JSONDecodeError:
                 # 如果JSON解析失败，返回空列表
@@ -211,5 +281,7 @@ class ClassService:
             "time_slots": time_slots,
             "class_type_display": "固定天训练" if class_obj.class_type and class_obj.class_type.value == "fixed" else "自选天训练"
         }
+
+        logger.info(f"获取班级可用时间段成功：班级ID={class_id}, 星期几={day_of_week}, 时间段数={len(time_slots)}")
 
         return result

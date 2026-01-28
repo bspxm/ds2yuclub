@@ -16,10 +16,10 @@ from app.core.logger import logger
 from .model import *
 from .crud import *
 from ..class_.schema import (
-    ClassScheduleCreateSchema,
-    ClassScheduleUpdateSchema,
+    ClassScheduleCreateV2Schema,
     ClassScheduleOutSchema,
-    ClassScheduleQueryParam
+    ClassScheduleQueryParam,
+    AvailableStudentSchema
 )
 from app.common.response import PaginatedResponse
 from ..response import SimpleResponse
@@ -62,43 +62,80 @@ class ClassScheduleService:
             search_dict = vars(search)
         else:
             search_dict = search or {}
-        
+
         order_by_list = order_by or [{'id': 'asc'}]
         offset = (page_no - 1) * page_size
 
+        # 不使用 out_schema，直接获取原始对象以避免加载过多关联数据
         result = await ClassScheduleCRUD(auth).page_crud(
             offset=offset,
             limit=page_size,
             order_by=order_by_list,
             search=search_dict,
-            preload=["class_ref", "coach_user"],
-            out_schema=ClassScheduleOutSchema
+            preload=["class_ref", "coach_user", "attendance_records"],
+            out_schema=None
         )
-        
-        return PaginatedResponse(
-            total=result["total"],
-            page_no=page_no,
-            page_size=page_size,
-            items=result["items"]
-        ).model_dump()
+
+        # 手动构建返回数据，只包含必要的字段
+        items = []
+        for schedule in result["items"]:
+            # 计算学员数（从考勤记录中统计）
+            student_count = 0
+            if hasattr(schedule, 'attendance_records') and schedule.attendance_records:
+                student_count = len(schedule.attendance_records)
+            
+            item = {
+                'id': schedule.id,
+                'uuid': schedule.uuid,
+                'class_id': schedule.class_id,
+                'schedule_date': schedule.schedule_date.isoformat() if schedule.schedule_date else None,
+                'day_of_week': schedule.day_of_week,
+                'time_slot_id': schedule.time_slot_id,
+                'start_time': schedule.start_time.isoformat() if schedule.start_time else None,
+                'end_time': schedule.end_time.isoformat() if schedule.end_time else None,
+                'duration_minutes': schedule.duration_minutes,
+                'schedule_type': schedule.schedule_type.value if schedule.schedule_type else None,
+                'schedule_status': schedule.schedule_status.value if schedule.schedule_status else None,
+                'coach_id': schedule.coach_id,
+                'coach_confirmed': schedule.coach_confirmed,
+                'coach_confirm_at': schedule.coach_confirm_at.isoformat() if schedule.coach_confirm_at else None,
+                'court_number': schedule.court_number,
+                'location': schedule.location,
+                'topic': schedule.topic,
+                'content_summary': schedule.content_summary,
+                'training_focus': schedule.training_focus,
+                'equipment_needed': schedule.equipment_needed,
+                'is_published': schedule.is_published,
+                'published_at': schedule.published_at.isoformat() if schedule.published_at else None,
+                'is_auto_generated': schedule.is_auto_generated,
+                'original_schedule_id': schedule.original_schedule_id,
+                'makeup_for_schedule_id': schedule.makeup_for_schedule_id,
+                'notes': schedule.notes,
+                'status': schedule.status,
+                'created_time': schedule.created_time.isoformat() if schedule.created_time else None,
+                'updated_time': schedule.updated_time.isoformat() if schedule.updated_time else None,
+                'student_count': student_count,
+                # 关联对象
+                'class': {
+                    'id': schedule.class_ref.id,
+                    'name': schedule.class_ref.name
+                } if schedule.class_ref else None,
+                'coach': {
+                    'id': schedule.coach_user.id,
+                    'name': schedule.coach_user.name
+                } if schedule.coach_user else None,
+            }
+            items.append(item)
+
+        return {
+            "total": result["total"],
+            "page_no": page_no,
+            "page_size": page_size,
+            "items": items
+        }
 
     @classmethod
-    async def create_service(cls, auth: AuthSchema, data: ClassScheduleCreateSchema) -> dict:
-        """创建排课记录"""
-        # 检查排课时间是否冲突（同一班级、同一时间）
-        # TODO: 实现时间冲突检查
-        
-        schedule = await ClassScheduleCRUD(auth).create_crud(data=data)
-        if not schedule:
-            raise CustomException(msg="创建排课记录失败")
-        return SimpleResponse(
-            success=True,
-            message="排课记录创建成功",
-            data=ClassScheduleOutSchema.model_validate(schedule).model_dump()
-        ).model_dump()
-
-    @classmethod
-    async def update_service(cls, auth: AuthSchema, schedule_id: int, data: ClassScheduleUpdateSchema) -> dict:
+    async def update_service(cls, auth: AuthSchema, schedule_id: int, data: ClassScheduleCreateV2Schema) -> dict:
         """更新排课记录"""
         schedule = await ClassScheduleCRUD(auth).update_crud(id=schedule_id, data=data)
         if not schedule:
@@ -140,19 +177,25 @@ class ClassScheduleService:
             raise CustomException(msg="原排课记录不存在")
 
         # 计算下周同一时间
-        if original_schedule.schedule_date and original_schedule.start_time:
+        if original_schedule.schedule_date:
             original_date = original_schedule.schedule_date
             next_week_date = original_date + timedelta(days=7)
 
+            # 准备时间段ID列表
+            time_slot_ids = []
+            if original_schedule.time_slot_id:
+                time_slot_ids = [original_schedule.time_slot_id]
+
             # 创建新的排课记录（补课）
-            new_schedule_data = ClassScheduleCreateSchema(
-                class_id=original_schedule.class_id,
+            new_schedule_data = ClassScheduleCreateV2Schema(
+                semester_id=original_schedule.class_ref.semester_id if original_schedule.class_ref else 1,
                 schedule_date=next_week_date,
-                start_time=original_schedule.start_time,
-                end_time=original_schedule.end_time,
+                class_ids=[original_schedule.class_id],
+                coach_id=original_schedule.coach_id,
+                time_slot_ids=time_slot_ids,
                 schedule_status=ScheduleStatusEnum.SCHEDULED,
-                is_makeup=True,  # 标记为补课
-                original_schedule_id=schedule_id,  # 关联原排课记录
+                schedule_type=ScheduleTypeEnum.MAKEUP,
+                student_ids=[student_id],
                 notes=f"学员ID:{student_id}请假自动顺延补课"
             )
 
@@ -169,3 +212,413 @@ class ClassScheduleService:
             ).model_dump()
         else:
             raise CustomException(msg="原排课记录缺少日期或时间信息")
+
+    @classmethod
+    async def get_available_students_service(cls, auth: AuthSchema, semester_id: int,
+                                           schedule_date: date, time_slot_ids: list[int], 
+                                           class_ids: list[int] | None = None) -> list[dict]:
+        """
+        获取可用学员列表
+
+        筛选逻辑：
+        1. 查询指定班级（如果未提供则查询该学期下所有班级）
+        2. 查询这些班级的购买记录
+        3. 筛选 selected_time_slots 包含任一 time_slot_id 的购买记录
+        4. 检查学员是否有剩余课时
+        5. 检查排课日期是否在购买记录的有效期内
+        6. 返回符合条件的学员列表
+
+        Args:
+            auth: 认证信息
+            semester_id: 学期ID
+            schedule_date: 排课日期
+            time_slot_ids: 时间段ID列表（1-65，格式：day_index*10+slot_id）
+            class_ids: 班级ID列表（可选，如果未提供则查询该学期下所有班级）
+
+        Returns:
+            list[dict]: 可用学员列表
+        """
+        import json
+        from app.plugin.module_badminton.class_.crud import ClassCRUD
+        from app.plugin.module_badminton.purchase.crud import PurchaseCRUD
+
+        # 1. 查询班级（如果未提供class_ids则查询该学期下所有班级）
+        if class_ids and len(class_ids) > 0:
+            # 查询指定班级
+            classes = await ClassCRUD(auth).list_crud(
+                search={"id": ("in", class_ids)}
+            )
+        else:
+            # 查询该学期下所有班级
+            classes = await ClassCRUD(auth).list_crud(
+                search={"semester_id": ("eq", semester_id)}
+            )
+        
+        if not classes:
+            return []
+
+        target_class_ids = [c.id for c in classes]
+
+        # 2. 查询这些班级的购买记录
+        purchases = await PurchaseCRUD(auth).list_crud(
+            search={"class_id": ("in", target_class_ids)},
+            preload=["student"]
+        )
+        if not purchases:
+            return []
+
+        available_students = []
+        day_names = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+        day_of_week = schedule_date.weekday()  # 0=周一, 6=周日
+        # 转换为中文星期名称
+        day_name = day_names[day_of_week]
+
+        for purchase in purchases:
+            # 3. 筛选 selected_time_slots 包含任一 time_slot_id 的购买记录
+            if not purchase.selected_time_slots:
+                continue
+
+            try:
+                selected_slots = json.loads(purchase.selected_time_slots)
+            except json.JSONDecodeError:
+                continue
+
+            # 检查是否有任一时间段在购买记录的时间段配置中
+            has_matching_slot = any(slot_id in selected_slots for slot_id in time_slot_ids)
+            
+            # 添加调试日志
+            if purchase.student:
+                logger.info(f"检查学员: {purchase.student.name}, 购买记录selected_time_slots: {selected_slots}, 查询time_slot_ids: {time_slot_ids}, 匹配: {has_matching_slot}, 剩余课时: {purchase.remaining_sessions}, 有效期: {purchase.valid_from} ~ {purchase.valid_until}")
+            
+            if not has_matching_slot:
+                continue
+
+            # 4. 检查学员是否有剩余课时
+            if purchase.remaining_sessions <= 0:
+                logger.info(f"学员 {purchase.student.name} 剩余课时不足: {purchase.remaining_sessions}")
+                continue
+
+            # 5. 检查排课日期是否在购买记录的有效期内
+            if not (purchase.valid_from <= schedule_date <= purchase.valid_until):
+                logger.info(f"学员 {purchase.student.name} 排课日期不在有效期内: {schedule_date} 不在 {purchase.valid_from} ~ {purchase.valid_until} 之间")
+                continue
+
+            # 添加到可用学员列表
+            student = purchase.student
+            available_students.append(AvailableStudentSchema(
+                id=student.id,
+                uuid=student.uuid,
+                name=student.name,
+                student_name=student.name,  # 添加别名字段，用于前端显示
+                english_name=student.english_name,
+                gender=student.gender.value if student.gender else None,
+                birth_date=student.birth_date.isoformat() if student.birth_date else None,
+                level=student.level,
+                group_name=student.group_name,
+                total_sessions=purchase.total_sessions,
+                used_sessions=purchase.used_sessions,
+                remaining_sessions=purchase.remaining_sessions,
+                purchase_id=purchase.id,
+                valid_from=purchase.valid_from.isoformat(),
+                valid_until=purchase.valid_until.isoformat()
+            ).model_dump())
+
+        logger.info(f"获取可用学员列表：学期ID={semester_id}, 日期={schedule_date}, 时间段ID={time_slot_ids}, 班级ID={class_ids if class_ids else '全部'}, 学员数={len(available_students)}")
+
+        return available_students
+
+    @classmethod
+    async def auto_create_attendance_service(cls, auth: AuthSchema, schedule_id: int, 
+                                           student_ids: list[int]) -> int:
+        """
+        为排课记录自动创建考勤记录
+
+        逻辑：
+        1. 获取排课记录信息
+        2. 获取班级的时间段配置
+        3. 根据 time_slot_id 获取时间段信息
+        4. 为每个学员查找对应的购买记录
+        5. 创建考勤记录（默认状态：PRESENT）
+        6. 自动扣减课时
+
+        Args:
+            auth: 认证信息
+            schedule_id: 排课记录ID
+            student_ids: 学员ID列表
+
+        Returns:
+            int: 创建的考勤记录数量
+        """
+        import json
+        from datetime import time
+        from app.plugin.module_badminton.attendance.crud import AttendanceCRUD
+        from app.plugin.module_badminton.attendance.model import AttendanceStatusEnum
+        from app.plugin.module_badminton.attendance.schema import ClassAttendanceCreateSchema
+        from app.plugin.module_badminton.purchase.crud import PurchaseCRUD
+        from app.plugin.module_badminton.schedule.model import ClassScheduleModel
+
+        # 1. 获取排课记录
+        schedule = await ClassScheduleCRUD(auth).get_by_id_crud(
+            id=schedule_id,
+            preload=["class_ref"]
+        )
+        if not schedule:
+            raise CustomException(msg="排课记录不存在")
+
+        # 2. 获取班级的时间段配置
+        class_obj = schedule.class_ref
+        if not class_obj or not class_obj.time_slots_json:
+            raise CustomException(msg="班级时间段配置不存在")
+
+        # 3. 根据 time_slot_id 获取时间段信息
+        time_slots_config = json.loads(class_obj.time_slots_json)
+        
+        # 时间段映射（时间 -> 时长）
+        time_slot_duration_map = {
+            'A': 90,   # 08:00-09:30
+            'B': 90,   # 09:30-11:00
+            'C': 90,   # 14:00-15:30
+            'D': 90,   # 15:30-17:00
+            'E': 90    # 18:00-19:30
+        }
+
+        # 时间段映射（ID -> 代码）
+        time_slot_code_map = {
+            1: 'A',
+            2: 'B',
+            3: 'C',
+            4: 'D',
+            5: 'E'
+        }
+
+        if schedule.time_slot_id not in time_slot_code_map:
+            raise CustomException(msg=f"无效的时间段ID: {schedule.time_slot_id}")
+
+        time_slot_code = time_slot_code_map[schedule.time_slot_id]
+        
+        # 获取星期几
+        day_names = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+        day_name = day_names[schedule.schedule_date.weekday()]
+
+        # 从配置中获取时间段信息
+        if day_name not in time_slots_config or time_slot_code not in time_slots_config[day_name]:
+            raise CustomException(msg=f"班级配置中未找到 {day_name} 的 {time_slot_code} 时间段")
+
+        # 解析时间段配置（格式：{"周一": {"A": {"start": "08:00", "end": "09:30"}}}）
+        time_slot_info = time_slots_config[day_name][time_slot_code]
+        start_time_str = time_slot_info.get('start', '08:00')
+        end_time_str = time_slot_info.get('end', '09:30')
+        duration_minutes = time_slot_duration_map.get(time_slot_code, 90)
+
+        # 转换为time对象
+        start_time = datetime.strptime(start_time_str, '%H:%M').time()
+        end_time = datetime.strptime(end_time_str, '%H:%M').time()
+
+        created_count = 0
+
+        # 4. 为每个学员创建考勤记录
+        for student_id in student_ids:
+            # 查找学员的购买记录
+            purchases = await PurchaseCRUD(auth).list_crud(
+                search={
+                    "student_id": ("eq", student_id),
+                    "class_id": ("eq", schedule.class_id)
+                }
+            )
+            
+            if not purchases:
+                logger.warning(f"学员{student_id}没有购买班级{schedule.class_id}的课时包")
+                continue
+
+            # 使用最近购买的课时包
+            purchase = purchases[0]
+
+            # 检查是否有剩余课时
+            if purchase.remaining_sessions <= 0:
+                logger.warning(f"学员{student_id}的课时包{purchase.id}没有剩余课时")
+                continue
+
+            # 5. 创建考勤记录
+            attendance_data = ClassAttendanceCreateSchema(
+                student_id=student_id,
+                class_id=schedule.class_id,
+                schedule_id=schedule_id,
+                purchase_id=purchase.id,
+                attendance_date=schedule.schedule_date,
+                start_time=start_time,
+                end_time=end_time,
+                duration_minutes=duration_minutes,
+                attendance_status=AttendanceStatusEnum.PRESENT,
+                session_deducted=1,
+                is_auto_deduct=True,
+                coach_id=schedule.coach_id
+            )
+
+            attendance = await AttendanceCRUD(auth).create_crud(data=attendance_data)
+            if attendance:
+                created_count += 1
+                
+                # 6. 自动扣减课时
+                await PurchaseCRUD(auth).update_crud(
+                    id=purchase.id,
+                    data={
+                        "used_sessions": purchase.used_sessions + 1,
+                        "remaining_sessions": purchase.remaining_sessions - 1
+                    }
+                )
+                
+                logger.info(f"为学员{student_id}创建考勤记录成功，已扣减1课时")
+
+        logger.info(f"自动创建考勤记录完成：排课ID={schedule_id}, 学员数={len(student_ids)}, 成功={created_count}")
+
+        return created_count
+
+    @classmethod
+    async def create_v2_service(cls, auth: AuthSchema, data: ClassScheduleCreateV2Schema) -> dict:
+        """
+        创建排课记录（V2版本）- 支持学员选择和自动创建考勤，支持时间段多选
+
+        流程：
+        1. 验证数据（学期、班级、教练、日期）
+        2. 为每个时间段创建一条排课记录
+        3. 为每个排课记录自动为选中的学员创建考勤记录
+        4. 返回所有创建的排课记录
+
+        Args:
+            auth: 认证信息
+            data: 排课创建数据（V2版本）
+
+        Returns:
+            dict: 创建结果
+        """
+        from app.plugin.module_badminton.semester.crud import SemesterCRUD
+        from app.plugin.module_badminton.class_.crud import ClassCRUD
+        from datetime import datetime
+
+        # 1. 验证学期
+        semester = await SemesterCRUD(auth).get_by_id_crud(id=data.semester_id)
+        if not semester:
+            raise CustomException(msg="学期不存在")
+
+        # 验证排课日期是否在学期范围内
+        if not (semester.start_date <= data.schedule_date <= semester.end_date):
+            raise CustomException(msg=f"排课日期必须在学期范围内（{semester.start_date} 至 {semester.end_date}）")
+
+        # 2. 验证班级
+        if not data.class_ids or len(data.class_ids) == 0:
+            raise CustomException(msg="请至少选择一个班级")
+        
+        # 验证所有班级是否存在且属于该学期
+        valid_class_ids = []
+        for class_id in data.class_ids:
+            class_obj = await ClassCRUD(auth).get_by_id_crud(id=class_id)
+            if not class_obj:
+                raise CustomException(msg=f"班级ID {class_id} 不存在")
+            if class_obj.semester_id != data.semester_id:
+                raise CustomException(msg=f"班级ID {class_id} 不属于所选学期")
+            valid_class_ids.append(class_id)
+
+        # 3. 验证教练
+        from app.api.v1.module_system.user.crud import UserCRUD
+        coach = await UserCRUD(auth).get_by_id_crud(id=data.coach_id)
+        if not coach:
+            raise CustomException(msg="教练不存在")
+
+        # 4. 验证时间段列表
+        if not data.time_slot_ids or len(data.time_slot_ids) == 0:
+            raise CustomException(msg="请至少选择一个时间段")
+
+        # 5. 计算星期几
+        day_of_week = data.schedule_date.weekday()  # 0=周一, 6=周日
+
+        # 时间段配置（与前端保持一致）
+        TIME_SLOTS = {
+            1: {'start': '08:00', 'end': '09:30', 'duration': 90},
+            2: {'start': '09:30', 'end': '11:00', 'duration': 90},
+            3: {'start': '14:00', 'end': '15:30', 'duration': 90},
+            4: {'start': '15:30', 'end': '17:00', 'duration': 90},
+            5: {'start': '18:00', 'end': '19:30', 'duration': 90},
+        }
+
+        # 6. 为每个班级的每个时间段创建排课记录
+        created_schedules = []
+        total_attendance_count = 0
+
+        for class_id in valid_class_ids:
+            for time_slot_id in data.time_slot_ids:
+                # 解析time_slot_id：day_index * 10 + slot_id
+                day_index = time_slot_id // 10
+                slot_id = time_slot_id % 10
+
+                # 获取时间段配置
+                time_slot = TIME_SLOTS.get(slot_id)
+                if not time_slot:
+                    raise CustomException(msg=f"无效的时间段ID：{time_slot_id}")
+
+                # 转换为time对象
+                start_time_obj = datetime.strptime(time_slot['start'], '%H:%M').time()
+                end_time_obj = datetime.strptime(time_slot['end'], '%H:%M').time()
+
+                # 准备排课数据
+                schedule_data = {
+                    "class_id": class_id,
+                    "schedule_date": data.schedule_date,
+                    "day_of_week": day_of_week,
+                    "time_slot_id": time_slot_id,
+                    "start_time": start_time_obj,
+                    "end_time": end_time_obj,
+                    "duration_minutes": time_slot['duration'],
+                    "schedule_type": data.schedule_type.value if hasattr(data.schedule_type, 'value') else data.schedule_type,
+                    "schedule_status": data.schedule_status.value if hasattr(data.schedule_status, 'value') else data.schedule_status,
+                    "coach_id": data.coach_id,
+                    "location": data.location,
+                    "topic": data.topic,
+                    "content_summary": data.content_summary,
+                    "training_focus": data.training_focus,
+                    "equipment_needed": data.equipment_needed,
+                    "notes": data.notes
+                }
+
+                # 创建排课记录
+                schedule = await ClassScheduleCRUD(auth).create_crud(data=schedule_data)
+                if not schedule:
+                    raise CustomException(msg=f"创建排课记录失败（班级ID={class_id}, 时间段ID={time_slot_id}）")
+
+                logger.info(f"创建排课记录成功（V2版本）：排课ID={schedule.id}, 班级ID={class_id}, 日期={data.schedule_date}, 时间段ID={time_slot_id}")
+
+                # 自动为选中的学员创建考勤记录
+                if data.student_ids:
+                    try:
+                        created_attendance_count = await cls.auto_create_attendance_service(
+                            auth=auth,
+                            schedule_id=schedule.id,
+                            student_ids=data.student_ids
+                        )
+                        total_attendance_count += created_attendance_count
+                        logger.info(f"排课ID={schedule.id}：自动创建考勤记录 {created_attendance_count}/{len(data.student_ids)}")
+                    except Exception as e:
+                        logger.error(f"排课ID={schedule.id}：自动创建考勤记录失败：{str(e)}")
+                        # 考勤创建失败不影响排课记录创建
+
+                created_schedules.append({
+                    "id": schedule.id,
+                    "schedule_date": schedule.schedule_date.isoformat(),
+                    "class_id": schedule.class_id,
+                    "coach_id": schedule.coach_id,
+                    "time_slot_id": schedule.time_slot_id,
+                    "schedule_status": schedule.schedule_status.value,
+                    "created_at": schedule.created_time.isoformat() if schedule.created_time else None
+                })
+
+        # 7. 返回结果
+        result = {
+            "count": len(created_schedules),
+            "schedules": created_schedules,
+            "total_attendance_count": total_attendance_count
+        }
+
+        return SimpleResponse(
+            success=True,
+            message=f"成功创建 {len(created_schedules)} 条排课记录",
+            data=result
+        ).model_dump()

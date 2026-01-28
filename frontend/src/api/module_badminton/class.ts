@@ -55,11 +55,12 @@ const ClassAPI = {
     });
   },
 
-  // 获取班级可用时间段
-  getAvailableTimeSlots(class_id: number) {
-    return request<ApiResponse<AvailableTimeSlotsResponse>>({
-      url: `${API_PATH}/${class_id}/available-time-slots`,
+// 获取班级可用时间段
+  getAvailableTimeSlots(classId: number, dayOfWeek?: number) {
+    return request<ApiResponse<any>>({
+      url: `${API_PATH}/${classId}/available-time-slots`,
       method: "get",
+      params: dayOfWeek !== undefined ? { day_of_week: dayOfWeek } : {},
     });
   },
 };

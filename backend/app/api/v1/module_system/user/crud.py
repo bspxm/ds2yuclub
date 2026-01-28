@@ -72,6 +72,41 @@ class UserCRUD(CRUDBase[UserModel, UserCreateSchema, UserUpdateSchema]):
             mobile=mobile,
         )
 
+    async def get_by_wx_login_crud(self, wx_login: str, preload: list[str | Any] | None = None) -> UserModel | None:
+        """
+        根据微信OpenID获取用户信息
+
+        参数:
+        - wx_login (str): 微信OpenID
+        - preload (list[str | Any] | None): 预加载关系，未提供时使用模型默认项
+
+        返回:
+        - UserModel | None: 用户信息,如果不存在则为None
+        """
+        return await self.get(
+            preload=preload,
+            wx_login=wx_login,
+        )
+
+    async def assign_role_crud(self, user_id: int, role_id: int) -> None:
+        """
+        为用户分配角色
+
+        参数:
+        - user_id (int): 用户ID
+        - role_id (int): 角色ID
+
+        返回:
+        - None:
+        """
+        user_obj = await self.get_by_id_crud(id=user_id)
+        role_obj = await RoleCRUD(self.auth).get_by_id_crud(id=role_id)
+
+        if user_obj and role_obj:
+            relationship = user_obj.roles
+            relationship.append(role_obj)
+            await self.auth.db.flush()
+
     async def get_list_crud(self, search: dict | None = None, order_by: list[dict[str, str]] | None = None, preload: list[str | Any] | None = None) -> Sequence[UserModel]:
         """
         获取用户列表

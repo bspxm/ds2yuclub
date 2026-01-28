@@ -5,6 +5,8 @@ student模块 - Service服务层
 from datetime import date, datetime, timedelta
 from typing import Optional, List, Dict, Any
 
+from pydantic import BaseModel, ConfigDict
+
 from sqlalchemy.orm import Session
 
 from app.api.v1.module_system.user.service import UserService
@@ -21,6 +23,15 @@ from ..response import SimpleResponse
 
 from app.api.v1.module_system.auth.schema import AuthSchema
 from app.core.base_schema import BatchSetAvailable
+
+# ============================================================================
+# 临时 Schema 用于处理 out_schema=None 的情况
+# ============================================================================
+
+class SimpleOutSchema(BaseModel):
+    """简单的输出Schema，只包含id字段"""
+    model_config = ConfigDict(from_attributes=True)
+    id: int
 
 # ============================================================================
 # 学员管理服务
@@ -63,21 +74,51 @@ class StudentService:
         order_by_list = order_by or [{'id': 'asc'}]
         offset = (page_no - 1) * page_size
 
+        # 不使用 out_schema，直接获取原始对象
         result = await StudentCRUD(auth).page_crud(
             offset=offset,
             limit=page_size,
             order_by=order_by_list,
             search=search_dict,
             preload=["parents"],
-            out_schema=StudentOutSchema
+            out_schema=None
         )
-        
-        return PaginatedResponse(
-            total=result["total"],
-            page_no=page_no,
-            page_size=page_size,
-            items=result["items"]
-        ).model_dump()
+
+        # 手动构建返回数据，避免 Pydantic 自动访问懒加载属性
+        items = []
+        for student in result["items"]:
+            item = {
+                'id': student.id,
+                'uuid': student.uuid,
+                'name': student.name,
+                'english_name': student.english_name,
+                'gender': student.gender.value if student.gender else None,
+                'birth_date': student.birth_date.isoformat() if student.birth_date else None,
+                'height': student.height,
+                'weight': student.weight,
+                'handedness': student.handedness.value if student.handedness else None,
+                'join_date': student.join_date.isoformat() if student.join_date else None,
+                'level': student.level,
+                'group_name': student.group_name,
+                'campus': student.campus,
+                'contact': student.contact,
+                'mobile': student.mobile,
+                'total_matches': student.total_matches,
+                'wins': student.wins,
+                'losses': student.losses,
+                'win_rate': student.win_rate,
+                'status': student.status,
+                'created_time': student.created_time.isoformat() if student.created_time else None,
+                'updated_time': student.updated_time.isoformat() if student.updated_time else None,
+            }
+            items.append(item)
+
+        return {
+            "total": result["total"],
+            "page_no": page_no,
+            "page_size": page_size,
+            "items": items
+        }
 
     @classmethod
     async def create_service(cls, auth: AuthSchema, data: StudentCreateSchema) -> dict:

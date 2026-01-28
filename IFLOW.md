@@ -13,15 +13,70 @@
 - 🧱 **模块化设计**: 高度解耦的系统架构，便于扩展和维护
 - 🌐 **全栈支持**: Web端 + 移动端(H5) + 后端一体化解决方案
 - 🚀 **快速部署**: Docker 一键部署，支持生产环境快速上线
+- 🤖 **AI集成**: 内置 LangChain 支持 OpenAI 和 Anthropic 模型
+
+### 当前应用
+基于 FastApiAdmin 平台开发的 **羽毛球培训会员管理系统**，实现了学员管理、班级管理、课程排班、购买记录、考勤管理、比赛管理、能力评估、分组管理等核心业务功能。系统采用学期制课时结算模式，支持固定班和自选天两种班级类型。
 
 ## 项目结构
 
 ```
 FastapiAdmin/
 ├── backend/               # 后端工程 (FastAPI + Python)
+│   ├── app/
+│   │   ├── plugin/       # 插件模块目录
+│   │   │   ├── module_application/  # 应用模块
+│   │   │   ├── module_badminton/  # 羽毛球培训业务模块 (自动映射为 /badminton)
+│   │   │   │   ├── assessment/   # 能力评估
+│   │   │   │   ├── attendance/    # 出勤管理
+│   │   │   │   ├── auth/          # 认证系统
+│   │   │   │   ├── class_/        # 班级管理
+│   │   │   │   ├── course/        # 课程管理
+│   │   │   │   ├── group/         # 能力分组
+│   │   │   │   ├── leave/         # 请假管理
+│   │   │   │   ├── purchase/      # 购买记录
+│   │   │   │   ├── schedule/      # 课程调度
+│   │   │   │   ├── semester/      # 学期管理
+│   │   │   │   ├── student/       # 学员管理
+│   │   │   │   └── tournament/    # 比赛管理
+│   │   │   ├── module_example/    # 示例模块
+│   │   │   └── module_generator/  # 代码生成模块
+│   │   └── ...
+│   ├── env/               # 环境配置
+│   ├── sql/               # 数据库SQL文件
+│   ├── logs/              # 日志文件
+│   ├── main.py            # 主程序入口
+│   ├── requirements.txt   # Python依赖 (pip)
+│   ├── pyproject.toml     # Python依赖 (uv)
+│   └── .python-version    # Python版本锁定
 ├── frontend/             # Web前端工程 (Vue3 + Element Plus)
+│   ├── src/
+│   │   ├── api/          # API调用模块
+│   │   ├── views/        # 页面组件
+│   │   │   └── module_badminton/  # 羽毛球业务页面
+│   │   │       ├── assessment/
+│   │   │       ├── class/
+│   │   │       ├── class-attendance/
+│   │   │       ├── class-schedule/
+│   │   │       ├── course/
+│   │   │       ├── group/
+│   │   │       ├── leave-request/
+│   │   │       ├── parent/
+│   │   │       ├── purchase/
+│   │   │       ├── semester/
+│   │   │       ├── student/
+│   │   │       └── tournament/
+│   │   └── ...
+│   ├── .env.development.example
+│   ├── .env.production.example
+│   ├── package.json
+│   └── pnpm-lock.yaml
 ├── devops/               # 部署配置 (Docker, Nginx)
-├── docs/                 # 业务相关文档（如比赛规则等）
+├── docs/                 # 业务相关文档
+│   ├── 分组循环赛.md
+│   ├── 分组循环赛（纯小组赛）.md
+│   ├── 定区升降赛.md
+│   └── 小组单败制淘汰赛.md
 ├── docker-compose.yaml   # Docker编排文件
 ├── deploy.sh             # 一键部署脚本
 ├── LICENSE               # MIT开源协议
@@ -47,6 +102,7 @@ FastapiAdmin/
 - **API限流**: fastapi-limiter 0.1.6
 - **AI集成**: langchain 1.2.0 (支持 OpenAI, Anthropic)
 - **包管理器**: 支持 pip (requirements.txt) 和 uv (pyproject.toml + uv.lock)
+- **镜像源**: 清华大学镜像 (pypi.tuna.tsinghua.edu.cn/simple)
 
 ### 前端技术栈 (frontend/)
 - **框架**: Vue 3.5.17 + TypeScript 5.8.3
@@ -218,6 +274,24 @@ docker compose down
 ```
 backend/app/plugin/
 ├── module_application/  # 应用模块 (自动映射为 /application)
+├── module_badminton/   # 羽毛球培训业务模块 (自动映射为 /badminton)
+│   ├── assessment/       # 能力评估模块
+│   │   ├── controller.py
+│   │   ├── model.py
+│   │   ├── schema.py
+│   │   ├── service.py
+│   │   └── crud.py
+│   ├── attendance/        # 出勤管理模块
+│   ├── auth/             # 认证系统模块
+│   ├── class_/            # 班级管理模块
+│   ├── course/            # 课程管理模块
+│   ├── group/             # 能力分组模块
+│   ├── leave/             # 请假管理模块
+│   ├── purchase/          # 购买记录模块
+│   ├── schedule/          # 课程调度模块
+│   ├── semester/          # 学期管理模块
+│   ├── student/           # 学员管理模块
+│   └── tournament/        # 比赛管理模块
 ├── module_example/      # 示例模块 (自动映射为 /example)
 ├── module_generator/    # 代码生成模块 (自动映射为 /generator)
 └── init_app.py         # 插件初始化文件
@@ -228,6 +302,72 @@ backend/app/plugin/
 2. 路由自动映射：`module_xxx` → `/xxx`
 3. 支持多个 `APIRouter` 实例
 4. 自动处理路由去重
+
+### 羽毛球业务模块功能
+
+羽毛球培训管理系统包含以下核心功能模块：
+
+| 模块 | 功能描述 |
+|------|----------|
+| **学员管理** | 学员档案、家长关联、能力评估记录（9项能力评分） |
+| **班级管理** | 班级创建、状态管理、时间段配置、学期关联、固定班/自选天 |
+| **课程管理** | 课程信息、报班管理、课程调度 |
+| **购买记录** | 购买记录创建、批量创建、时间段选择（A-E五个时间段）、课时包/单次课支持 |
+| **学期管理** | 学期创建、状态管理、学期类型（常规/夏季/冬季/冬夏令营） |
+| **课程调度** | 课程排班、时间表管理、V2版本支持多时间段排课 |
+| **出勤管理** | 出勤记录、考勤统计、自动扣减课时 |
+| **请假管理** | 请假申请、审批流程 |
+| **能力评估** | 9项能力评分：手法、步法、战术、力量、速度、体能、进攻、防守、心理 |
+| **比赛管理** | 赛事创建、分组循环赛、定区升降赛、小组单败制淘汰赛 |
+| **能力分组** | 学员分组管理、教练分配、学员分组 |
+| **认证系统** | 用户名登录、手机号登录（已支持） |
+
+### 关键功能特性
+
+#### 排课管理 V2 (Class Schedule V2)
+**新增功能**:
+- 支持学期选择和日期选择
+- 左侧显示可用学员列表（基于时间段配置筛选）
+- 右侧表单包含：班级、教练、时间段、排课状态
+- 时间段支持多选（A-E五个时间段可选多个）
+- 学员支持多选
+- 自动为选中学员创建考勤记录
+- 自动扣减学员课时
+- 弹窗宽度优化为 1400px
+
+**技术实现**:
+- `ClassScheduleCreateV2Schema`: V2版本创建Schema，支持 `time_slot_ids: list[int]`
+- `get_available_students_service`: 根据时间段筛选可用学员
+- `create_v2_service`: 为每个时间段创建排课记录和考勤记录
+- 前端使用 Element Plus 多选下拉框和复选框组
+
+#### 购买记录时间段选择
+**功能特点**:
+- 单个新增和批量新增都支持时间段选择
+- 时间段按星期分组显示（周一到周日）
+- 固定班自动全选所有时间段，用户不可修改
+- 自选天需要手动选择，根据每周课次进行验证
+- 时间段配置存储在班级的 `time_slots_json` 字段中
+
+**时间段定义**:
+- A: 08:00-09:30 (90分钟)
+- B: 09:30-11:00 (90分钟)
+- C: 14:00-15:30 (90分钟)
+- D: 15:30-17:00 (90分钟)
+- E: 18:00-19:30 (90分钟)
+
+#### 能力分组系统
+**功能描述**:
+- 学员分组管理（AbilityGroupModel）
+- 教练-分组多对多关系（GroupCoachModel）
+- 学员-分组多对多关系（GroupStudentModel）
+- 支持分组创建、编辑、删除
+- 支持教练和学员的分组分配
+
+**技术特点**:
+- 使用 SQLAlchemy 的 relationship 实现多对多关系
+- 支持分组描述和备注
+- 级联删除和更新
 
 ### 代码生成器
 
@@ -373,6 +513,10 @@ backend/app/alembic/versions/
 - 安装 uv: `pip install uv`
 - 或直接使用 pip: `pip install -r requirements.txt`
 
+### 7. 路由冲突问题
+- 确保 `/class-schedules/available-students` 端点定义在 `/class-schedules/{id}` 端点之前
+- 避免动态路由参数与静态路由冲突
+
 ## 开发工作流
 
 ### 1. 功能开发流程
@@ -493,6 +637,6 @@ docker compose logs -f nginx
 
 ---
 
-*本文档最后更新: 2026-01-17*  
+*本文档最后更新: 2026-01-28*  
 *对应项目版本: FastApiAdmin v2.2.0*  
-*检测到项目变更: 新增 uv 包管理支持、Python 3.10 版本锁定、前端淘宝镜像配置*
+*检测到项目变更: 排课管理V2、时间段多选、弹窗宽度优化、购买记录时间段选择、能力分组系统*

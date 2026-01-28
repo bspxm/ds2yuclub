@@ -137,7 +137,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         except Exception as e:
             raise CustomException(msg=f"树形列表查询失败: {e!s}")
 
-    async def page(self, offset: int, limit: int, order_by: builtins.list[dict[str, str]], search: dict, out_schema: type[OutSchemaType], preload: builtins.list[str | Any] | None = None) -> dict:
+    async def page(self, offset: int, limit: int, order_by: builtins.list[dict[str, str]], search: dict, out_schema: type[OutSchemaType] | None = None, preload: builtins.list[str | Any] | None = None) -> dict:
         """
         获取分页数据
 
@@ -146,7 +146,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         - limit (int): 每页数量
         - order_by (List[Dict[str, str]]): 排序字段
         - search (Dict): 查询条件
-        - out_schema (Type[OutSchemaType]): 输出数据模型
+        - out_schema (Optional[Type[OutSchemaType]]): 输出数据模型，如果为 None 则直接返回对象
         - preload (Optional[List[Union[str, Any]]]): 预加载关系
 
         返回:
@@ -184,12 +184,18 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
             result: Result = await self.auth.db.execute(sql.offset(offset).limit(limit))
             objs = result.scalars().all()
 
+            # 根据 out_schema 是否为 None 决定如何处理 items
+            if out_schema is not None:
+                items = [out_schema.model_validate(obj).model_dump() for obj in objs]
+            else:
+                items = list(objs)
+
             return {
                 "page_no": offset // limit + 1 if limit else 1,
                 "page_size": limit or 10,
                 "total": total,
                 "has_next": offset + limit < total,
-                "items": [out_schema.model_validate(obj).model_dump() for obj in objs]
+                "items": items
             }
         except Exception as e:
             raise CustomException(msg=f"分页查询失败: {e!s}")

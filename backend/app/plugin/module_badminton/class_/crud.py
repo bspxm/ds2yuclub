@@ -13,9 +13,7 @@ from .schema import (
     ClassCreateSchema,
     ClassUpdateSchema,
     ClassAttendanceCreateSchema,
-    ClassAttendanceUpdateSchema,
-    ClassScheduleCreateSchema,
-    ClassScheduleUpdateSchema
+    ClassAttendanceUpdateSchema
 )
 
 # ============================================================================

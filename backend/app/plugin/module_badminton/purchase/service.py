@@ -57,25 +57,70 @@ class PurchaseService:
             search_dict = vars(search)
         else:
             search_dict = search or {}
-        
+
         order_by_list = order_by or [{'id': 'asc'}]
         offset = (page_no - 1) * page_size
 
+        # 不使用 out_schema，直接获取原始对象以避免加载过多关联数据
         result = await PurchaseCRUD(auth).page_crud(
             offset=offset,
             limit=page_size,
             order_by=order_by_list,
             search=search_dict,
             preload=["student", "class_ref", "semester"],
-            out_schema=PurchaseOutSchema
+            out_schema=None
         )
-        
-        return PaginatedResponse(
-            total=result["total"],
-            page_no=page_no,
-            page_size=page_size,
-            items=result["items"]
-        ).model_dump()
+
+        # 手动构建返回数据，只包含必要的字段
+        items = []
+        for purchase in result["items"]:
+            item = {
+                'id': purchase.id,
+                'uuid': purchase.uuid,
+                'student_id': purchase.student_id,
+                'class_id': purchase.class_id,
+                'semester_id': purchase.semester_id,
+                'purchase_date': purchase.purchase_date.isoformat() if purchase.purchase_date else None,
+                'total_sessions': purchase.total_sessions,
+                'used_sessions': purchase.used_sessions,
+                'remaining_sessions': purchase.remaining_sessions,
+                'carry_over_sessions': purchase.carry_over_sessions,
+                'credit_sessions': purchase.credit_sessions,
+                'valid_from': purchase.valid_from.isoformat() if purchase.valid_from else None,
+                'valid_until': purchase.valid_until.isoformat() if purchase.valid_until else None,
+                'status': purchase.status.value if purchase.status else None,
+                'is_settled': purchase.is_settled,
+                'settlement_date': purchase.settlement_date.isoformat() if purchase.settlement_date else None,
+                'original_price': purchase.original_price,
+                'actual_price': purchase.actual_price,
+                'discount_rate': purchase.discount_rate,
+                'purchase_notes': purchase.purchase_notes,
+                'selected_time_slots': purchase.selected_time_slots,
+                'description': purchase.description,
+                'created_time': purchase.created_time.isoformat() if purchase.created_time else None,
+                'updated_time': purchase.updated_time.isoformat() if purchase.updated_time else None,
+                # 关联对象
+                'student': {
+                    'id': purchase.student.id,
+                    'name': purchase.student.name
+                } if purchase.student else None,
+                'class_ref': {
+                    'id': purchase.class_ref.id,
+                    'name': purchase.class_ref.name
+                } if purchase.class_ref else None,
+                'semester': {
+                    'id': purchase.semester.id,
+                    'name': purchase.semester.name
+                } if purchase.semester else None,
+            }
+            items.append(item)
+
+        return {
+            "total": result["total"],
+            "page_no": page_no,
+            "page_size": page_size,
+            "items": items
+        }
 
     @classmethod
     async def create_service(cls, auth: AuthSchema, data: PurchaseCreateSchema) -> dict:
@@ -128,6 +173,9 @@ class PurchaseService:
                 f"{purchase_data.get('purchase_notes', '')} "
                 f"[包含结转课时：{carry_over_sessions}节，来自{len(carry_over_details)}个历史购买]"
             ).strip()
+
+        # 计算并设置剩余课时
+        purchase_data["remaining_sessions"] = purchase_data.get("total_sessions", 0) - purchase_data.get("used_sessions", 0)
 
         # 创建购买记录
         purchase = await PurchaseCRUD(auth).create_crud(data=purchase_data)
@@ -186,12 +234,15 @@ class PurchaseService:
                     "purchase_notes": data.purchase_notes
                 }
 
-                # 转换 selected_time_slots 为 JSON 字符串存储
+                # 添加时间段（保持原始格式，让 Schema 验证器处理）
                 if hasattr(data, 'selected_time_slots') and data.selected_time_slots:
-                    purchase_data['selected_time_slots'] = json.dumps(data.selected_time_slots)
+                    purchase_data['selected_time_slots'] = data.selected_time_slots
+                
+                # 将字典转换为 PurchaseCreateSchema 对象
+                purchase_schema = PurchaseCreateSchema(**purchase_data)
                 
                 # 调用单个创建服务
-                result = await cls.create_service(auth, purchase_data)
+                result = await cls.create_service(auth, purchase_schema)
                 
                 results.append({
                     "student_id": student_id,
@@ -228,6 +279,16 @@ class PurchaseService:
         update_data = data.model_dump(exclude_none=True)
         if update_data.get('selected_time_slots') is not None:
             update_data['selected_time_slots'] = json.dumps(update_data['selected_time_slots'])
+
+        # 获取原始购买记录
+        original_purchase = await PurchaseCRUD(auth).get_by_id_crud(id=purchase_id)
+        if not original_purchase:
+            raise CustomException(msg="购买记录不存在")
+
+        # 计算剩余课时
+        total_sessions = update_data.get("total_sessions", original_purchase.total_sessions)
+        used_sessions = update_data.get("used_sessions", original_purchase.used_sessions)
+        update_data["remaining_sessions"] = total_sessions - used_sessions
 
         purchase = await PurchaseCRUD(auth).update_crud(id=purchase_id, data=update_data)
         if not purchase:

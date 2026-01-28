@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from ..course.model import StudentCourseModel
     from ..purchase.model import PurchaseModel
     from ..attendance.model import ClassAttendanceModel
+    from ..group.model import AbilityGroupModel
 
 
 class StudentModel(ModelMixin, UserMixin):
@@ -23,7 +24,7 @@ class StudentModel(ModelMixin, UserMixin):
     """
     __tablename__: str = 'badminton_student'
     __table_args__: dict[str, str] = ({'comment': '学员表'})
-    __loader_options__: list[str] = ["created_by", "updated_by"]
+    __loader_options__: list[str] = []
 
     # 基本信息
     name: Mapped[str] = mapped_column(String(32), nullable=False, comment='姓名')
@@ -81,6 +82,12 @@ class StudentModel(ModelMixin, UserMixin):
         back_populates="student",
         lazy="selectin",
         cascade="all, delete-orphan"
+    )
+    groups: Mapped[list["AbilityGroupModel"]] = relationship(
+        secondary="badminton_group_student",
+        lazy="selectin",
+        back_populates="students",
+        overlaps="student"
     )
 
 

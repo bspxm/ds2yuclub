@@ -63,9 +63,83 @@ const ClassScheduleAPI = {
       params: { days },
     });
   },
+
+  // 获取可用学员列表（V2版本）
+  getAvailableStudents(params: {
+    semester_id: number;
+    schedule_date: string;
+    time_slot_ids: number[];
+    class_ids?: number[];
+  }) {
+    return request<ApiResponse<AvailableStudentInfo[]>>({
+      url: `${API_PATH}/available-students`,
+      method: "get",
+      params: {
+        ...params,
+        time_slot_ids: params.time_slot_ids.join(','),
+        class_ids: params.class_ids ? params.class_ids.join(',') : undefined,
+      },
+    });
+  },
+
+  // 创建排课记录（V2版本）
+  createScheduleV2(body: ClassScheduleCreateV2Form) {
+    return request<ApiResponse<ClassScheduleTable>>({
+      url: `${API_PATH}/v2`,
+      method: "post",
+      data: body,
+    });
+  },
 };
 
 export default ClassScheduleAPI;
+
+// ============================================================================
+// V2版本类型定义
+// ============================================================================
+
+// 可用学员信息
+export interface AvailableStudentInfo {
+  student_id: number;
+  student_name: string;
+  english_name?: string;
+  gender?: string;
+  birth_date?: string;
+  level?: string;
+  group_name?: string;
+  remaining_sessions: number;
+  total_sessions: number;
+  used_sessions: number;
+  purchase_id: number;
+  class_id: number;
+  semester_id: number;
+}
+
+// 排课记录创建表单（V2版本）
+export interface ClassScheduleCreateV2Form {
+  semester_id: number | undefined;
+  schedule_date: string;
+  class_ids: number[];
+  coach_id: number | undefined;
+  time_slot_ids: number[];
+  schedule_status: string;
+  student_ids: number[];
+  location?: string;
+  topic?: string;
+  content_summary?: string;
+  notes?: string;
+}
+
+// 时间段信息
+export interface TimeSlotInfo {
+  id: number;
+  code: string;
+  name: string;
+  start_time: string;
+  end_time: string;
+  duration_minutes: number;
+  day?: string;
+}
 
 // 分页查询参数
 export interface ClassSchedulePageQuery extends PageQuery {
@@ -83,9 +157,12 @@ export interface ClassScheduleTable extends BaseType {
     name: string;
   };
   schedule_date?: string;
+  day_of_week?: number;
+  time_slot_id?: number;
   start_time?: string;
   end_time?: string;
   duration_minutes?: number;
+  schedule_type?: string;
   location?: string;
   coach_id?: number;
   coach?: {
@@ -96,8 +173,10 @@ export interface ClassScheduleTable extends BaseType {
   actual_start_time?: string;
   actual_end_time?: string;
   attendance_count?: number;
+  student_count?: number;
   absent_count?: number;
   leave_count?: number;
+  student_ids?: number[];
   notes?: string;
   created_by?: CommonType;
   updated_by?: CommonType;

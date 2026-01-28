@@ -10,7 +10,7 @@
 import io
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query, UploadFile, File
+from fastapi import APIRouter, Depends, Query, UploadFile, File, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from app.api.v1.module_system.auth.schema import AuthSchema
@@ -44,9 +44,9 @@ from .schema import (
     ClassAttendanceCreateSchema,
     ClassAttendanceUpdateSchema,
     ClassAttendanceQueryParam,
-    ClassScheduleCreateSchema,
-    ClassScheduleUpdateSchema,
-    ClassScheduleQueryParam
+    ClassScheduleQueryParam,
+    ClassScheduleCreateV2Schema,
+    AvailableStudentSchema
 )
 from .service import (
     StudentService,
@@ -652,10 +652,11 @@ async def class_delete(
 @BadmintonRouter.get("/classes/{class_id}/available-time-slots", summary="班级可用时间段", description="获取班级的可用时间段，根据班级类型返回不同选择逻辑")
 async def get_available_time_slots(
     class_id: int,
+    day_of_week: Optional[int] = Query(None, description="星期几（0=周日，1=周一，...，6=周六）"),
     auth: AuthSchema = Depends(AuthPermission(["module_badminton:class:list"]))
 ) -> JSONResponse:
     """获取班级可用时间段"""
-    result = await ClassService.get_available_time_slots(auth, class_id)
+    result = await ClassService.get_available_time_slots(auth, class_id, day_of_week)
     return SuccessResponse(data=result, msg="班级可用时间段获取成功")
 
 @BadmintonRouter.post("/purchases", summary="创建购买记录", description="创建新购买记录")
@@ -807,15 +808,6 @@ async def class_attendances_by_class(
 # 学期制课时结算系统 - 排课记录管理 API
 # ============================================================================
 
-@BadmintonRouter.post("/class-schedules", summary="创建排课记录", description="创建新排课记录")
-async def class_schedule_create(
-    data: ClassScheduleCreateSchema,
-    auth: AuthSchema = Depends(AuthPermission(["module_badminton:class_schedule:create"]))
-) -> JSONResponse:
-    """创建排课记录"""
-    result = await ClassScheduleService.create_service(auth, data)
-    return SuccessResponse(data=result, msg="排课记录创建成功")
-
 @BadmintonRouter.get("/class-schedules", summary="排课记录列表", description="获取排课记录列表（支持分页和查询）")
 async def class_schedule_list(
     auth: AuthSchema = Depends(AuthPermission(["module_badminton:class_schedule:list"])),
@@ -836,6 +828,61 @@ async def class_schedule_list(
     result = await ClassScheduleService.page_service(auth, page_no, page_size, search)
     return SuccessResponse(data=result, msg="排课记录列表获取成功")
 
+@BadmintonRouter.get("/class-schedules/available-students", summary="获取可用学员列表", description="获取可排课的学员列表（根据课时包配置筛选）")
+async def class_schedules_available_students(
+    semester_id: int = Query(..., description="学期ID"),
+    schedule_date: str = Query(..., description="排课日期（YYYY-MM-DD格式）"),
+    time_slot_ids: str = Query(..., description="时间段ID列表（逗号分隔，如：1,2,3）"),
+    class_ids: Optional[str] = Query(None, description="班级ID列表（逗号分隔，可选，如果未提供则查询该学期下所有班级）"),
+    auth: AuthSchema = Depends(AuthPermission(["module_badminton:class_schedule:list"]))
+) -> JSONResponse:
+    """
+    获取可用学员列表
+
+    筛选逻辑：
+    1. 查询指定班级（如果未提供则查询该学期下所有班级）的购买记录
+    2. 筛选 selected_time_slots 包含任一 time_slot_id 的购买记录
+    3. 检查学员是否有剩余课时
+    4. 检查排课日期是否在购买记录的有效期内
+    5. 返回符合条件的学员列表
+    """
+    from datetime import datetime
+
+    # 解析日期
+    try:
+        parsed_date = datetime.strptime(schedule_date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="日期格式错误，请使用YYYY-MM-DD格式")
+
+    # 解析时间段ID列表
+    try:
+        time_slot_ids_list = [int(x.strip()) for x in time_slot_ids.split(',')]
+    except ValueError:
+        raise HTTPException(status_code=400, detail="时间段ID格式错误，请使用逗号分隔的数字")
+
+    # 验证时间段ID范围（新的ID格式：day_index * 10 + slot_id，范围 1-65）
+    # 例如：周日A=1, 周一A=11, 周六A=61
+    for ts_id in time_slot_ids_list:
+        if not 1 <= ts_id <= 65:
+            raise HTTPException(status_code=400, detail=f"时间段ID {ts_id} 无效，有效范围是 1-65")
+
+    # 解析班级ID列表（如果提供）
+    class_ids_list = None
+    if class_ids:
+        try:
+            class_ids_list = [int(x.strip()) for x in class_ids.split(',')]
+        except ValueError:
+            raise HTTPException(status_code=400, detail="班级ID格式错误，请使用逗号分隔的数字")
+
+    result = await ClassScheduleService.get_available_students_service(
+        auth=auth,
+        semester_id=semester_id,
+        schedule_date=parsed_date,
+        time_slot_ids=time_slot_ids_list,
+        class_ids=class_ids_list
+    )
+    return SuccessResponse(data=result, msg="可用学员列表获取成功")
+
 @BadmintonRouter.get("/class-schedules/{id}", summary="排课记录详情", description="获取排课记录详细信息")
 async def class_schedule_detail(
     id: int,
@@ -848,7 +895,7 @@ async def class_schedule_detail(
 @BadmintonRouter.put("/class-schedules/{id}", summary="更新排课记录", description="更新排课记录信息")
 async def class_schedule_update(
     id: int,
-    data: ClassScheduleUpdateSchema,
+    data: ClassScheduleCreateV2Schema,
     auth: AuthSchema = Depends(AuthPermission(["module_badminton:class_schedule:update"]))
 ) -> JSONResponse:
     """更新排课记录"""
@@ -883,3 +930,22 @@ async def class_schedules_upcoming(
     """即将上课"""
     result = await ClassScheduleService.get_upcoming_service(auth, class_id, days)
     return SuccessResponse(data=result, msg="即将上课排课记录获取成功")
+
+
+@BadmintonRouter.post("/class-schedules/v2", summary="创建排课记录（V2版本）", description="创建新排课记录（支持学员选择和自动创建考勤）")
+async def class_schedule_create_v2(
+    data: ClassScheduleCreateV2Schema,
+    auth: AuthSchema = Depends(AuthPermission(["module_badminton:class_schedule:create"]))
+) -> JSONResponse:
+    """
+    创建排课记录（V2版本）
+
+    特点：
+    - 不需要手动输入开始时间、结束时间、时长
+    - 支持多选学员
+    - 支持时间段多选
+    - 自动创建考勤记录
+    - 自动扣减课时
+    """
+    result = await ClassScheduleService.create_v2_service(auth, data)
+    return SuccessResponse(data=result, msg="排课记录创建成功")
