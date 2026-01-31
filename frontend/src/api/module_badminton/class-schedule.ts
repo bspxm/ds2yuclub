@@ -29,8 +29,8 @@ const ClassScheduleAPI = {
     });
   },
 
-  // 更新排课记录
-  updateClassSchedule(id: number, body: ClassScheduleForm) {
+  // 更新排课记录（使用 ClassScheduleCreateV2Form 类型）
+  updateClassSchedule(id: number, body: ClassScheduleCreateV2Form) {
     return request<ApiResponse<ClassScheduleTable>>({
       url: `${API_PATH}/${id}`,
       method: "put",
@@ -90,9 +90,39 @@ const ClassScheduleAPI = {
       data: body,
     });
   },
+
+  // 获取时间段字典数据
+  getTimeSlotDict() {
+    return request<ApiResponse<DictDataItem[]>>({
+      url: "/system/dict/data/info/badminton_time_slot",
+      method: "get",
+    });
+  },
 };
 
 export default ClassScheduleAPI;
+
+// ============================================================================
+// 字典数据类型定义
+// ============================================================================
+
+// 字典数据项
+export interface DictDataItem {
+  id: number;
+  dict_sort: number;
+  dict_label: string;
+  dict_value: string;
+  css_class: string;
+  list_class: string;
+  is_default: boolean;
+  dict_type: string;
+  dict_type_id: number;
+  status: string;
+  description: string;
+  created_time: string;
+  updated_time: string;
+  uuid: string;
+}
 
 // ============================================================================
 // V2版本类型定义

@@ -39,6 +39,7 @@ class ClassCreateSchema(BaseModel):
     class_type: ClassTypeEnum = Field(default=ClassTypeEnum.FIXED, description='班级类型')
     coach_id: Optional[int] = Field(None, description='教练ID')
     total_sessions: int = Field(..., description='总课时数')
+    sessions_per_week: Optional[int] = Field(None, description='每周课次')
     session_duration: Optional[int] = Field(90, description='单次课时长(分钟)')
     session_price: Optional[float] = Field(None, description='课时单价')
     max_students: int = Field(default=10, description='最大学员数')
@@ -78,6 +79,13 @@ class UserSimpleSchema(BaseModel):
     id: int
     name: str
 
+class ClassSimpleSchema(BaseModel):
+    """班级简单信息"""
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name: str
+    semester_id: int
+
 class ClassOutSchema(ClassCreateSchema, BaseSchema, UserBySchema):
     """班级响应模型"""
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
@@ -104,6 +112,8 @@ class ClassAttendanceCreateSchema(BaseModel):
     makeup_notes: Optional[str] = Field(None, description='补课备注')
     coach_id: int = Field(..., description='确认教练ID')
     confirmed_by_coach: bool = Field(default=False, description='教练是否确认')
+    session_deducted: int = Field(default=1, description='扣除课时数')
+    is_auto_deduct: bool = Field(default=True, description='是否自动扣课时')
 
 class ClassAttendanceUpdateSchema(ClassAttendanceCreateSchema):
     """班级考勤更新模型"""
@@ -126,8 +136,8 @@ class ClassScheduleCreateV2Schema(BaseModel):
     class_ids: list[int] = Field(..., description='班级ID列表（支持多选）')
     coach_id: int = Field(..., description='教练ID')
     time_slot_ids: list[int] = Field(..., description='时间段ID列表（1-65，格式：day_index*10+slot_id，支持多选）')
-    schedule_status: ScheduleStatusEnum = Field(default=ScheduleStatusEnum.SCHEDULED, description='排课状态')
-    schedule_type: ScheduleTypeEnum = Field(default=ScheduleTypeEnum.REGULAR, description='排课类型')
+    schedule_status: str = Field(default='SCHEDULED', description='排课状态')
+    schedule_type: str = Field(default='REGULAR', description='排课类型')
     student_ids: list[int] = Field(..., description='学员ID列表')
     location: Optional[str] = Field(None, description='具体位置')
     topic: Optional[str] = Field(None, description='课程主题')
@@ -172,33 +182,61 @@ class TimeSlotSchema(BaseModel):
     # 配置模型
     model_config = ConfigDict(from_attributes=True)
 
-class ClassScheduleOutSchema(ClassScheduleCreateV2Schema, BaseSchema, UserBySchema):
+class ClassScheduleOutSchema(BaseSchema, UserBySchema):
     """班级排课响应模型"""
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
+
+    # 基本信息
+    class_id: int = Field(..., description='班级ID')
+    semester_id: Optional[int] = Field(None, description='学期ID')
+    schedule_date: DateStr = Field(..., description='排课日期')
+    day_of_week: int = Field(..., description='星期几（0-6，0=周日）')
     
-    # 重写枚举字段以接受枚举输入
-    schedule_status: Optional[str] = Field(None, description='排课状态')
-    schedule_type: Optional[str] = Field(None, description='排课类型')
+    # 时间信息
+    time_slot_id: Optional[int] = Field(None, description='时间段ID（1-65，格式：day_index*10+slot_id）')
+    start_time: Optional[TimeStr] = Field(None, description='开始时间')
+    end_time: Optional[TimeStr] = Field(None, description='结束时间')
+    duration_minutes: Optional[int] = Field(None, description='课时分钟数')
     
-    @field_serializer('schedule_status', 'schedule_type')
-    @classmethod
-    def serialize_enums(cls, value: Any) -> str:
-        """序列化枚举字段为字符串"""
-        if value is None:
-            return None
-        if isinstance(value, str):
-            return value
-        return value.value if hasattr(value, 'value') else str(value)
+    # 排课信息
+    schedule_status: str = Field(..., description='排课状态')
+    schedule_type: str = Field(..., description='排课类型')
     
-    @field_validator('schedule_status', 'schedule_type', mode='before')
-    @classmethod
-    def validate_enums(cls, value: Any) -> str:
-        """验证枚举字段，接受枚举或字符串"""
-        if value is None:
-            return None
-        if isinstance(value, str):
-            return value
-        return value.value if hasattr(value, 'value') else str(value)
+    # 教练信息
+    coach_id: int = Field(..., description='教练ID')
+    coach_confirmed: bool = Field(default=False, description='教练是否确认')
+    coach_confirm_at: Optional[DateTimeStr] = Field(None, description='教练确认时间')
+    
+    # 场地信息
+    court_number: Optional[str] = Field(None, description='场地号')
+    location: Optional[str] = Field(None, description='具体位置')
+    
+    # 课程内容
+    topic: Optional[str] = Field(None, description='课程主题')
+    content_summary: Optional[str] = Field(None, description='内容摘要')
+    training_focus: Optional[str] = Field(None, description='训练重点')
+    equipment_needed: Optional[str] = Field(None, description='所需器材')
+    
+    # 状态信息
+    is_published: bool = Field(default=False, description='是否已发布给家长')
+    published_at: Optional[DateTimeStr] = Field(None, description='发布时间')
+    is_auto_generated: bool = Field(default=False, description='是否自动生成')
+    
+    # 关联信息
+    original_schedule_id: Optional[int] = Field(None, description='原始排课ID（用于补课）')
+    makeup_for_schedule_id: Optional[int] = Field(None, description='补课对应排课ID')
+    
+    # 描述信息
+    notes: Optional[str] = Field(None, description='备注')
+    
+    # 关联对象
+    class_: Optional[ClassSimpleSchema] = Field(None, alias='class', description='班级信息')
+    
+    # 添加学员统计字段
+    student_count: Optional[int] = Field(None, description='学员人数')
+    attendance_count: Optional[int] = Field(None, description='出勤人数')
+    absent_count: Optional[int] = Field(None, description='缺勤人数')
+    leave_count: Optional[int] = Field(None, description='请假人数')
 
 
 class ClassQueryParam:

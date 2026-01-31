@@ -186,13 +186,13 @@
           <el-empty :image-size="80" description="暂无数据" />
         </template>
         <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'selection')?.show"
+          v-if="isColumnShow('selection')"
           type="selection"
           min-width="55"
           align="center"
         />
         <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'index')?.show"
+          v-if="isColumnShow('index')"
           fixed
           label="序号"
           min-width="60"
@@ -202,37 +202,37 @@
           </template>
         </el-table-column>
         <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'name')?.show"
+          v-if="isColumnShow('name')"
           label="班级名称"
           prop="name"
           min-width="120"
         />
+         <el-table-column
+           v-if="isColumnShow('class_type')"
+           label="班级类型"
+           prop="class_type"
+           min-width="90"
+         >
+           <template #default="scope">
+             <el-tag :type="scope.row.class_type === 'fixed' ? 'primary' : 'success'">
+               {{ scope.row.class_type === 'fixed' ? '固定天' : '自选天' }}
+             </el-tag>
+           </template>
+         </el-table-column>
         <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'class_type')?.show"
-          label="班级类型"
-          prop="class_type"
-          min-width="90"
-        >
-          <template #default="scope">
-            <el-tag :type="scope.row.class_type === 'fixed' ? 'primary' : 'success'">
-              {{ scope.row.class_type === 'fixed' ? '固定天' : '自选天' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'semester')?.show"
+          v-if="isColumnShow('semester')"
           label="所属学期"
           prop="semester.name"
           min-width="120"
         />
         <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'coach')?.show"
+          v-if="isColumnShow('coach')"
           label="教练"
           prop="coach_user.name"
           min-width="100"
         />
         <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'current_students')?.show"
+          v-if="isColumnShow('current_students')"
           label="当前学员"
           prop="current_students"
           min-width="90"
@@ -244,18 +244,21 @@
           </template>
         </el-table-column>
         <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'class_time')?.show"
+          v-if="isColumnShow('class_time')"
           label="上课时间"
-          min-width="400"
+          min-width="300"
         >
           <template #default="scope">
-            <div v-if="scope.row.time_slots_json" style="white-space: pre-wrap; line-height: 1.6;">
-              {{ formatTimeSlots(scope.row.time_slots_json) }}
+            <div v-if="scope.row.time_slots_json" class="time-slots-container">
+              <div v-for="(dayGroup, index) in formatTimeSlots(scope.row.time_slots_json)" :key="index" class="day-group">
+                <span class="day-label">{{ dayGroup.day }}:</span>
+                <span class="time-labels">{{ dayGroup.slots.join(', ') }}</span>
+              </div>
             </div>
           </template>
         </el-table-column>
         <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'fee_per_session')?.show"
+          v-if="isColumnShow('fee_per_session')"
           label="总费用"
           min-width="100"
         >
@@ -264,7 +267,7 @@
           </template>
         </el-table-column>
         <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'status')?.show"
+          v-if="isColumnShow('status')"
           label="状态"
           prop="status"
           min-width="90"
@@ -276,13 +279,13 @@
           </template>
         </el-table-column>
         <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'created_time')?.show"
+          v-if="isColumnShow('created_time')"
           label="创建时间"
           prop="created_time"
           min-width="180"
         />
         <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'operation')?.show"
+          v-if="isColumnShow('operation')"
           fixed="right"
           label="操作"
           align="center"
@@ -581,6 +584,7 @@ import DatePicker from "@/components/DatePicker/index.vue";
 import ClassAPI, { ClassTable, ClassForm, ClassPageQuery } from "@/api/module_badminton/class";
 import SemesterAPI from "@/api/module_badminton/semester";
 import { UserAPI } from "@/api/module_system/user";
+import request from "@/utils/request";
 
 const visible = ref(true);
 const queryFormRef = ref();
@@ -591,6 +595,17 @@ const selectionRows = ref<ClassTable[]>([]);
 const loading = ref(false);
 const isExpand = ref(false);
 const isExpandable = ref(true);
+
+// 时间段列表（从字典接口获取）
+interface TimeSlotInfo {
+  id: number;
+  code: string;
+  name: string;
+  start_time: string;
+  end_time: string;
+}
+
+const timeSlotList = ref<TimeSlotInfo[]>([]);
 
 // 分页表单
 const pageTableData = ref<ClassTable[]>([]);
@@ -721,38 +736,71 @@ async function loadCoachOptions() {
   }
 }
 
+// 加载时间段字典数据
+async function loadTimeSlotDict() {
+  if (timeSlotList.value.length > 0) {
+    return;
+  }
+  
+  try {
+    const response = await request<ApiResponse<any[]>>({
+      url: "/system/dict/data/info/badminton_time_slot",
+      method: "get",
+    });
+    const dictData = response.data.data || [];
+    
+    timeSlotList.value = dictData.map((item: any) => ({
+      id: item.dict_sort,
+      code: item.dict_value,
+      name: item.dict_label,
+      start_time: item.dict_label.split('-')[0],
+      end_time: item.dict_label.split('-')[1],
+    }));
+  } catch (error: any) {
+    console.error('加载时间段字典失败:', error);
+  }
+}
+
 // 格式化时间段显示
-function formatTimeSlots(timeSlotsJson: string): string {
-  if (!timeSlotsJson) return '';
+function formatTimeSlots(timeSlotsJson: string): { day: string; slots: string[] }[] {
+  if (!timeSlotsJson) return [];
   
   try {
     const timeSlots = JSON.parse(timeSlotsJson);
-    const slots: string[] = [];
+    const result: { day: string; slots: string[] }[] = [];
     
-    // 时间段映射
-    const timeSlotMap: { [key: string]: string } = {
-      'A': '09:00-10:30',
-      'B': '10:30-12:00',
-      'C': '15:00-16:30',
-      'D': '16:30-18:00',
-      'E': '19:30-21:00'
-    };
+    // 按天排序
+    const dayOrder = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
     
     // 遍历每天的时段
-    Object.keys(timeSlots).forEach(day => {
+    dayOrder.forEach(day => {
       const daySlots = timeSlots[day];
-      if (daySlots && daySlots.length > 0) {
-        const slotTimes = daySlots.map((slot: string) => timeSlotMap[slot] || slot).join(', ');
-        slots.push(`${day}: ${slotTimes}`);
+      if (daySlots && Array.isArray(daySlots) && daySlots.length > 0) {
+        const slots: string[] = [];
+        daySlots.forEach((slotCode: string) => {
+          // 从时间段列表中查找对应的时间段
+          const slot = timeSlotList.value.find(s => s.code === slotCode);
+          if (slot) {
+            slots.push(`${slot.start_time}-${slot.end_time}`);
+          }
+        });
+        if (slots.length > 0) {
+          result.push({ day, slots });
+        }
       }
     });
     
-    // 每天换行显示
-    return slots.join('\n');
-  } catch (error) {
-    console.error('解析时间段JSON失败:', error);
-    return '';
+    return result;
+  } catch (e) {
+    console.error('解析时间段JSON失败:', e);
+    return [];
   }
+}
+
+// 检查表格列是否显示
+function isColumnShow(prop: string): boolean {
+  const column = tableColumns.value.find((col: any) => col.prop === prop);
+  return column?.show || false;
 }
 
 // 加载表格数据
@@ -893,6 +941,7 @@ async function handleRefresh() {
 onMounted(async () => {
   await loadSemesterOptions();
   await loadCoachOptions();
+  await loadTimeSlotDict();
   loadingData();
 });
 </script>
@@ -914,5 +963,28 @@ onMounted(async () => {
 
 .data-table__content {
   flex: 1;
+}
+
+/* 时间段显示样式 */
+.time-slots-container {
+  line-height: 1.8;
+}
+
+.day-group {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 4px;
+}
+
+.day-label {
+  font-weight: 600;
+  color: #606266;
+  min-width: 40px;
+  flex-shrink: 0;
+}
+
+.time-labels {
+  color: #909399;
+  font-size: 13px;
 }
 </style>

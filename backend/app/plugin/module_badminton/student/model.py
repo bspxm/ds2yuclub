@@ -87,7 +87,7 @@ class StudentModel(ModelMixin, UserMixin):
         secondary="badminton_group_student",
         lazy="selectin",
         back_populates="students",
-        overlaps="student"
+        overlaps="group"
     )
 
 

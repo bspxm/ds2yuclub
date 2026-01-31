@@ -266,10 +266,8 @@ class ClassService:
                 # 如果JSON解析失败，返回空列表
                 pass
 
-        # 计算每周课次（总课时数 / 周数）
-        # 假设学期为16周（可以根据实际情况调整）
-        weeks_per_semester = 16
-        sessions_per_week = class_obj.total_sessions // weeks_per_semester if weeks_per_semester > 0 else 0
+        # 使用数据库字段中的每周课次
+        sessions_per_week = class_obj.sessions_per_week or 0
 
         # 返回结果
         result = {

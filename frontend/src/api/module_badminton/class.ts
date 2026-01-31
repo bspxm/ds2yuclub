@@ -99,6 +99,7 @@ export interface ClassTable extends BaseType {
     name: string;
   };
   fee_per_session?: number;
+  session_price?: number;
   sessions_per_week?: number;
   total_sessions?: number;
   status?: string;

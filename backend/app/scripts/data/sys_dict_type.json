@@ -58,5 +58,11 @@
     "dict_type": "sys_list_class",
     "status": "0",
     "description": "表格回显样式列表"
+  },
+  {
+    "dict_name": "羽毛球时间段",
+    "dict_type": "badminton_time_slot",
+    "status": "0",
+    "description": "羽毛球培训班时间段"
   }
 ]

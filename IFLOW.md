@@ -120,9 +120,11 @@ FastapiAdmin/
 | 组件 | 版本要求 |
 |------|----------|
 | Python | = 3.10 (由项目指定) |
-| Node.js | ≥ 20.0 |
+| Node.js | ≥ 18.0 (实际要求 >= 20.0) |
+| npm | ≥ 10.0.0 |
+| pnpm | ≥ 8.1.0 |
 | MySQL | ≥ 8.0 |
-| Redis | ≥ 7.0 |
+| Redis | ≥ 6.0 |
 | Docker | 最新版本 |
 | Docker Compose | 最新版本 |
 
@@ -257,10 +259,10 @@ docker compose down
 
 | 服务 | 本地访问地址 | 容器内端口 |
 |------|--------------|------------|
-| 后端API | http://localhost:8001 | 8001 |
-| Swagger文档 | http://localhost:8001/docs | - |
-| ReDoc文档 | http://localhost:8001/redoc | - |
-| 前端开发服务器 | http://localhost:5173 | 5173 |
+| 后端API | http://127.0.0.1:8001 | 8001 |
+| Swagger文档 | http://127.0.0.1:8001/api/v1/docs | - |
+| ReDoc文档 | http://127.0.0.1:8001/api/v1/redoc | - |
+| 前端开发服务器 | http://127.0.0.1:5180 | 5180 |
 | 前端生产构建 | http://localhost/web | 80 |
 | MySQL | localhost:3306 | 3306 |
 | Redis | localhost:6379 | 6379 |
@@ -337,9 +339,15 @@ backend/app/plugin/
 
 **技术实现**:
 - `ClassScheduleCreateV2Schema`: V2版本创建Schema，支持 `time_slot_ids: list[int]`
+- `ClassScheduleOutSchema`: 响应Schema，直接继承 `BaseSchema` 和 `UserBySchema`，与数据库模型 `ClassScheduleModel` 字段完全匹配
 - `get_available_students_service`: 根据时间段筛选可用学员
 - `create_v2_service`: 为每个时间段创建排课记录和考勤记录
 - 前端使用 Element Plus 多选下拉框和复选框组
+
+**重要修复 (2026-01-30)**:
+- 修复了 `ClassScheduleOutSchema` 的 Pydantic 验证错误
+- 原问题：Schema 继承自 `ClassScheduleCreateV2Schema`，导致期望 `class_ids` (列表)、`time_slot_ids` (列表)、`semester_id`、`student_ids` 等字段
+- 解决方案：重构 `ClassScheduleOutSchema` 直接继承 `BaseSchema` 和 `UserBySchema`，定义与数据库模型匹配的字段（`class_id`、`time_slot_id` 等）
 
 #### 购买记录时间段选择
 **功能特点**:
@@ -415,9 +423,9 @@ REFRESH_TOKEN_EXPIRE_MINUTES = 604800  # 7天
 
 ```env
 # 开发环境配置
-VITE_APP_PORT=5173
-VITE_APP_BASE_API=/dev-api
-VITE_API_BASE_URL=http://localhost:8001
+VITE_APP_PORT=5180
+VITE_APP_BASE_API=/api/v1
+VITE_API_BASE_URL=http://127.0.0.1:8001
 ```
 
 ## 包管理器说明
@@ -619,7 +627,28 @@ docker compose logs -f nginx
    - 对所有用户输入进行验证
    - 使用Pydantic模型进行数据验证
    - 防止SQL注入和XSS攻击
+   
+## 开发规范
 
+### 代码修改
+除非特别要求，否则不要修改项目的基础代码。
+
+### 模块存放位置
+后端模块：backend/app/plugin
+前端视图：frontend/src/views
+前端API：frontend/src/api
+
+### 模块命名
+统一格式：module_模块名称
+
+### 环境管理
+后端调试使用 uv 虚拟环境，不要直接在系统 Python 环境运行，会报错或缺组件。虚拟环境才有完整的组件，如缺少组件，请告知，自行安装到虚拟环境内。
+
+### 测试脚本
+测试临时使用的脚本，用完后要记得清理。
+
+### 数据库配置
+数据库配置信息位于 backend/env/.env.dev，已加入 .gitignore，可能看不到，但使用操作系统的 ls 命令可以查看。
 ## 贡献指南
 
 1. Fork项目仓库
@@ -637,6 +666,6 @@ docker compose logs -f nginx
 
 ---
 
-*本文档最后更新: 2026-01-28*  
+*本文档最后更新: 2026-01-30*  
 *对应项目版本: FastApiAdmin v2.2.0*  
-*检测到项目变更: 排课管理V2、时间段多选、弹窗宽度优化、购买记录时间段选择、能力分组系统*
+*检测到项目变更: 排课管理V2、时间段多选、弹窗宽度优化、购买记录时间段选择、能力分组系统、ClassScheduleOutSchema 修复*

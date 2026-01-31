@@ -62,7 +62,7 @@ class GroupCoachModel(ModelMixin):
     group: Mapped["AbilityGroupModel"] = relationship(
         foreign_keys=[group_id],
         lazy="selectin",
-        overlaps="coaches"
+        overlaps="coaches,groups"
     )
     coach: Mapped["UserModel"] = relationship(
         foreign_keys=[coach_id],

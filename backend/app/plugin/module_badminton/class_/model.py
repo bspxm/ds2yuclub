@@ -49,6 +49,7 @@ class ClassModel(ModelMixin, UserMixin):
     
     # 课时配置
     total_sessions: Mapped[int] = mapped_column(SmallInteger, nullable=False, comment='总课时数')
+    sessions_per_week: Mapped[int | None] = mapped_column(SmallInteger, nullable=True, comment='每周课次')
     session_duration: Mapped[int] = mapped_column(SmallInteger, default=90, comment='单次课时长(分钟)')
     session_price: Mapped[float | None] = mapped_column(Float, nullable=True, comment='课时单价')
     

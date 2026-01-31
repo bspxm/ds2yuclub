@@ -406,5 +406,65 @@
     "is_default": false,
     "status": "0",
     "description": "危险表格回显样式"
+  },
+  {
+    "dict_sort": 1,
+    "dict_label": "08:00-09:30",
+    "dict_value": "A",
+    "dict_type": "badminton_time_slot",
+    "dict_type_id": 11,
+    "css_class": "",
+    "list_class": "primary",
+    "is_default": false,
+    "status": "0",
+    "description": "A时间段：上午时段"
+  },
+  {
+    "dict_sort": 2,
+    "dict_label": "09:30-11:00",
+    "dict_value": "B",
+    "dict_type": "badminton_time_slot",
+    "dict_type_id": 11,
+    "css_class": "",
+    "list_class": "success",
+    "is_default": false,
+    "status": "0",
+    "description": "B时间段：上午时段"
+  },
+  {
+    "dict_sort": 3,
+    "dict_label": "14:00-15:30",
+    "dict_value": "C",
+    "dict_type": "badminton_time_slot",
+    "dict_type_id": 11,
+    "css_class": "",
+    "list_class": "info",
+    "is_default": false,
+    "status": "0",
+    "description": "C时间段：下午时段"
+  },
+  {
+    "dict_sort": 4,
+    "dict_label": "15:30-17:00",
+    "dict_value": "D",
+    "dict_type": "badminton_time_slot",
+    "dict_type_id": 11,
+    "css_class": "",
+    "list_class": "warning",
+    "is_default": false,
+    "status": "0",
+    "description": "D时间段：下午时段"
+  },
+  {
+    "dict_sort": 5,
+    "dict_label": "18:00-19:30",
+    "dict_value": "E",
+    "dict_type": "badminton_time_slot",
+    "dict_type_id": 11,
+    "css_class": "",
+    "list_class": "danger",
+    "is_default": false,
+    "status": "0",
+    "description": "E时间段：晚上时段"
   }
 ]

@@ -96,10 +96,12 @@ export interface PurchaseTable extends BaseType {
     name: string;
   };
   purchase_type?: string;
-  session_count?: number;
+  total_sessions?: number;
+  session_count: number;
+  used_sessions?: number;
   remaining_sessions?: number;
-  unit_price?: number;
-  total_amount?: number;
+  unit_price: number;
+  total_amount: number;
   purchase_date?: string;
   start_date?: string;
   end_date?: string;
@@ -116,9 +118,9 @@ export interface PurchaseForm extends BaseFormType {
   semester_id?: number;
   class_id?: number;
   purchase_type?: string;
-  session_count?: number;
-  unit_price?: number;
-  total_amount?: number;
+  session_count: number;
+  unit_price: number;
+  total_amount: number;
   purchase_date?: string;
   start_date?: string;
   end_date?: string;

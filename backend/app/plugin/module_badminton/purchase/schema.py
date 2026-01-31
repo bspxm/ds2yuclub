@@ -108,19 +108,6 @@ class PurchaseOutSchema(PurchaseCreateSchema, BaseSchema, UserBySchema):
     # 覆盖 selected_time_slots 字段，支持从数据库JSON字符串读取
     selected_time_slots: Optional[list[int]] = Field(default=None, description='已选上课时间段ID列表')
 
-    # 自定义序列化方法，确保 selected_time_slots 正确转换为列表
-    @model_serializer(mode='wrap')
-    def serialize_model(self, handler):
-        data = handler(self)
-        # 如果 selected_time_slots 是字符串，转换为列表
-        if isinstance(data.get('selected_time_slots'), str):
-            try:
-                import json
-                data['selected_time_slots'] = json.loads(data['selected_time_slots'])
-            except (json.JSONDecodeError, ValueError):
-                data['selected_time_slots'] = None
-        return data
-
     # 字段验证器：将JSON字符串转换为列表
     @field_validator('selected_time_slots', mode='before')
     @classmethod
@@ -138,79 +125,47 @@ class PurchaseOutSchema(PurchaseCreateSchema, BaseSchema, UserBySchema):
                 return None
         return None
 
-    # 前端兼容的 computed fields
-    @computed_field
-    @property
-    def session_count(self) -> int:
-        """购买课次（前端兼容）"""
-        return self.total_sessions
-
-    @computed_field
-    @property
-    def unit_price(self) -> float:
-        """单价（前端兼容）"""
-        return self.actual_price
-
-    @computed_field
-    @property
-    def total_amount(self) -> float:
-        """总金额（前端兼容）"""
-        return self.actual_price * self.total_sessions
-
-    @computed_field
-    @property
-    def start_date(self) -> date:
-        """开始日期（前端兼容）"""
-        return self.valid_from
-
-    @computed_field
-    @property
-    def end_date(self) -> date:
-        """结束日期（前端兼容）"""
-        return self.valid_until
-
-    @computed_field
-    @property
-    def purchase_type(self) -> str:
-        """购买类型（前端兼容）"""
-        return 'package'
-
+    # 序列化关联对象
     @field_serializer('student', 'semester', 'class_ref')
     @classmethod
-    def serialize_relations(cls, value: Any) -> Optional[dict]:
+    def serialize_related_object(cls, value: Any) -> Any:
         """序列化关联对象"""
         if value is None:
             return None
-        # 如果是 SQLAlchemy 模型对象，提取基本字段
         if hasattr(value, '__table__'):
             return {
                 'id': getattr(value, 'id', None),
                 'name': getattr(value, 'name', None)
             }
-        # 如果已经是字典，直接返回
         if isinstance(value, dict):
             return value
-        # 如果是 Pydantic 模型，使用 model_dump
         if hasattr(value, 'model_dump'):
             return value.model_dump()
-        return None
+        return value
 
-    @field_serializer('selected_time_slots')
-    @classmethod
-    def serialize_time_slots(cls, value: Optional[list[int]]) -> Optional[str]:
-        """序列化时间段列表为JSON字符串"""
-        if value is None:
-            return None
-        import json
-        return json.dumps(value)
+    # 添加前端兼容字段
+    session_count: int = Field(default=0, description='课时数')
+    unit_price: float = Field(default=0.0, description='单价')
+    total_amount: float = Field(default=0.0, description='总金额')
+    start_date: Optional[str] = Field(default=None, description='开始日期')
+    end_date: Optional[str] = Field(default=None, description='结束日期')
+    purchase_type: str = Field(default='package', description='购买类型')
 
-    @field_serializer('purchase_date', 'valid_from', 'valid_until', 'start_date', 'end_date')
-    @classmethod
-    def serialize_dates(cls, value: date | None) -> str | None:
-        """序列化日期字段"""
-        if value is None:
-            return None
-        return value.isoformat()
+    @model_serializer(mode='wrap')
+    def serialize_model(self, handler: Any, _info: Any) -> dict[str, Any]:
+        """自定义序列化，添加计算字段"""
+        # 先调用默认的序列化器
+        data = handler(self)
+
+        # 添加前端兼容的计算字段
+        data['session_count'] = self.total_sessions
+        data['unit_price'] = self.actual_price
+        data['total_amount'] = self.actual_price * self.total_sessions
+        data['start_date'] = self.valid_from.isoformat() if self.valid_from else None
+        data['end_date'] = self.valid_until.isoformat() if self.valid_until else None
+        data['purchase_type'] = 'package'
+
+        return data
 
 
 class PurchaseQueryParam:

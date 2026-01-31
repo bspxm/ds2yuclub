@@ -301,7 +301,11 @@
           label="创建时间"
           prop="created_time"
           min-width="180"
-        />
+        >
+          <template #default="scope">
+            {{ formatDateTime(scope.row.created_time) }}
+          </template>
+        </el-table-column>
         <el-table-column
           v-if="tableColumns.find((col) => col.prop === 'operation')?.show"
           fixed="right"
@@ -387,7 +391,7 @@
             {{ detailFormData.session_count }}
           </el-descriptions-item>
           <el-descriptions-item label="剩余课次">
-            <el-tag :type="detailFormData.remaining_sessions > 0 ? 'success' : 'danger'">
+            <el-tag :type="(detailFormData.remaining_sessions || 0) > 0 ? 'success' : 'danger'">
               {{ detailFormData.remaining_sessions }}
             </el-tag>
           </el-descriptions-item>
@@ -500,7 +504,16 @@
                 <el-input-number v-model="formData.unit_price" :min="0" :step="10" disabled style="width: 100%" />
               </el-form-item>
             </el-col>
-            
+
+            <!-- 第三点五行：总金额 -->
+            <el-col :span="24">
+              <el-form-item label="总金额">
+                <div style="font-size: 20px; font-weight: bold; color: #f56c6c;">
+                  ¥{{ formData.total_amount || 0 }}
+                </div>
+              </el-form-item>
+            </el-col>
+
             <!-- 第四行：购买日期、生效开始日期 -->
             <el-col :span="12">
               <el-form-item label="购买日期" prop="purchase_date">
@@ -1002,8 +1015,8 @@ const timeSlotWarning = ref("");
 // 批量新增表单
 const batchFormData = reactive<BatchPurchaseForm & { selected_time_slots?: number[] }>({
   student_ids: [],
-  semester_id: undefined,
-  class_id: undefined,
+  semester_id: 0,
+  class_id: 0,
   purchase_date: "",
   total_sessions: 0,
   valid_from: "",
@@ -1118,6 +1131,19 @@ function calculateAge(birthDate: string | undefined): number {
   return age;
 }
 
+// 格式化日期时间为 YYYY-MM-DD HH:mm:ss
+function formatDateTime(dateTime: string | undefined): string {
+  if (!dateTime) return '';
+  const date = new Date(dateTime);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+
 // 加载学期列表（过滤掉已结束的学期）
 async function loadSemesterList() {
   try {
@@ -1168,13 +1194,16 @@ async function loadStudentList() {
 
 // 计算总金额
 function calculateTotalAmount() {
-  if (formData.session_count && formData.unit_price) {
-    formData.total_amount = formData.session_count * formData.unit_price;
-  }
+  const count = formData.session_count || 0;
+  const price = formData.unit_price || 0;
+  formData.total_amount = count * price;
 }
 
 // 监听班级选择变化，自动填充学期、购买课次和单价
 watch(() => formData.class_id, (newClassId) => {
+  // 如果正在加载弹窗数据，不执行自动填充逻辑
+  if (dialogLoading.value) return;
+
   if (newClassId && classList.value.length > 0) {
     const selectedClass = classList.value.find(cls => cls.id === newClassId);
     if (selectedClass) {
@@ -1183,8 +1212,12 @@ watch(() => formData.class_id, (newClassId) => {
         formData.semester_id = selectedClass.semester_id;
       }
       // 自动填充购买课次和单价
-      formData.session_count = selectedClass.total_sessions || 0;
-      formData.unit_price = selectedClass.fee_per_session || 0;
+      if (formData.purchase_type === 'single') {
+        formData.session_count = 1;
+      } else {
+        formData.session_count = selectedClass.total_sessions || 0;
+      }
+      formData.unit_price = selectedClass.session_price || selectedClass.fee_per_session || 0;
       calculateTotalAmount();
     }
   }
@@ -1195,8 +1228,29 @@ watch(() => formData.class_id, (newClassId) => {
   handleClassChangeSingle(newClassId || 0, currentSelectedSlots);
 });
 
+// 监听购买类型变化
+watch(() => formData.purchase_type, (newType) => {
+  // 如果正在加载弹窗数据，不执行自动填充逻辑
+  if (dialogLoading.value) return;
+
+  if (newType === 'single') {
+    formData.session_count = 1;
+  } else {
+    // 如果切回课时包，重新从选中的班级获取总课时
+    if (formData.class_id && classList.value.length > 0) {
+      const selectedClass = classList.value.find(cls => cls.id === formData.class_id);
+      if (selectedClass) {
+        formData.session_count = selectedClass.total_sessions || 0;
+      }
+    }
+  }
+  calculateTotalAmount();
+});
+
 // 监听购买课次和单价变化
 watch(() => [formData.session_count, formData.unit_price], () => {
+  // 如果正在加载弹窗数据，不执行自动填充逻辑
+  if (dialogLoading.value) return;
   calculateTotalAmount();
 });
 
@@ -1388,8 +1442,8 @@ async function handleOpenBatchDialog() {
   batchGroupFilter.value = "";
   batchLevelFilter.value = "";
   batchFormData.student_ids = [];
-  batchFormData.semester_id = undefined;
-  batchFormData.class_id = undefined;
+  batchFormData.semester_id = 0;
+  batchFormData.class_id = 0;
   batchFormData.purchase_date = "";
   batchFormData.total_sessions = 0;
   batchFormData.valid_from = "";
