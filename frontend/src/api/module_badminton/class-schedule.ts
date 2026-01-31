@@ -68,7 +68,7 @@ const ClassScheduleAPI = {
   getAvailableStudents(params: {
     semester_id: number;
     schedule_date: string;
-    time_slot_ids: number[];
+    time_slots: { [key: string]: string[] };
     class_ids?: number[];
   }) {
     return request<ApiResponse<AvailableStudentInfo[]>>({
@@ -76,7 +76,7 @@ const ClassScheduleAPI = {
       method: "get",
       params: {
         ...params,
-        time_slot_ids: params.time_slot_ids.join(','),
+        time_slots: JSON.stringify(params.time_slots),
         class_ids: params.class_ids ? params.class_ids.join(',') : undefined,
       },
     });
@@ -151,7 +151,7 @@ export interface ClassScheduleCreateV2Form {
   schedule_date: string;
   class_ids: number[];
   coach_id: number | undefined;
-  time_slot_ids: number[];
+  time_slots: { [key: string]: string[] };
   schedule_status: string;
   student_ids: number[];
   location?: string;
@@ -189,6 +189,8 @@ export interface ClassScheduleTable extends BaseType {
   schedule_date?: string;
   day_of_week?: number;
   time_slot_id?: number;
+  time_slot_code?: string;
+  time_slots_json?: string;
   start_time?: string;
   end_time?: string;
   duration_minutes?: number;

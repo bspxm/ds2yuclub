@@ -60,10 +60,12 @@ class ClassScheduleModel(ModelMixin, UserMixin):
     # 时间信息
     schedule_date: Mapped[date] = mapped_column(Date, nullable=False, comment='排课日期')
     day_of_week: Mapped[int] = mapped_column(SmallInteger, nullable=False, comment='星期几（0-6，0=周日）')
-    time_slot_id: Mapped[int | None] = mapped_column(SmallInteger, nullable=True, comment='时间段ID（1-65，格式：day_index*10+slot_id，V2版本使用）')
-    start_time: Mapped[time | None] = mapped_column(Time, nullable=True, comment='开始时间（V1版本使用，V2版本从配置获取）')
-    end_time: Mapped[time | None] = mapped_column(Time, nullable=True, comment='结束时间（V1版本使用，V2版本从配置获取）')
-    duration_minutes: Mapped[int | None] = mapped_column(SmallInteger, nullable=True, comment='课时分钟数（V1版本使用，V2版本从配置获取）')
+    time_slot_id: Mapped[int | None] = mapped_column(SmallInteger, nullable=True, comment='时间段ID（保留用于兼容）')
+    time_slot_code: Mapped[str | None] = mapped_column(String(32), nullable=True, comment='时间段代码（A-E）')
+    time_slots_json: Mapped[str | None] = mapped_column(Text, nullable=True, comment='时间段JSON配置（星期+代码格式）')
+    start_time: Mapped[time | None] = mapped_column(Time, nullable=True, comment='开始时间')
+    end_time: Mapped[time | None] = mapped_column(Time, nullable=True, comment='结束时间')
+    duration_minutes: Mapped[int | None] = mapped_column(SmallInteger, nullable=True, comment='课时分钟数')
     
     # 排课信息
     schedule_type: Mapped[ScheduleTypeEnum] = mapped_column(

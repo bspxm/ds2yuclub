@@ -9,14 +9,16 @@
 
 import io
 from typing import Optional
+from loguru import logger
 
 from fastapi import APIRouter, Depends, Query, UploadFile, File, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
+from redis.asyncio.client import Redis
 
 from app.api.v1.module_system.auth.schema import AuthSchema
 from app.common.response import SuccessResponse
 from app.core.base_schema import BatchSetAvailable
-from app.core.dependencies import AuthPermission
+from app.core.dependencies import AuthPermission, redis_getter
 from app.core.exceptions import CustomException
 from app.core.router_class import OperationLogRoute
 
@@ -48,6 +50,7 @@ from .schema import (
     ClassScheduleCreateV2Schema,
     AvailableStudentSchema
 )
+from .class_.schema import AvailableStudentsRequestSchema
 from .service import (
     StudentService,
     ParentStudentService,
@@ -832,7 +835,7 @@ async def class_schedule_list(
 async def class_schedules_available_students(
     semester_id: int = Query(..., description="学期ID"),
     schedule_date: str = Query(..., description="排课日期（YYYY-MM-DD格式）"),
-    time_slot_ids: str = Query(..., description="时间段ID列表（逗号分隔，如：1,2,3）"),
+    time_slots: str = Query(..., description="时间段JSON配置（JSON字符串格式）"),
     class_ids: Optional[str] = Query(None, description="班级ID列表（逗号分隔，可选，如果未提供则查询该学期下所有班级）"),
     auth: AuthSchema = Depends(AuthPermission(["module_badminton:class_schedule:list"]))
 ) -> JSONResponse:
@@ -841,11 +844,12 @@ async def class_schedules_available_students(
 
     筛选逻辑：
     1. 查询指定班级（如果未提供则查询该学期下所有班级）的购买记录
-    2. 筛选 selected_time_slots 包含任一 time_slot_id 的购买记录
+    2. 筛选 selected_time_slots 包含任一时间段代码的购买记录
     3. 检查学员是否有剩余课时
     4. 检查排课日期是否在购买记录的有效期内
     5. 返回符合条件的学员列表
     """
+    import json
     from datetime import datetime
 
     # 解析日期
@@ -854,17 +858,11 @@ async def class_schedules_available_students(
     except ValueError:
         raise HTTPException(status_code=400, detail="日期格式错误，请使用YYYY-MM-DD格式")
 
-    # 解析时间段ID列表
+    # 解析时间段JSON
     try:
-        time_slot_ids_list = [int(x.strip()) for x in time_slot_ids.split(',')]
-    except ValueError:
-        raise HTTPException(status_code=400, detail="时间段ID格式错误，请使用逗号分隔的数字")
-
-    # 验证时间段ID范围（新的ID格式：day_index * 10 + slot_id，范围 1-65）
-    # 例如：周日A=1, 周一A=11, 周六A=61
-    for ts_id in time_slot_ids_list:
-        if not 1 <= ts_id <= 65:
-            raise HTTPException(status_code=400, detail=f"时间段ID {ts_id} 无效，有效范围是 1-65")
+        time_slots_dict = json.loads(time_slots)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="时间段配置格式错误，请使用JSON格式")
 
     # 解析班级ID列表（如果提供）
     class_ids_list = None
@@ -874,14 +872,21 @@ async def class_schedules_available_students(
         except ValueError:
             raise HTTPException(status_code=400, detail="班级ID格式错误，请使用逗号分隔的数字")
 
+    logger.info(f"获取可用学员列表: 学期={semester_id}, 日期={schedule_date}, 班级={class_ids_list}, 时间段={time_slots_dict}")
+
     result = await ClassScheduleService.get_available_students_service(
         auth=auth,
         semester_id=semester_id,
         schedule_date=parsed_date,
-        time_slot_ids=time_slot_ids_list,
+        time_slots=time_slots_dict,
         class_ids=class_ids_list
     )
-    return SuccessResponse(data=result, msg="可用学员列表获取成功")
+    return JSONResponse(content={
+        "code": 0,
+        "msg": None,
+        "data": result,
+        "success": True
+    })
 
 @BadmintonRouter.get("/class-schedules/{id}", summary="排课记录详情", description="获取排课记录详细信息")
 async def class_schedule_detail(
@@ -935,7 +940,8 @@ async def class_schedules_upcoming(
 @BadmintonRouter.post("/class-schedules/v2", summary="创建排课记录（V2版本）", description="创建新排课记录（支持学员选择和自动创建考勤）")
 async def class_schedule_create_v2(
     data: ClassScheduleCreateV2Schema,
-    auth: AuthSchema = Depends(AuthPermission(["module_badminton:class_schedule:create"]))
+    auth: AuthSchema = Depends(AuthPermission(["module_badminton:class_schedule:create"])),
+    redis: Redis = Depends(redis_getter)
 ) -> JSONResponse:
     """
     创建排课记录（V2版本）
@@ -947,5 +953,5 @@ async def class_schedule_create_v2(
     - 自动创建考勤记录
     - 自动扣减课时
     """
-    result = await ClassScheduleService.create_v2_service(auth, data)
+    result = await ClassScheduleService.create_v2_service(auth, redis, data)
     return SuccessResponse(data=result, msg="排课记录创建成功")

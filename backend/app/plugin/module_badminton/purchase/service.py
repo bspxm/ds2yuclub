@@ -71,9 +71,18 @@ class PurchaseService:
             out_schema=None
         )
 
+        import json
         # 手动构建返回数据，只包含必要的字段
         items = []
         for purchase in result["items"]:
+            # 转换 selected_time_slots 从 JSON 字符串到字典
+            selected_time_slots_dict = None
+            if purchase.selected_time_slots:
+                try:
+                    selected_time_slots_dict = json.loads(purchase.selected_time_slots)
+                except (json.JSONDecodeError, ValueError):
+                    selected_time_slots_dict = None
+            
             item = {
                 'id': purchase.id,
                 'uuid': purchase.uuid,
@@ -95,7 +104,7 @@ class PurchaseService:
                 'actual_price': purchase.actual_price,
                 'discount_rate': purchase.discount_rate,
                 'purchase_notes': purchase.purchase_notes,
-                'selected_time_slots': purchase.selected_time_slots,
+                'selected_time_slots': selected_time_slots_dict,
                 'description': purchase.description,
                 'created_time': purchase.created_time.isoformat() if purchase.created_time else None,
                 'updated_time': purchase.updated_time.isoformat() if purchase.updated_time else None,
@@ -244,10 +253,13 @@ class PurchaseService:
                 # 调用单个创建服务
                 result = await cls.create_service(auth, purchase_schema)
                 
+                # 只取 data 部分，不嵌套整个 SimpleResponse
+                purchase_data_result = result.get("data", result)
+                
                 results.append({
                     "student_id": student_id,
                     "success": True,
-                    "data": result
+                    "data": purchase_data_result
                 })
                 success_count += 1
                 

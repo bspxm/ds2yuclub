@@ -259,9 +259,9 @@ docker compose down
 
 | 服务 | 本地访问地址 | 容器内端口 |
 |------|--------------|------------|
-| 后端API | http://127.0.0.1:8001 | 8001 |
-| Swagger文档 | http://127.0.0.1:8001/api/v1/docs | - |
-| ReDoc文档 | http://127.0.0.1:8001/api/v1/redoc | - |
+| 后端API | http://127.0.0.1:8771 | 8771 |
+| Swagger文档 | http://127.0.0.1:8771/api/v1/docs | - |
+| ReDoc文档 | http://127.0.0.1:8771/api/v1/redoc | - |
 | 前端开发服务器 | http://127.0.0.1:5180 | 5180 |
 | 前端生产构建 | http://localhost/web | 80 |
 | MySQL | localhost:3306 | 3306 |
@@ -425,7 +425,7 @@ REFRESH_TOKEN_EXPIRE_MINUTES = 604800  # 7天
 # 开发环境配置
 VITE_APP_PORT=5180
 VITE_APP_BASE_API=/api/v1
-VITE_API_BASE_URL=http://127.0.0.1:8001
+VITE_API_BASE_URL=http://127.0.0.1:8771
 ```
 
 ## 包管理器说明

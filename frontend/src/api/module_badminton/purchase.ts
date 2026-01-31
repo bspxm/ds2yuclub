@@ -109,7 +109,7 @@ export interface PurchaseTable extends BaseType {
   description?: string;
   created_by?: CommonType;
   updated_by?: CommonType;
-  selected_time_slots?: number[];
+  selected_time_slots?: { [key: string]: string[] };
 }
 
 // 购买记录表单数据
@@ -121,19 +121,22 @@ export interface PurchaseForm extends BaseFormType {
   session_count: number;
   unit_price: number;
   total_amount: number;
+  total_sessions?: number;
+  original_price?: number;
+  discount_rate?: number;
   purchase_date?: string;
   start_date?: string;
   end_date?: string;
   status?: string;
   description?: string;
-  selected_time_slots?: number[];
+  selected_time_slots?: { [key: string]: string[] };
 }
 
 // 批量创建购买记录的表单数据
 export interface BatchPurchaseForm {
   student_ids: number[];
-  semester_id: number;
-  class_id: number;
+  semester_id?: number;
+  class_id?: number;
   purchase_date: string;
   total_sessions: number;
   valid_from: string;
@@ -142,4 +145,5 @@ export interface BatchPurchaseForm {
   actual_price: number;
   discount_rate?: number;
   purchase_notes?: string;
+  selected_time_slots?: { [key: string]: string[] };
 }

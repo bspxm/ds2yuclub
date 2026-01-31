@@ -135,7 +135,7 @@ class ClassScheduleCreateV2Schema(BaseModel):
     schedule_date: DateStr = Field(..., description='排课日期')
     class_ids: list[int] = Field(..., description='班级ID列表（支持多选）')
     coach_id: int = Field(..., description='教练ID')
-    time_slot_ids: list[int] = Field(..., description='时间段ID列表（1-65，格式：day_index*10+slot_id，支持多选）')
+    time_slots: dict[str, list[str]] = Field(..., description='时间段配置（星期+代码格式，如：{"周一": ["A", "B"], "周三": ["C"]}）')
     schedule_status: str = Field(default='SCHEDULED', description='排课状态')
     schedule_type: str = Field(default='REGULAR', description='排课类型')
     student_ids: list[int] = Field(..., description='学员ID列表')
@@ -193,7 +193,9 @@ class ClassScheduleOutSchema(BaseSchema, UserBySchema):
     day_of_week: int = Field(..., description='星期几（0-6，0=周日）')
     
     # 时间信息
-    time_slot_id: Optional[int] = Field(None, description='时间段ID（1-65，格式：day_index*10+slot_id）')
+    time_slot_id: Optional[int] = Field(None, description='时间段ID（保留用于兼容）')
+    time_slot_code: Optional[str] = Field(None, description='时间段代码（A-E）')
+    time_slots_json: Optional[str] = Field(None, description='时间段JSON配置（星期+代码格式）')
     start_time: Optional[TimeStr] = Field(None, description='开始时间')
     end_time: Optional[TimeStr] = Field(None, description='结束时间')
     duration_minutes: Optional[int] = Field(None, description='课时分钟数')
@@ -358,3 +360,13 @@ class ClassScheduleQueryParam:
             delattr(self, 'created_id')
         if hasattr(self, 'updated_id'):
             delattr(self, 'updated_id')
+
+
+class AvailableStudentsRequestSchema(BaseModel):
+    """获取可用学员请求模型"""
+    semester_id: int = Field(..., description='学期ID')
+    schedule_date: date = Field(..., description='排课日期')
+    time_slots: dict[str, list[str]] = Field(..., description='时间段配置（格式：{"周一": ["A", "B"]}）')
+    class_ids: Optional[list[int]] = Field(None, description='班级ID列表（可选）')
+
+    model_config = ConfigDict(from_attributes=True)

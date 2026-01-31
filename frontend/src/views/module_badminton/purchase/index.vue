@@ -27,8 +27,10 @@
             style="width: 120px"
             clearable
           >
-            <el-option value="package" label="课时包" />
-            <el-option value="single" label="单次课" />
+            <el-option value="new" label="新购" />
+            <el-option value="renewal" label="续费" />
+            <el-option value="carryover" label="结转" />
+            <el-option value="upgrade" label="升级" />
           </el-select>
         </el-form-item>
         <el-form-item prop="status" label="购买状态">
@@ -38,10 +40,11 @@
             style="width: 120px"
             clearable
           >
-            <el-option value="pending" label="待生效" />
-            <el-option value="active" label="生效中" />
-            <el-option value="completed" label="已完成" />
-            <el-option value="expired" label="已过期" />
+            <el-option value="ACTIVE" label="生效中" />
+            <el-option value="COMPLETED" label="已完成" />
+            <el-option value="EXPIRED" label="已过期" />
+            <el-option value="SETTLED" label="已结算" />
+            <el-option value="CANCELLED" label="已取消" />
           </el-select>
         </el-form-item>
         <el-form-item prop="semester_id" label="学期">
@@ -245,8 +248,8 @@
           min-width="90"
         >
           <template #default="scope">
-            <el-tag :type="scope.row.purchase_type === 'package' ? 'primary' : 'success'">
-              {{ scope.row.purchase_type === 'package' ? '课时包' : '单次课' }}
+            <el-tag :type="getPurchaseTypeTagType(scope.row.purchase_type)">
+              {{ getPurchaseTypeText(scope.row.purchase_type) }}
             </el-tag>
           </template>
         </el-table-column>
@@ -255,7 +258,11 @@
           label="购买课次"
           prop="session_count"
           min-width="90"
-        />
+        >
+          <template #default="scope">
+            {{ scope.row.session_count || scope.row.total_sessions || 0 }}
+          </template>
+        </el-table-column>
         <el-table-column
           v-if="tableColumns.find((col) => col.prop === 'remaining_sessions')?.show"
           label="剩余课次"
@@ -263,8 +270,8 @@
           min-width="90"
         >
           <template #default="scope">
-            <el-tag :type="scope.row.remaining_sessions > 0 ? 'success' : 'danger'">
-              {{ scope.row.remaining_sessions }}
+            <el-tag :type="(scope.row.remaining_sessions || 0) > 0 ? 'success' : 'danger'">
+              {{ scope.row.remaining_sessions || 0 }}
             </el-tag>
           </template>
         </el-table-column>
@@ -275,7 +282,7 @@
           min-width="100"
         >
           <template #default="scope">
-            ¥{{ scope.row.total_amount }}
+            ¥{{ scope.row.total_amount || ((scope.row.total_sessions || 0) * (scope.row.actual_price || 0)).toFixed(2) }}
           </template>
         </el-table-column>
         <el-table-column
@@ -291,19 +298,24 @@
           min-width="90"
         >
           <template #default="scope">
-            <el-tag :type="scope.row.status === 'active' ? 'success' : scope.row.status === 'pending' ? 'info' : scope.row.status === 'completed' ? 'warning' : 'danger'">
-              {{ scope.row.status === 'pending' ? '待生效' : scope.row.status === 'active' ? '生效中' : scope.row.status === 'completed' ? '已完成' : '已过期' }}
+            <el-tag :type="getStatusTagType(scope.row.status)">
+              {{ getStatusText(scope.row.status) }}
             </el-tag>
           </template>
         </el-table-column>
         <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'created_time')?.show"
-          label="创建时间"
-          prop="created_time"
-          min-width="180"
+          v-if="tableColumns.find((col) => col.prop === 'selected_time_slots')?.show"
+          label="选课时间段"
+          prop="selected_time_slots"
+          min-width="280"
         >
           <template #default="scope">
-            {{ formatDateTime(scope.row.created_time) }}
+            <div v-if="scope.row.selected_time_slots" class="time-slots-container">
+              <div v-for="(dayGroup, index) in formatSelectedTimeSlots(scope.row.selected_time_slots)" :key="index" class="day-group">
+                <span class="day-label">{{ dayGroup.day }}:</span>
+                <span class="time-labels">{{ dayGroup.slots.join(', ') }}</span>
+              </div>
+            </div>
           </template>
         </el-table-column>
         <el-table-column
@@ -383,23 +395,23 @@
             {{ detailFormData.class_ref?.name || detailFormData.class_id }}
           </el-descriptions-item>
           <el-descriptions-item label="购买类型">
-            <el-tag :type="detailFormData.purchase_type === 'package' ? 'primary' : 'success'">
-              {{ detailFormData.purchase_type === 'package' ? '课时包' : '单次课' }}
+            <el-tag :type="getPurchaseTypeTagType(detailFormData.purchase_type)">
+              {{ getPurchaseTypeText(detailFormData.purchase_type) }}
             </el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="购买课次">
-            {{ detailFormData.session_count }}
+            {{ detailFormData.session_count || detailFormData.total_sessions || 0 }}
           </el-descriptions-item>
           <el-descriptions-item label="剩余课次">
             <el-tag :type="(detailFormData.remaining_sessions || 0) > 0 ? 'success' : 'danger'">
-              {{ detailFormData.remaining_sessions }}
+              {{ detailFormData.remaining_sessions || 0 }}
             </el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="单价">
-            ¥{{ detailFormData.unit_price }}
+            ¥{{ detailFormData.unit_price || detailFormData.actual_price || 0 }}
           </el-descriptions-item>
           <el-descriptions-item label="总金额">
-            ¥{{ detailFormData.total_amount }}
+            ¥{{ detailFormData.total_amount || ((detailFormData.total_sessions || 0) * (detailFormData.actual_price || 0)).toFixed(2) }}
           </el-descriptions-item>
           <el-descriptions-item label="购买日期">
             {{ detailFormData.purchase_date }}
@@ -411,8 +423,8 @@
             {{ detailFormData.end_date }}
           </el-descriptions-item>
           <el-descriptions-item label="状态">
-            <el-tag :type="detailFormData.status === 'active' ? 'success' : detailFormData.status === 'pending' ? 'info' : detailFormData.status === 'completed' ? 'warning' : 'danger'">
-              {{ detailFormData.status === 'pending' ? '待生效' : detailFormData.status === 'active' ? '生效中' : detailFormData.status === 'completed' ? '已完成' : '已过期' }}
+            <el-tag :type="getStatusTagType(detailFormData.status)">
+              {{ getStatusText(detailFormData.status) }}
             </el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="创建人">
@@ -429,6 +441,15 @@
           </el-descriptions-item>
           <el-descriptions-item label="备注" :span="2">
             {{ detailFormData.description || '无' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="选课时间段" :span="2">
+            <div v-if="detailFormData.selected_time_slots && Object.keys(detailFormData.selected_time_slots).length > 0" class="time-slots-container">
+              <div v-for="(dayGroup, index) in formatSelectedTimeSlots(detailFormData.selected_time_slots)" :key="index" class="day-group">
+                <span class="day-label">{{ dayGroup.day }}:</span>
+                <span class="time-labels">{{ dayGroup.slots.join(', ') }}</span>
+              </div>
+            </div>
+            <span v-else style="color: #909399;">未选择时间段</span>
           </el-descriptions-item>
         </el-descriptions>
         </div>
@@ -487,8 +508,10 @@
             <el-col :span="12">
               <el-form-item label="购买类型" prop="purchase_type">
                 <el-select v-model="formData.purchase_type" placeholder="请选择购买类型" style="width: 100%">
-                  <el-option value="package" label="课时包" />
-                  <el-option value="single" label="单次课" />
+                  <el-option value="new" label="新购" />
+                  <el-option value="renewal" label="续费" />
+                  <el-option value="carryover" label="结转" />
+                  <el-option value="upgrade" label="升级" />
                 </el-select>
               </el-form-item>
             </el-col>
@@ -553,10 +576,11 @@
             <el-col :span="12">
               <el-form-item label="购买状态" prop="status">
                 <el-select v-model="formData.status" placeholder="请选择购买状态" style="width: 100%">
-                  <el-option value="pending" label="待生效" />
-                  <el-option value="active" label="生效中" />
-                  <el-option value="completed" label="已完成" />
-                  <el-option value="expired" label="已过期" />
+                  <el-option value="ACTIVE" label="生效中" />
+                  <el-option value="COMPLETED" label="已完成" />
+                  <el-option value="EXPIRED" label="已过期" />
+                  <el-option value="SETTLED" label="已结算" />
+                  <el-option value="CANCELLED" label="已取消" />
                 </el-select>
               </el-form-item>
             </el-col>
@@ -575,24 +599,24 @@
                   该班级暂无可用时间段
                 </div>
                 <div v-else>
-                  <el-checkbox-group v-model="formData.selected_time_slots" @change="handleTimeSlotChangeSingle">
-                    <div style="display: flex; flex-wrap: wrap; gap: 20px; max-height: 300px; overflow-y: auto; border: 1px solid var(--el-border-color); border-radius: 4px; padding: 15px; background-color: var(--el-fill-color-blank);">
-                      <div v-for="day in getUniqueDaysSingle()" :key="day" style="flex: 1; min-width: 200px; border: 1px solid var(--el-border-color); border-radius: 4px; padding: 10px; background-color: var(--el-fill-color-light);">
-                        <div style="margin-bottom: 10px; font-weight: bold; color: var(--el-text-color-primary); border-bottom: 1px solid var(--el-border-color-light); padding-bottom: 8px; font-size: 16px;">
-                          {{ day }}
-                        </div>
+                  <div style="display: flex; flex-wrap: wrap; gap: 20px; max-height: 300px; overflow-y: auto; border: 1px solid var(--el-border-color); border-radius: 4px; padding: 15px; background-color: var(--el-fill-color-blank);">
+                    <div v-for="day in getUniqueDaysSingle()" :key="day" style="flex: 1; min-width: 200px; border: 1px solid var(--el-border-color); border-radius: 4px; padding: 10px; background-color: var(--el-fill-color-light);">
+                      <div style="margin-bottom: 10px; font-weight: bold; color: var(--el-text-color-primary); border-bottom: 1px solid var(--el-border-color-light); padding-bottom: 8px; font-size: 16px;">
+                        {{ day }}
+                      </div>
+                      <el-checkbox-group v-model="formData.selected_time_slots[day]" @change="handleTimeSlotChangeSingle(formData.selected_time_slots)">
                         <div style="display: flex; flex-direction: column; gap: 8px;">
                           <div v-for="slot in getSlotsByDaySingle(day)" :key="slot.id" style="display: flex; align-items: center;">
-                            <el-checkbox :label="slot.id" :disabled="classTypeInfoSingle?.class_type === 'fixed'">
+                            <el-checkbox :label="slot.slot_code" :disabled="classTypeInfoSingle?.class_type === 'fixed'">
                               <span style="margin-left: 8px; font-size: 14px; color: var(--el-text-color-regular);">
                                 {{ slot.start_time }}-{{ slot.end_time }}
                               </span>
                             </el-checkbox>
                           </div>
                         </div>
-                      </div>
+                      </el-checkbox-group>
                     </div>
-                  </el-checkbox-group>
+                  </div>
                   <div v-if="timeSlotWarningSingle" style="margin-top: 8px; color: #e6a23c; font-size: 12px;">
                     <el-icon><WarningFilled /></el-icon>
                     {{ timeSlotWarningSingle }}
@@ -810,24 +834,24 @@
                       该班级暂无可用时间段
                     </div>
                     <div v-else>
-                      <el-checkbox-group v-model="batchFormData.selected_time_slots" @change="handleTimeSlotChange">
-                        <div style="display: flex; flex-wrap: wrap; gap: 20px; max-height: 300px; overflow-y: auto; border: 1px solid var(--el-border-color); border-radius: 4px; padding: 15px; background-color: var(--el-fill-color-blank);">
-                          <div v-for="day in getUniqueDays()" :key="day" style="flex: 1; min-width: 200px; border: 1px solid var(--el-border-color); border-radius: 4px; padding: 10px; background-color: var(--el-fill-color-light);">
-                            <div style="margin-bottom: 10px; font-weight: bold; color: var(--el-text-color-primary); border-bottom: 1px solid var(--el-border-color-light); padding-bottom: 8px; font-size: 16px;">
-                              {{ day }}
-                            </div>
+                      <div style="display: flex; flex-wrap: wrap; gap: 20px; max-height: 300px; overflow-y: auto; border: 1px solid var(--el-border-color); border-radius: 4px; padding: 15px; background-color: var(--el-fill-color-blank);">
+                        <div v-for="day in getUniqueDays()" :key="day" style="flex: 1; min-width: 200px; border: 1px solid var(--el-border-color); border-radius: 4px; padding: 10px; background-color: var(--el-fill-color-light);">
+                          <div style="margin-bottom: 10px; font-weight: bold; color: var(--el-text-color-primary); border-bottom: 1px solid var(--el-border-color-light); padding-bottom: 8px; font-size: 16px;">
+                            {{ day }}
+                          </div>
+                          <el-checkbox-group v-model="batchFormData.selected_time_slots[day]" @change="handleTimeSlotChange(batchFormData.selected_time_slots)">
                             <div style="display: flex; flex-direction: column; gap: 8px;">
                               <div v-for="slot in getSlotsByDay(day)" :key="slot.id" style="display: flex; align-items: center;">
-                                <el-checkbox :label="slot.id" :disabled="classTypeInfo?.class_type === 'fixed'">
+                                <el-checkbox :label="slot.slot_code" :disabled="classTypeInfo?.class_type === 'fixed'">
                                   <span style="margin-left: 8px; font-size: 14px; color: var(--el-text-color-regular);">
                                     {{ slot.start_time }}-{{ slot.end_time }}
                                   </span>
                                 </el-checkbox>
                               </div>
                             </div>
-                          </div>
+                          </el-checkbox-group>
                         </div>
-                      </el-checkbox-group>
+                      </div>
                       <div v-if="timeSlotWarning" style="margin-top: 8px; color: #e6a23c; font-size: 12px;">
                         <el-icon><WarningFilled /></el-icon>
                         {{ timeSlotWarning }}
@@ -906,7 +930,7 @@ const tableColumns = ref([
   { prop: "total_amount", label: "总金额", show: true },
   { prop: "purchase_date", label: "购买日期", show: true },
   { prop: "status", label: "状态", show: true },
-  { prop: "created_time", label: "创建时间", show: true },
+  { prop: "selected_time_slots", label: "选课时间段", show: true },
   { prop: "operation", label: "操作", show: true },
 ]);
 
@@ -932,16 +956,16 @@ const formData = reactive<PurchaseForm>({
   student_id: undefined,
   semester_id: undefined,
   class_id: undefined,
-  purchase_type: "package",
+  purchase_type: "new",
   session_count: 10,
   unit_price: 100,
   total_amount: 1000,
   purchase_date: "",
   start_date: "",
   end_date: "",
-  status: "pending",
+  status: "ACTIVE",
   description: undefined,
-  selected_time_slots: [],
+  selected_time_slots: { "周一": [], "周二": [], "周三": [], "周四": [], "周五": [], "周六": [], "周日": [] },
 });
 
 // 弹窗状态
@@ -960,19 +984,22 @@ const rules = reactive({
   status: [{ required: true, message: "请选择购买状态", trigger: "blur" }],
   selected_time_slots: [
     {
-      validator: (rule: any, value: number[], callback: any) => {
+      validator: (rule: any, value: any, callback: any) => {
         if (!classTypeInfoSingle.value) {
           callback();
           return;
         }
         const requiredCount = classTypeInfoSingle.value.sessions_per_week || 0;
         if (classTypeInfoSingle.value.class_type === 'flexible') {
-          if (!value || value.length === 0) {
+          if (!value || Object.keys(value).length === 0) {
             callback(new Error("请选择上课时间段"));
-          } else if (value.length !== requiredCount) {
-            callback(new Error(`请选择 ${requiredCount} 个上课时间段`));
           } else {
-            callback();
+            const selectedCount = Object.keys(value).reduce((sum, day) => sum + value[day].length, 0);
+            if (selectedCount !== requiredCount) {
+              callback(new Error(`请选择 ${requiredCount} 个上课时间段`));
+            } else {
+              callback();
+            }
           }
         } else {
           callback();
@@ -991,6 +1018,17 @@ const classList = ref<ClassTable[]>([]);
 
 // 学员列表
 const studentList = ref<StudentTable[]>([]);
+
+// 时间段列表（从字典接口获取）
+interface TimeSlotInfo {
+  id: number;
+  code: string;
+  name: string;
+  start_time: string;
+  end_time: string;
+}
+
+const timeSlotList = ref<TimeSlotInfo[]>([]);
 
 // 批量新增弹窗相关
 const batchDialogVisible = ref(false);
@@ -1013,10 +1051,10 @@ const loadingTimeSlots = ref(false);
 const timeSlotWarning = ref("");
 
 // 批量新增表单
-const batchFormData = reactive<BatchPurchaseForm & { selected_time_slots?: number[] }>({
+const batchFormData = reactive<BatchPurchaseForm>({
   student_ids: [],
-  semester_id: 0,
-  class_id: 0,
+  semester_id: undefined,
+  class_id: undefined,
   purchase_date: "",
   total_sessions: 0,
   valid_from: "",
@@ -1025,7 +1063,7 @@ const batchFormData = reactive<BatchPurchaseForm & { selected_time_slots?: numbe
   actual_price: 0,
   discount_rate: 1.0,
   purchase_notes: undefined,
-  selected_time_slots: [],
+  selected_time_slots: { "周一": [], "周二": [], "周三": [], "周四": [], "周五": [], "周六": [], "周日": [] },
 });
 
 // 批量新增表单验证规则
@@ -1040,8 +1078,8 @@ const batchRules = reactive({
   actual_price: [{ required: true, message: "请输入实付价格", trigger: "blur" }],
   selected_time_slots: [
     {
-      validator: (rule: any, value: number[], callback: any) => {
-        if (!value || value.length === 0) {
+      validator: (rule: any, value: any, callback: any) => {
+        if (!value || Object.keys(value).length === 0) {
           callback(new Error("请选择上课时间段"));
           return;
         }
@@ -1049,7 +1087,8 @@ const batchRules = reactive({
         // 如果是自选天班级，验证是否选择了足够的次数
         if (classTypeInfo.value && classTypeInfo.value.class_type === 'flexible') {
           const requiredCount = classTypeInfo.value.sessions_per_week || 0;
-          if (value.length !== requiredCount) {
+          const selectedCount = Object.keys(value).reduce((sum, day) => sum + value[day].length, 0);
+          if (selectedCount !== requiredCount) {
             callback();
             return;
           }
@@ -1142,6 +1181,141 @@ function formatDateTime(dateTime: string | undefined): string {
   const minutes = String(date.getMinutes()).padStart(2, '0');
   const seconds = String(date.getSeconds()).padStart(2, '0');
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+
+// 时间段代码映射
+const timeSlotMap: Record<string, string> = {
+  'A': '08:00-09:30',
+  'B': '09:30-11:00',
+  'C': '14:00-15:30',
+  'D': '15:30-17:00',
+  'E': '18:00-19:30'
+};
+
+// 加载时间段字典数据
+async function loadTimeSlotDict() {
+  if (timeSlotList.value.length > 0) {
+    return;
+  }
+  
+  try {
+    const response = await request<ApiResponse<any[]>>({
+      url: "/system/dict/data/info/badminton_time_slot",
+      method: "get",
+    });
+    const dictData = response.data.data || [];
+    
+    timeSlotList.value = dictData.map((item: any) => ({
+      id: item.dict_sort,
+      code: item.dict_value,
+      name: item.dict_label,
+      start_time: item.dict_label.split('-')[0],
+      end_time: item.dict_label.split('-')[1],
+    }));
+  } catch (error: any) {
+    console.error('加载时间段字典失败:', error);
+  }
+}
+
+// 格式化选课时间段
+function formatSelectedTimeSlots(timeSlots: { [key: string]: string[] } | undefined): { day: string; slots: string[] }[] {
+  if (!timeSlots) return [];
+  
+  const result: { day: string; slots: string[] }[] = [];
+  
+  // 按天排序
+  const dayOrder = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+  
+  // 遍历每天的时段
+  dayOrder.forEach(day => {
+    const daySlots = timeSlots[day];
+    if (daySlots && Array.isArray(daySlots) && daySlots.length > 0) {
+      const slots: string[] = [];
+      daySlots.forEach((slotCode: string) => {
+        // 从时间段列表中查找对应的时间段
+        const slot = timeSlotList.value.find(s => s.code === slotCode);
+        if (slot) {
+          slots.push(`${slot.start_time}-${slot.end_time}`);
+        } else {
+          // 降级使用 timeSlotMap
+          const timeRange = timeSlotMap[slotCode];
+          if (timeRange) {
+            slots.push(timeRange);
+          }
+        }
+      });
+      if (slots.length > 0) {
+        result.push({ day, slots });
+      }
+    }
+  });
+  
+  return result;
+}
+
+// 格式化时间段代码
+function formatTimeSlots(slots: string[]): string {
+  if (!slots || slots.length === 0) return '';
+  return slots.map(slot => {
+    const timeRange = timeSlotMap[slot] || slot;
+    return `${slot} ${timeRange}`;
+  }).join(', ');
+}
+
+// 获取购买类型文本
+function getPurchaseTypeText(type: string): string {
+  const typeMap: Record<string, string> = {
+    'new': '新购',
+    'renewal': '续费',
+    'carryover': '结转',
+    'upgrade': '升级'
+  };
+  return typeMap[type] || '新购';
+}
+
+// 获取购买类型标签样式
+function getPurchaseTypeTagType(type: string): string {
+  const typeMap: Record<string, string> = {
+    'new': 'primary',
+    'renewal': 'success',
+    'carryover': 'warning',
+    'upgrade': 'info'
+  };
+  return typeMap[type] || 'primary';
+}
+
+// 获取状态文本
+function getStatusText(status: string): string {
+  const statusMap: Record<string, string> = {
+    'active': '生效中',
+    'ACTIVE': '生效中',
+    'completed': '已完成',
+    'COMPLETED': '已完成',
+    'expired': '已过期',
+    'EXPIRED': '已过期',
+    'settled': '已结算',
+    'SETTLED': '已结算',
+    'cancelled': '已取消',
+    'CANCELLED': '已取消'
+  };
+  return statusMap[status] || status;
+}
+
+// 获取状态标签样式
+function getStatusTagType(status: string): string {
+  const statusMap: Record<string, string> = {
+    'active': 'success',
+    'ACTIVE': 'success',
+    'completed': 'warning',
+    'COMPLETED': 'warning',
+    'expired': 'danger',
+    'EXPIRED': 'danger',
+    'settled': 'info',
+    'SETTLED': 'info',
+    'cancelled': 'danger',
+    'CANCELLED': 'danger'
+  };
+  return statusMap[status] || 'info';
 }
 
 // 加载学期列表（过滤掉已结束的学期）
@@ -1287,16 +1461,16 @@ const initialFormData: PurchaseForm = {
   student_id: undefined,
   semester_id: undefined,
   class_id: undefined,
-  purchase_type: "package",
+  purchase_type: "new",
   session_count: 10,
   unit_price: 100,
   total_amount: 1000,
   purchase_date: "",
   start_date: "",
   end_date: "",
-  status: "pending",
+  status: "ACTIVE",
   description: undefined,
-  selected_time_slots: [],
+  selected_time_slots: { "周一": [], "周二": [], "周三": [], "周四": [], "周五": [], "周六": [], "周日": [] },
 };
 
 // 重置表单
@@ -1400,11 +1574,57 @@ async function handleSubmit() {
     if (!valid) return;
     
     try {
+      // 手动构建 selected_time_slots 对象
+      const timeSlots: { [key: string]: string[] } = {};
+      if (formData.selected_time_slots) {
+        Object.keys(formData.selected_time_slots).forEach(key => {
+          timeSlots[key] = [...formData.selected_time_slots[key]];
+        });
+      }
+      
       if (dialogVisible.type === "create") {
-        await PurchaseAPI.createPurchase(formData);
+        const submitData = {
+          student_id: formData.student_id,
+          semester_id: formData.semester_id,
+          class_id: formData.class_id,
+          purchase_type: formData.purchase_type,
+          session_count: formData.session_count,
+          unit_price: formData.unit_price,
+          total_amount: formData.total_amount,
+          total_sessions: formData.session_count,
+          original_price: formData.unit_price,
+          actual_price: formData.unit_price,
+          discount_rate: 1.0,
+          purchase_date: formData.purchase_date,
+          valid_from: formData.start_date,
+          valid_until: formData.end_date,
+          status: formData.status,
+          purchase_notes: formData.description,
+          selected_time_slots: timeSlots
+        };
+        await PurchaseAPI.createPurchase(submitData);
         ElMessage.success("创建成功");
       } else if (dialogVisible.type === "update") {
-        await PurchaseAPI.updatePurchase(formData.id!, formData);
+        const submitData = {
+          student_id: formData.student_id,
+          semester_id: formData.semester_id,
+          class_id: formData.class_id,
+          purchase_type: formData.purchase_type,
+          session_count: formData.session_count,
+          unit_price: formData.unit_price,
+          total_amount: formData.total_amount,
+          total_sessions: formData.session_count,
+          original_price: formData.unit_price,
+          actual_price: formData.unit_price,
+          discount_rate: 1.0,
+          purchase_date: formData.purchase_date,
+          valid_from: formData.start_date,
+          valid_until: formData.end_date,
+          status: formData.status,
+          purchase_notes: formData.description,
+          selected_time_slots: timeSlots
+        };
+        await PurchaseAPI.updatePurchase(formData.id!, submitData);
         ElMessage.success("更新成功");
       }
       dialogVisible.visible = false;
@@ -1442,8 +1662,8 @@ async function handleOpenBatchDialog() {
   batchGroupFilter.value = "";
   batchLevelFilter.value = "";
   batchFormData.student_ids = [];
-  batchFormData.semester_id = 0;
-  batchFormData.class_id = 0;
+  batchFormData.semester_id = undefined;
+  batchFormData.class_id = undefined;
   batchFormData.purchase_date = "";
   batchFormData.total_sessions = 0;
   batchFormData.valid_from = "";
@@ -1452,7 +1672,7 @@ async function handleOpenBatchDialog() {
   batchFormData.actual_price = 0;
   batchFormData.discount_rate = 1.0;
   batchFormData.purchase_notes = undefined;
-  batchFormData.selected_time_slots = [];
+  batchFormData.selected_time_slots = { "周一": [], "周二": [], "周三": [], "周四": [], "周五": [], "周六": [], "周日": [] };
   availableTimeSlots.value = [];
   classTypeInfo.value = null;
   loadingTimeSlots.value = false;
@@ -1479,7 +1699,7 @@ async function handleBatchSubmit() {
   }
   
   // 验证时间段选择
-  if (!batchFormData.selected_time_slots || batchFormData.selected_time_slots.length === 0) {
+  if (!batchFormData.selected_time_slots || Object.keys(batchFormData.selected_time_slots).length === 0) {
     ElMessage.warning("请选择上课时间段");
     return;
   }
@@ -1487,8 +1707,9 @@ async function handleBatchSubmit() {
   // 如果是自选天班级，验证是否选择了足够的次数
   if (classTypeInfo.value && classTypeInfo.value.class_type === 'flexible') {
     const requiredCount = classTypeInfo.value.sessions_per_week || 0;
-    if (batchFormData.selected_time_slots.length !== requiredCount) {
-      ElMessage.warning(`请选择 ${requiredCount} 个上课时间段，当前已选择 ${batchFormData.selected_time_slots.length} 个`);
+    const selectedCount = Object.keys(batchFormData.selected_time_slots).reduce((sum, day) => sum + batchFormData.selected_time_slots[day].length, 0);
+    if (selectedCount !== requiredCount) {
+      ElMessage.warning(`请选择 ${requiredCount} 个上课时间段，当前已选择 ${selectedCount} 个`);
       return;
     }
   }
@@ -1497,8 +1718,34 @@ async function handleBatchSubmit() {
     if (!valid) return;
     
     try {
-      batchFormData.student_ids = batchSelectedStudents.value;
-      await PurchaseAPI.batchCreatePurchase(batchFormData);
+      // 构建提交数据，确保包含时间段
+      // 手动构建 selected_time_slots 对象，避免 Vue Proxy 的问题
+      const timeSlots: { [key: string]: string[] } = {};
+      if (batchFormData.selected_time_slots) {
+        Object.keys(batchFormData.selected_time_slots).forEach(key => {
+          timeSlots[key] = [...batchFormData.selected_time_slots[key]];
+        });
+      }
+      
+      const submitData = {
+        student_ids: batchSelectedStudents.value,
+        semester_id: batchFormData.semester_id,
+        class_id: batchFormData.class_id,
+        purchase_date: batchFormData.purchase_date,
+        total_sessions: batchFormData.total_sessions,
+        valid_from: batchFormData.valid_from,
+        valid_until: batchFormData.valid_until,
+        original_price: batchFormData.original_price,
+        actual_price: batchFormData.actual_price,
+        discount_rate: batchFormData.discount_rate,
+        purchase_notes: batchFormData.purchase_notes,
+        selected_time_slots: timeSlots
+      };
+      
+      console.log('提交的数据:', submitData);
+      console.log('时间段数据:', submitData.selected_time_slots);
+      
+      await PurchaseAPI.batchCreatePurchase(submitData);
       ElMessage.success(`成功创建 ${batchSelectedStudents.value.length} 条购买记录`);
       batchDialogVisible.value = false;
       loadingData();
@@ -1531,7 +1778,7 @@ async function handleClassChange(classId: number) {
   if (!classId) {
     availableTimeSlots.value = [];
     classTypeInfo.value = null;
-    batchFormData.selected_time_slots = [];
+    batchFormData.selected_time_slots = { "周一": [], "周二": [], "周三": [], "周四": [], "周五": [], "周六": [], "周日": [] };
     timeSlotWarning.value = "";
     return;
   }
@@ -1546,8 +1793,15 @@ async function handleClassChange(classId: number) {
     
     // 根据班级类型处理默认选择
     if (data.class_type === 'fixed') {
-      // 固定班：默认全选
-      batchFormData.selected_time_slots = availableTimeSlots.value.map(slot => slot.id);
+      // 固定班：默认全选，转换为星期+代码格式
+      const converted: { [key: string]: string[] } = {};
+      availableTimeSlots.value.forEach(slot => {
+        if (!converted[slot.day]) {
+          converted[slot.day] = [];
+        }
+        converted[slot.day].push(slot.slot_code || '');
+      });
+      batchFormData.selected_time_slots = converted;
       timeSlotWarning.value = "";
     } else if (data.class_type === 'flexible') {
       // 自选天：清空选择，需要用户手动选择
@@ -1566,11 +1820,11 @@ async function handleClassChange(classId: number) {
 }
 
 // 处理时间段选择变化
-function handleTimeSlotChange(selectedSlots: any[]) {
+function handleTimeSlotChange(selectedSlots: any) {
   if (!classTypeInfo.value) return;
 
   const requiredCount = classTypeInfo.value.sessions_per_week || 0;
-  const selectedCount = selectedSlots.length;
+  const selectedCount = Object.keys(selectedSlots).reduce((sum, day) => sum + selectedSlots[day].length, 0);
 
   if (classTypeInfo.value.class_type === 'flexible') {
     if (selectedCount < requiredCount) {
@@ -1616,11 +1870,11 @@ function getSlotsByDaySingle(day: string) {
   });
 }
 
-function handleTimeSlotChangeSingle(selectedSlots: any[]) {
+function handleTimeSlotChangeSingle(selectedSlots: any) {
   if (!classTypeInfoSingle.value) return;
 
   const requiredCount = classTypeInfoSingle.value.sessions_per_week || 0;
-  const selectedCount = selectedSlots.length;
+  const selectedCount = Object.keys(selectedSlots).reduce((sum, day) => sum + selectedSlots[day].length, 0);
 
   if (classTypeInfoSingle.value.class_type === 'flexible') {
     if (selectedCount < requiredCount) {
@@ -1637,7 +1891,7 @@ async function handleClassChangeSingle(classId: number, preserveSelectedSlots: n
   if (!classId) {
     availableTimeSlotsSingle.value = [];
     classTypeInfoSingle.value = null;
-    formData.selected_time_slots = [];
+    formData.selected_time_slots = { "周一": [], "周二": [], "周三": [], "周四": [], "周五": [], "周六": [], "周日": [] };
     timeSlotWarningSingle.value = "";
     return;
   }
@@ -1652,16 +1906,23 @@ async function handleClassChangeSingle(classId: number, preserveSelectedSlots: n
     
     // 根据班级类型处理默认选择
     if (data.class_type === 'fixed') {
-      // 固定班：默认全选
-      formData.selected_time_slots = availableTimeSlotsSingle.value.map(slot => slot.id);
+      // 固定班：默认全选，转换为星期+代码格式
+      const converted: { [key: string]: string[] } = {};
+      availableTimeSlotsSingle.value.forEach(slot => {
+        if (!converted[slot.day]) {
+          converted[slot.day] = [];
+        }
+        converted[slot.day].push(slot.slot_code || '');
+      });
+      formData.selected_time_slots = converted;
       timeSlotWarningSingle.value = "";
     } else if (data.class_type === 'flexible') {
       // 自选天：如果需要保留已选时间段，则使用它们；否则清空选择
-      if (preserveSelectedSlots && preserveSelectedSlots.length > 0) {
+      if (preserveSelectedSlots && typeof preserveSelectedSlots === 'object') {
         formData.selected_time_slots = preserveSelectedSlots;
         timeSlotWarningSingle.value = "";
       } else {
-        formData.selected_time_slots = [];
+        formData.selected_time_slots = {};
         timeSlotWarningSingle.value = `请选择 ${data.sessions_per_week} 个上课时间段`;
       }
     }
@@ -1687,6 +1948,7 @@ onMounted(() => {
   loadSemesterList();
   loadClassList();
   loadStudentList();
+  loadTimeSlotDict();
 });
 </script>
 
@@ -1707,5 +1969,28 @@ onMounted(() => {
 
 .data-table__content {
   flex: 1;
+}
+
+/* 时间段显示样式 */
+.time-slots-container {
+  line-height: 1.8;
+}
+
+.day-group {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 4px;
+}
+
+.day-label {
+  font-weight: 600;
+  color: #606266;
+  min-width: 40px;
+  flex-shrink: 0;
+}
+
+.time-labels {
+  color: #909399;
+  font-size: 13px;
 }
 </style>

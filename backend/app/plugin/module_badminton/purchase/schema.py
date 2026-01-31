@@ -24,26 +24,41 @@ class PurchaseCreateSchema(BaseModel):
     semester_id: int = Field(..., description='学期ID')
     purchase_date: date = Field(..., description='购买日期')
     total_sessions: int = Field(..., description='购买总课时')
+    used_sessions: int = Field(default=0, description='已使用课时')
+    remaining_sessions: int = Field(default=0, description='剩余课时')
     valid_from: date = Field(..., description='有效期开始')
     valid_until: date = Field(..., description='有效期截止')
     original_price: float = Field(..., description='原价')
     actual_price: float = Field(..., description='实付价格')
     discount_rate: float = Field(default=1.0, description='折扣率')
     purchase_notes: Optional[str] = Field(None, description='购买备注')
-    selected_time_slots: Optional[list[int]] = Field(None, description='已选上课时间段ID列表')
+    status: str = Field(default='ACTIVE', description='购买状态')
+    description: Optional[str] = Field(None, description='描述')
+    selected_time_slots: Optional[dict[str, list[str]]] = Field(None, description='已选上课时间段（星期+代码格式）')
 
     @field_validator('selected_time_slots', mode='before')
     @classmethod
-    def parse_time_slots(cls, value: Any) -> Optional[list[int]]:
-        """解析时间段JSON字符串为列表"""
+    def parse_time_slots(cls, value: Any) -> Optional[dict[str, list[str]]]:
+        """解析时间段JSON字符串为字典"""
         if value is None:
             return None
         if isinstance(value, list):
+            # 如果是空数组，返回 None
+            if len(value) == 0:
+                return None
+            # 如果是非空数组，尝试保留兼容性
+            return None
+        if isinstance(value, dict):
             return value
         if isinstance(value, str):
             try:
                 import json
-                return json.loads(value)
+                parsed = json.loads(value)
+                if isinstance(parsed, list):
+                    return None
+                if isinstance(parsed, dict):
+                    return parsed
+                return None
             except (json.JSONDecodeError, ValueError):
                 return None
         return None
@@ -73,7 +88,28 @@ class BatchPurchaseCreateSchema(BaseModel):
     actual_price: float = Field(..., description='实付价格')
     discount_rate: float = Field(default=1.0, description='折扣率')
     purchase_notes: Optional[str] = Field(None, description='购买备注')
-    selected_time_slots: Optional[list[int]] = Field(None, description='已选上课时间段ID列表')
+    selected_time_slots: Optional[dict[str, list[str]]] = Field(None, description='已选上课时间段（星期+代码格式）')
+
+    @field_validator('selected_time_slots', mode='before')
+    @classmethod
+    def parse_time_slots(cls, value: Any) -> Optional[dict[str, list[str]]]:
+        """解析时间段JSON字符串为字典"""
+        if value is None:
+            return None
+        if isinstance(value, list):
+            return None
+        if isinstance(value, dict):
+            return value
+        if isinstance(value, str):
+            try:
+                import json
+                parsed = json.loads(value)
+                if isinstance(parsed, dict):
+                    return parsed
+                return None
+            except (json.JSONDecodeError, ValueError):
+                return None
+        return None
 
     @field_validator('purchase_date', 'valid_from', 'valid_until')
     @classmethod
@@ -106,12 +142,12 @@ class PurchaseOutSchema(PurchaseCreateSchema, BaseSchema, UserBySchema):
     class_ref: Optional[Any] = Field(default=None, description='班级信息')
 
     # 覆盖 selected_time_slots 字段，支持从数据库JSON字符串读取
-    selected_time_slots: Optional[list[int]] = Field(default=None, description='已选上课时间段ID列表')
+    selected_time_slots: Optional[dict[str, list[str]]] = Field(default=None, description='已选上课时间段（星期+代码格式）')
 
     # 字段验证器：将JSON字符串转换为列表
     @field_validator('selected_time_slots', mode='before')
     @classmethod
-    def parse_time_slots(cls, value: Any) -> Optional[list[int]]:
+    def parse_time_slots(cls, value: Any) -> Optional[dict[str, list[str]]]:
         """解析时间段JSON字符串为列表"""
         if value is None:
             return None
@@ -149,7 +185,7 @@ class PurchaseOutSchema(PurchaseCreateSchema, BaseSchema, UserBySchema):
     total_amount: float = Field(default=0.0, description='总金额')
     start_date: Optional[str] = Field(default=None, description='开始日期')
     end_date: Optional[str] = Field(default=None, description='结束日期')
-    purchase_type: str = Field(default='package', description='购买类型')
+    purchase_type: str = Field(default='new', description='购买类型')
 
     @model_serializer(mode='wrap')
     def serialize_model(self, handler: Any, _info: Any) -> dict[str, Any]:
@@ -157,13 +193,34 @@ class PurchaseOutSchema(PurchaseCreateSchema, BaseSchema, UserBySchema):
         # 先调用默认的序列化器
         data = handler(self)
 
+        # 转换所有 date 字段为字符串
+        date_fields = ['purchase_date', 'valid_from', 'valid_until', 'created_time', 'updated_time', 'settlement_date']
+        for field in date_fields:
+            if field in data and hasattr(data[field], 'isoformat'):
+                data[field] = data[field].isoformat()
+
         # 添加前端兼容的计算字段
         data['session_count'] = self.total_sessions
         data['unit_price'] = self.actual_price
         data['total_amount'] = self.actual_price * self.total_sessions
         data['start_date'] = self.valid_from.isoformat() if self.valid_from else None
         data['end_date'] = self.valid_until.isoformat() if self.valid_until else None
-        data['purchase_type'] = 'package'
+        
+        # 确保 purchase_type 使用正确的枚举值
+        if 'purchase_type' not in data or data['purchase_type'] not in ['new', 'renewal', 'carryover', 'upgrade']:
+            data['purchase_type'] = 'new'
+
+        # 确保 selected_time_slots 被正确序列化（从 JSON 字符串转换为字典）
+        if 'selected_time_slots' not in data and hasattr(self, 'selected_time_slots'):
+            data['selected_time_slots'] = self.selected_time_slots
+        
+        # 如果 selected_time_slots 是 JSON 字符串，转换为字典
+        if 'selected_time_slots' in data and isinstance(data['selected_time_slots'], str):
+            try:
+                import json
+                data['selected_time_slots'] = json.loads(data['selected_time_slots'])
+            except (json.JSONDecodeError, ValueError):
+                data['selected_time_slots'] = None
 
         return data
 

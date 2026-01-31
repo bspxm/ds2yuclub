@@ -4,10 +4,12 @@ This guide helps coding agents work effectively in this羽毛球培训会员管�
 
 ## Project Overview
 
-This is a full-stack badminton training management system with:
-- **Frontend**: Vue3 + TypeScript + Vite + Element Plus
+This is a full-stack badminton training management system (羽毛球培训会员管理系统) with:
+- **Frontend**: Vue3 + TypeScript + Vite + Element Plus + UnoCSS
 - **Backend**: FastAPI + SQLAlchemy 2.0 + Pydantic 2.x
 - **Architecture**: Monorepo with separate frontend/ and backend/ directories
+- **Plugin-based Backend**: Modular architecture using `app/plugin/module_badminton/`
+- **Key Features**: Student management, class management, course scheduling, purchase records, attendance, tournaments, ability assessment, ability grouping
 
 ---
 
@@ -32,6 +34,7 @@ pnpm build        # Type check + build for production
 pnpm build:dev    # Build for dev environment
 pnpm build:test   # Build for test environment
 pnpm build:pro    # Build for prod environment
+pnpm build:gitee  # Build for gitee environment
 ```
 
 **Linting:**
@@ -50,6 +53,13 @@ pnpm run ts:check                 # TypeScript check with skipLibCheck
 
 **Testing:**
 No automated test framework configured for frontend currently.
+
+**Other commands:**
+```bash
+pnpm clean        # Clean node_modules
+pnpm clean:cache  # Clean build cache
+pnpm commit        # Use commitizen for git commits
+```
 
 ### Backend (in `backend/` directory)
 
@@ -144,13 +154,26 @@ pytest -k test_check_health       # Run specific test by name pattern
 
 **Architecture Pattern:**
 ```
-module_*/
+backend/app/plugin/module_badminton/
+├── assessment/       # 能力评估
+├── attendance/       # 出勤管理
+├── auth/            # 认证系统
+├── class_/          # 班级管理
+├── course/          # 课程管理
+├── group/           # 能力分组
+├── leave/           # 请假管理
+├── purchase/        # 购买记录
+├── schedule/        # 课程调度
+├── semester/        # 学期管理
+├── student/         # 学员管理
+└── tournament/      # 比赛管理
+
+Each module follows this pattern:
 ├── controller.py    # HTTP request handlers (API routes)
 ├── service.py       # Business logic layer
 ├── crud.py          # Database access layer
 ├── model.py         # SQLAlchemy ORM models
-├── schema.py        # Pydantic models for validation
-└── param.py         # Request parameter models
+└── schema.py        # Pydantic models for validation
 ```
 
 **Imports:**
@@ -175,7 +198,7 @@ module_*/
 
 **Error Handling:**
 - Use FastAPI's built-in exception handling
-- Define custom exceptions in `app/common/exceptions.py`
+- Define custom exceptions in `app/core/exceptions.py`
 - Use Pydantic's validation decorators for input validation
 - Return standardized responses via `app/common/response.py`
 - Log errors using loguru logger
@@ -205,6 +228,14 @@ module_*/
 - Log at appropriate levels: DEBUG, INFO, WARNING, ERROR
 - Include context in logs (user_id, action, etc.)
 
+**Enum Values:**
+- PostgreSQL enums store values as uppercase strings
+- Always use uppercase for enum values in code (e.g., `ACTIVE`, not `active`)
+- Common enums:
+  - `PurchaseStatusEnum`: ACTIVE, COMPLETED, EXPIRED, SETTLED, CANCELLED
+  - `PurchaseTypeEnum`: NEW, RENEWAL, CARRYOVER, UPGRADE
+  - `ScheduleStatusEnum`: SCHEDULED, CONFIRMED, IN_PROGRESS, COMPLETED, CANCELLED, MAKEUP
+
 ---
 
 ## Common Patterns
@@ -212,18 +243,48 @@ module_*/
 ### Adding a New Feature
 
 **Frontend:**
-1. Create API client in `frontend/src/api/`
-2. Create component in `frontend/src/views/` or `frontend/src/components/`
+1. Create API client in `frontend/src/api/module_badminton/`
+2. Create component in `frontend/src/views/module_badminton/`
 3. Add routing in `frontend/src/router/`
 4. Create store if needed in `frontend/src/store/modules/`
 
-**Backend:**
-1. Create model in `backend/app/api/v1/module_*/model.py`
-2. Create schema/param in `backend/app/api/v1/module_*/schema.py`
-3. Create CRUD in `backend/app/api/v1/module_*/crud.py`
-4. Create service in `backend/app/api/v1/module_*/service.py`
-5. Create controller in `backend/app/api/v1/module_*/controller.py`
-6. Generate and run database migration
+**Backend (Plugin Architecture):**
+1. Create module directory in `backend/app/plugin/module_badminton/`
+2. Create model in `backend/app/plugin/module_badminton/{module}/model.py`
+3. Create schema/param in `backend/app/plugin/module_badminton/{module}/schema.py`
+4. Create CRUD in `backend/app/plugin/module_badminton/{module}/crud.py`
+5. Create service in `backend/app/plugin/module_badminton/{module}/service.py`
+6. Create controller in `backend/app/plugin/module_badminton/{module}/controller.py`
+7. Routes are auto-registered based on module name
+
+### Time Slot Storage Format
+
+All time slot data uses JSON format: `{"周一": ["A", "B"], "周三": ["C"], "周五": ["D", "E"]}`
+
+**Time Slot Codes:**
+- A: 08:00-09:30
+- B: 09:30-11:00
+- C: 14:00-15:30
+- D: 15:30-17:00
+- E: 18:00-19:30
+
+**Storage Locations:**
+- Class table: `time_slots_json` field
+- Purchase table: `selected_time_slots` field
+- Schedule table: `time_slots_json` field (V2)
+
+### Frontend Time Slot Display
+
+When displaying time slots in tables:
+1. Load time slot dictionary via `request({ url: "/system/dict/data/info/badminton_time_slot" })`
+2. Use `formatTimeSlots()` function to format JSON to `{ day: string; slots: string[] }[]`
+3. Display with v-for in template:
+```vue
+<div v-for="(dayGroup, index) in formatTimeSlots(timeSlotsJson)" :key="index" class="day-group">
+  <span class="day-label">{{ dayGroup.day }}:</span>
+  <span class="time-labels">{{ dayGroup.slots.join(', ') }}</span>
+</div>
+```
 
 ### Code Review Checklist
 
@@ -235,6 +296,8 @@ module_*/
 - [ ] Tests added and passing
 - [ ] Naming conventions followed
 - [ ] Comments only for complex logic (not basic stuff)
+- [ ] Enum values use uppercase
+- [ ] Database migrations applied
 
 ---
 
@@ -248,3 +311,6 @@ module_*/
 - **Use Chinese** for user-facing text, English for code
 - **Frontend uses pnpm** - not npm or yarn
 - **Backend uses uv** for dependency management (uvx/uv sync)
+- **Backend uses virtual environment**: `.venv/` directory, run with `.venv/bin/python`
+- **Enum values must be uppercase**: PostgreSQL stores enums as uppercase strings
+- **Time slot format consistency**: Use JSON format `{"周一": ["A", "B"]}` across all modules

@@ -138,9 +138,15 @@
         </el-table-column>
         <el-table-column label="班级" prop="class.name" min-width="120" />
         <el-table-column label="排课日期" prop="schedule_date" min-width="120" />
-        <el-table-column label="时间段" min-width="140">
+        <el-table-column label="时间段" min-width="280">
           <template #default="scope">
-            {{ getTimeSlotName(scope.row.time_slot_id) }}
+            <div v-if="scope.row.time_slots_json" class="time-slots-container">
+              <div v-for="(dayGroup, index) in formatSelectedTimeSlots(JSON.parse(scope.row.time_slots_json))" :key="index" class="day-group">
+                <span class="day-label">{{ dayGroup.day }}:</span>
+                <span class="time-labels">{{ dayGroup.slots.join(', ') }}</span>
+              </div>
+            </div>
+            <span v-else>-</span>
           </template>
         </el-table-column>
         <el-table-column label="排课类型" min-width="100">
@@ -224,6 +230,14 @@
       width="1400px"
       @close="handleCloseDialog"
     >
+      <!-- 编辑模式的全屏 loading 覆盖层 -->
+      <div v-if="dialogLoading" class="dialog-loading-overlay">
+        <el-icon class="is-loading" :size="48">
+          <Loading />
+        </el-icon>
+        <p class="loading-text">数据加载中，请稍候...</p>
+      </div>
+
       <!-- 详情 -->
       <template v-if="dialogVisible.type === 'detail'">
         <el-descriptions :column="2" border>
@@ -233,8 +247,14 @@
           <el-descriptions-item label="排课日期">
             {{ detailFormData.schedule_date }}
           </el-descriptions-item>
-          <el-descriptions-item label="时间段ID">
-            {{ detailFormData.time_slot_id || '未设置' }}
+          <el-descriptions-item label="时间段配置" :span="2">
+            <span v-if="detailFormData.time_slots_json">
+              {{ formatTimeSlotsJson(detailFormData.time_slots_json) }}
+            </span>
+            <span v-else-if="detailFormData.time_slot_code">
+              {{ detailFormData.time_slot_code }}时段 ({{ detailFormData.start_time }} - {{ detailFormData.end_time }})
+            </span>
+            <span v-else>未设置</span>
           </el-descriptions-item>
           <el-descriptions-item label="开始时间">
             {{ detailFormData.start_time || '从时间段配置获取' }}
@@ -424,9 +444,9 @@
                     </el-form-item>
                   </el-col>
                   <el-col :span="12">
-                    <el-form-item label="时间段" prop="time_slot_ids">
+                    <el-form-item label="时间段">
                       <el-select
-                        v-model="formDataV2.time_slot_ids"
+                        v-model="tempTimeSlotIds"
                         placeholder="请选择时间段（可多选）"
                         style="width: 100%"
                         multiple
@@ -548,7 +568,7 @@ defineOptions({
 
 import { ref, reactive, onMounted, watch, computed, nextTick } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { QuestionFilled, Search } from "@element-plus/icons-vue";
+import { QuestionFilled, Search, Loading } from "@element-plus/icons-vue";
 import ClassScheduleAPI, { ClassScheduleTable, ClassSchedulePageQuery, AvailableStudentInfo, ClassScheduleCreateV2Form, TimeSlotInfo, DictDataItem } from "@/api/module_badminton/class-schedule";
 import SemesterAPI from "@/api/module_badminton/semester";
 import ClassAPI from "@/api/module_badminton/class";
@@ -567,6 +587,54 @@ const pageTableData = ref<ClassScheduleTable[]>([]);
 
 // 详情表单
 const detailFormData = ref<ClassScheduleTable>({});
+
+// 格式化时间段JSON显示
+function formatTimeSlotsJson(jsonStr: string | undefined): string {
+  if (!jsonStr) return '未设置';
+  try {
+    const timeSlots = JSON.parse(jsonStr);
+    const result: string[] = [];
+    for (const [day, codes] of Object.entries(timeSlots)) {
+      result.push(`${day}: ${codes.join(', ')}`);
+    }
+    return result.join('; ');
+  } catch (e) {
+    return jsonStr;
+  }
+}
+
+// 格式化选课时间段（参照购买记录样式）
+function formatSelectedTimeSlots(timeSlots: { [key: string]: string[] } | undefined): { day: string; slots: string[] }[] {
+  if (!timeSlots) return [];
+  
+  const result: { day: string; slots: string[] }[] = [];
+  
+  // 按天排序
+  const dayOrder = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+  
+  // 遍历每天的时段
+  dayOrder.forEach(day => {
+    const daySlots = timeSlots[day];
+    if (daySlots && Array.isArray(daySlots) && daySlots.length > 0) {
+      const slots: string[] = [];
+      daySlots.forEach((slotCode: string) => {
+        // 从时间段列表中查找对应的时间段
+        const slot = timeSlotList.value.find(s => s.code === slotCode);
+        if (slot) {
+          slots.push(`${slot.start_time}-${slot.end_time}`);
+        } else {
+          // 降级使用代码本身
+          slots.push(slotCode);
+        }
+      });
+      if (slots.length > 0) {
+        result.push({ day, slots });
+      }
+    }
+  });
+  
+  return result;
+}
 
 // 分页查询参数
 const queryFormData = reactive<ClassSchedulePageQuery>({
@@ -590,7 +658,6 @@ const rulesV2 = reactive({
   semester_id: [{ required: true, message: "请选择学期", trigger: "change" }],
   schedule_date: [{ required: true, message: "请选择排课日期", trigger: "change" }],
   class_ids: [{ required: true, message: "请选择班级", trigger: "change" }],
-  time_slot_ids: [{ required: true, message: "请选择时间段", trigger: "change" }],
   coach_id: [{ required: true, message: "请选择教练", trigger: "change" }],
   schedule_status: [{ required: true, message: "请选择排课状态", trigger: "change" }],
 });
@@ -605,7 +672,7 @@ const formDataV2 = reactive<ClassScheduleCreateV2Form>({
   schedule_date: "",
   class_ids: [],
   coach_id: undefined,
-  time_slot_ids: [],
+  time_slots: {},
   schedule_status: undefined,
   student_ids: [],
   location: "",
@@ -613,6 +680,9 @@ const formDataV2 = reactive<ClassScheduleCreateV2Form>({
   content_summary: "",
   notes: "",
 });
+
+// 临时存储时间段ID数组（用于前端选择）
+const tempTimeSlotIds = ref<number[]>([]);
 
 // 学期列表
 const semesterList = ref<any[]>([]);
@@ -629,8 +699,20 @@ const availableStudents = ref<AvailableStudentInfo[]>([]);
 // 学员列表加载状态
 const loadingStudents = ref(false);
 
+// 对话框加载状态（用于编辑模式的loading覆盖层）
+const dialogLoading = ref(false);
+
 // 已选中学员ID列表
 const selectedStudentIds = ref<number[]>([]);
+
+// 编辑模式下的记录ID
+const editingScheduleId = ref<number | undefined>(undefined);
+
+// 编辑模式下是否正在初始化加载（防止 watch 重复调用 loadAvailableStudents）
+const isEditingLoading = ref(false);
+
+// 学员列表加载防抖计时器
+let loadStudentsTimer: ReturnType<typeof setTimeout> | null = null;
 
 // 学员搜索和筛选
 const studentSearch = ref("");
@@ -674,6 +756,64 @@ const filteredStudents = computed(() => {
     return matchSearch && matchGroup && matchLevel;
   });
 });
+
+// 将时间段ID列表转换为JSON格式 {"周一": ["A", "B"]}
+function convertTimeSlotIdsToJson(slotIds: number[]): { [key: string]: string[] } {
+  const result: { [key: string]: string[] } = {};
+  
+  slotIds.forEach(slotId => {
+    // 查找对应的时间段信息
+    const slot = timeSlotList.value.find(s => s.id === slotId);
+    if (slot && slot.day && slot.code) {
+      if (!result[slot.day]) {
+        result[slot.day] = [];
+      }
+      if (!result[slot.day].includes(slot.code)) {
+        result[slot.day].push(slot.code);
+      }
+    }
+  });
+  
+  return result;
+}
+
+// 监听临时时间段ID变化，自动转换并更新表单数据
+watch(tempTimeSlotIds, (newSlotIds) => {
+  // 更新 formDataV2.time_slots
+  formDataV2.time_slots = convertTimeSlotIdsToJson(newSlotIds);
+
+  // 只在新增模式下（没有 id）清空数据，编辑模式不清空
+  if (!editingScheduleId.value) {
+    formDataV2.student_ids = [];
+    selectedStudentIds.value = [];
+    availableStudents.value = [];
+  }
+  // 编辑模式下不清空任何数据，保留用户的选择
+
+  // 使用防抖加载可用学员列表（新增模式）
+  if (!editingScheduleId.value) {
+    if (loadStudentsTimer) {
+      clearTimeout(loadStudentsTimer);
+    }
+
+    if (newSlotIds.length > 0) {
+      loadStudentsTimer = setTimeout(() => {
+        loadAvailableStudents();
+        loadStudentsTimer = null;
+      }, 500);
+    }
+  } else {
+    // 编辑模式下：如果正在初始化加载，则不重复调用 loadAvailableStudents()
+    if (isEditingLoading.value) {
+      console.log('编辑模式正在初始化加载，跳过 watch 触发的 loadAvailableStudents');
+      return;
+    }
+    // 编辑模式下用户手动更改时间段时才加载
+    if (newSlotIds.length > 0) {
+      loadAvailableStudents();
+    }
+  }
+}, { deep: true });
 
 // 获取时间段名称
 function getTimeSlotName(timeSlotId: number | undefined): string {
@@ -882,10 +1022,10 @@ async function loadCoaches() {
 // 加载可用学员列表
 async function loadAvailableStudents() {
   // 只在选择了班级、日期和时间段后才加载学员列表
-  if (!formDataV2.semester_id || !formDataV2.schedule_date || formDataV2.class_ids.length === 0 || formDataV2.time_slot_ids.length === 0) {
+  if (!formDataV2.semester_id || !formDataV2.schedule_date || formDataV2.class_ids.length === 0 || tempTimeSlotIds.value.length === 0) {
     availableStudents.value = [];
     // 新增模式下清空，编辑模式下保留
-    if (!formDataV2.id) {
+    if (!editingScheduleId.value) {
       selectedStudentIds.value = [];
     }
     loadingStudents.value = false;
@@ -893,24 +1033,24 @@ async function loadAvailableStudents() {
   }
   
   // 新增模式下清空之前选择的学员ID，编辑模式下保留
-  if (!formDataV2.id) {
+  if (!editingScheduleId.value) {
     selectedStudentIds.value = [];
   }
   loadingStudents.value = true;
   
   try {
-    const response = await ClassScheduleAPI.getAvailableStudents({
+    const requestData = {
       semester_id: formDataV2.semester_id,
       schedule_date: formDataV2.schedule_date,
-      time_slot_ids: formDataV2.time_slot_ids,
+      time_slots: formDataV2.time_slots,
       class_ids: formDataV2.class_ids.length > 0 ? formDataV2.class_ids : undefined,
-    });
+    };
+    
+    const response = await ClassScheduleAPI.getAvailableStudents(requestData);
     availableStudents.value = response.data.data || [];
-    console.log('加载可用学员列表成功:', availableStudents.value);
-    console.log('当前选中的学员IDs:', selectedStudentIds.value);
   } catch (error: any) {
     console.error("加载可用学员列表失败:", error);
-    ElMessage.error("加载可用学员列表失败");
+    ElMessage.error(`加载可用学员列表失败: ${error.response?.data?.msg || error.message}`);
   } finally {
     loadingStudents.value = false;
   }
@@ -977,7 +1117,7 @@ async function loadAvailableTimeSlots() {
 
     // 如果之前选择的时间段不在新列表中，清空选择
     const validIds = timeSlotList.value.map((s: any) => s.id);
-    formDataV2.time_slot_ids = formDataV2.time_slot_ids.filter((id: number) => validIds.includes(id));
+    tempTimeSlotIds.value = tempTimeSlotIds.value.filter((id: number) => validIds.includes(id));
   } catch (error: any) {
     console.error("加载可用时间段失败:", error);
     ElMessage.error("加载可用时间段失败");
@@ -1001,20 +1141,48 @@ const groupedTimeSlots = computed(() => {
     groupMap.get(day)!.push(slot);
   });
 
+  // 定义星期几排序顺序
+  const dayOrder = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+  
   // 将 Map 转换为数组，方便 el-option-group 使用
+  const sortedGroups: Array<{ label: string; slots: any[] }> = [];
+  
+  // 按星期几排序
+  dayOrder.forEach(day => {
+    if (groupMap.has(day)) {
+      const slots = groupMap.get(day)!;
+      // 按时间段开始时间排序（支持新增时间段）
+      slots.sort((a, b) => {
+        const timeA = a.start_time || '00:00';
+        const timeB = b.start_time || '00:00';
+        return timeA.localeCompare(timeB);
+      });
+      sortedGroups.push({ label: day, slots });
+    }
+  });
+  
+  // 添加其他时间段（如果有）
   groupMap.forEach((slots, day) => {
-    groups.push({ label: day, slots });
+    if (!dayOrder.includes(day)) {
+      slots.sort((a, b) => {
+        const timeA = a.start_time || '00:00';
+        const timeB = b.start_time || '00:00';
+        return timeA.localeCompare(timeB);
+      });
+      sortedGroups.push({ label: day, slots });
+    }
   });
 
-  return groups;
+  return sortedGroups;
 });
 
 // 监听学期变化，自动加载班级列表
 watch(() => formDataV2.semester_id, (newVal, oldVal) => {
   // 只在新增模式下（没有 id）清空数据，编辑模式不清空
-  if (!formDataV2.id) {
+  if (!editingScheduleId.value) {
     formDataV2.class_ids = [];
-    formDataV2.time_slot_ids = [];
+    tempTimeSlotIds.value = [];
+    formDataV2.time_slots = {};
     formDataV2.student_ids = [];
     selectedStudentIds.value = [];
     availableStudents.value = [];
@@ -1025,8 +1193,9 @@ watch(() => formDataV2.semester_id, (newVal, oldVal) => {
 // 监听班级和日期变化，重新加载可用时间段
 watch(() => [formDataV2.class_ids, formDataV2.schedule_date], () => {
   // 只在新增模式下（没有 id）清空数据，编辑模式不清空
-  if (!formDataV2.id) {
-    formDataV2.time_slot_ids = [];
+  if (!editingScheduleId.value) {
+    tempTimeSlotIds.value = [];
+    formDataV2.time_slots = {};
     formDataV2.student_ids = [];
     selectedStudentIds.value = [];
     availableStudents.value = [];
@@ -1039,22 +1208,6 @@ watch(() => [formDataV2.class_ids, formDataV2.schedule_date], () => {
   }
 });
 
-// 监听时间段变化，加载可用学员
-watch(() => formDataV2.time_slot_ids, () => {
-  // 只在新增模式下（没有 id）清空数据，编辑模式不清空
-  if (!formDataV2.id) {
-    formDataV2.student_ids = [];
-    selectedStudentIds.value = [];
-    availableStudents.value = [];
-  }
-  // 编辑模式下不清空任何数据，保留用户的选择
-  
-  // 加载可用学员列表
-  if (formDataV2.time_slot_ids.length > 0) {
-    loadAvailableStudents();
-  }
-});
-
 // 学员选择变化
 watch(selectedStudentIds, (newIds) => {
   formDataV2.student_ids = newIds;
@@ -1062,12 +1215,15 @@ watch(selectedStudentIds, (newIds) => {
 
 // 重置V2表单
 function resetFormV2() {
+  dialogLoading.value = false; // 重置 loading 状态
+  editingScheduleId.value = undefined; // 重置编辑ID
+  isEditingLoading.value = false; // 重置编辑加载标志
   Object.assign(formDataV2, {
     semester_id: undefined,
     schedule_date: "",
     class_ids: [],
     coach_id: undefined,
-    time_slot_ids: [],
+    time_slots: {},
     schedule_status: undefined,
     student_ids: [],
     location: "",
@@ -1075,6 +1231,7 @@ function resetFormV2() {
     content_summary: "",
     notes: "",
   });
+  tempTimeSlotIds.value = [];
   selectedStudentIds.value = [];
   availableStudents.value = [];
 }
@@ -1085,6 +1242,12 @@ async function handleSubmitV2() {
   
   await dataFormRef.value.validate(async (valid: boolean) => {
     if (!valid) return;
+    
+    // 手动验证时间段选择
+    if (tempTimeSlotIds.value.length === 0) {
+      ElMessage.warning("请选择时间段");
+      return;
+    }
     
     if (formDataV2.student_ids.length === 0) {
       ElMessage.warning("请至少选择一名学员");
@@ -1139,6 +1302,7 @@ async function handleSelectionChange(selection: any) {
 // 关闭弹窗
 async function handleCloseDialog() {
   dialogVisible.visible = false;
+  dialogLoading.value = false; // 关闭对话框时重置 loading 状态
   resetFormV2();
 }
 
@@ -1148,22 +1312,37 @@ async function handleOpenDialog(type: "create" | "update" | "detail", id?: numbe
   resetFormV2();
   dialogVisible.type = type;
   
-  // 加载基础数据（学期和教练列表）
-  await loadSemesters();
-  await loadCoaches();
-  
   if (id) {
-    const response = await ClassScheduleAPI.getClassScheduleDetail(id);
-    const data = response.data.data;
-    
+    // 立即显示弹窗，先不填充数据
+    dialogVisible.visible = true;
     if (type === "detail") {
       dialogVisible.title = "排课记录详情";
-      Object.assign(detailFormData.value, data);
     } else if (type === "update") {
-      dialogVisible.title = "修改排课记录";
-      
-      console.log('编辑模式，后端返回的排课数据:', data);
-      console.log('后端返回的 student_ids:', data.student_ids);
+      dialogVisible.title = "加载中...";
+      dialogLoading.value = true; // 开始加载时显示 loading 覆盖层
+    }
+
+    try {
+      // 并行加载基础数据
+      const loadPromises = [
+        loadSemesters(),
+        loadCoaches(),
+        loadTimeSlotDict()
+      ];
+      await Promise.all(loadPromises);
+
+      // 获取排课详情
+      const response = await ClassScheduleAPI.getClassScheduleDetail(id);
+      const data = response.data.data;
+
+      if (type === "detail") {
+        dialogVisible.title = "排课记录详情";
+        Object.assign(detailFormData.value, data);
+      } else if (type === "update") {
+        dialogVisible.title = "修改排课记录";
+
+        console.log('编辑模式，后端返回的排课数据:', data);
+        console.log('后端返回的 student_ids:', data.student_ids);
       
       // 将后端返回的单个值转换为数组格式，以匹配表单期望的结构
       const studentIdsFromBackend = data.student_ids || [];
@@ -1171,17 +1350,23 @@ async function handleOpenDialog(type: "create" | "update" | "detail", id?: numbe
       console.log('解析后的学员IDs:', studentIdsFromBackend);
       
       // 先设置 id 字段，避免 watch 触发清空
-      formDataV2.id = data.id;
+      editingScheduleId.value = data.id;
+      // 设置编辑模式初始化加载标志，防止 watch 重复调用 loadAvailableStudents
+      isEditingLoading.value = true;
       
       // 使用 nextTick 确保设置 id 后再赋值其他字段
       await nextTick();
       
+      // 先设置基本字段，以便后续可以加载可用时间段
+      const class_id = data.class_id;
+      const schedule_date = data.schedule_date || "";
+      const semester_id = data.class?.semester_id || data.semester_id;
+      
       Object.assign(formDataV2, {
-        semester_id: data.class?.semester_id || data.semester_id,
-        schedule_date: data.schedule_date || "",
-        class_ids: data.class_id ? [data.class_id] : [],
+        semester_id: semester_id,
+        schedule_date: schedule_date,
+        class_ids: class_id ? [class_id] : [],
         coach_id: data.coach_id,
-        time_slot_ids: data.time_slot_id ? [data.time_slot_id] : [],
         schedule_status: data.schedule_status || "SCHEDULED",
         student_ids: studentIdsFromBackend,
         location: data.location || "",
@@ -1198,56 +1383,79 @@ async function handleOpenDialog(type: "create" | "update" | "detail", id?: numbe
       // 等待 Vue 更新，确保响应式状态稳定
       await nextTick();
       
-      // 先加载所有必要的数据，然后再显示弹窗
-      // 加载班级列表和教练列表
-      const loadPromises = [];
+      // 并行加载班级列表和可用时间段
+      const loadMorePromises = [];
+      
+      // 加载班级列表
       if (formDataV2.semester_id) {
-        loadPromises.push(loadClasses());
-      }
-      if (!coachList.value || coachList.value.length === 0) {
-        loadPromises.push(loadCoaches());
+        loadMorePromises.push(loadClasses());
       }
       
-      await Promise.all(loadPromises);
-      
-      // 编辑模式下也需要加载可用时间段（以匹配班级和日期的时间段）
+      // 加载可用时间段（必须在解析时间段JSON之前调用）
       if (formDataV2.class_ids.length > 0 && formDataV2.schedule_date) {
-        await loadAvailableTimeSlots();
-      } else if (!timeSlotList.value || timeSlotList.value.length === 0) {
-        // 如果无法加载特定时间段，至少加载字典数据
-        await loadTimeSlotDict();
+        loadMorePromises.push(loadAvailableTimeSlots());
       }
       
-      console.log('加载时间段后，selectedStudentIds:', selectedStudentIds.value);
+      await Promise.all(loadMorePromises);
       
-      // 等待 Vue 更新
-      await nextTick();
+      // 现在解析时间段JSON数据（timeSlotList.value 已包含正确的星期几信息）
+      let timeSlotsData: { [key: string]: string[] } = {};
+      let tempSlotIds: number[] = [];
       
-      // 加载可用学员列表，以便学员复选框能正确显示
-      if (formDataV2.semester_id && formDataV2.schedule_date && 
-          formDataV2.time_slot_ids.length > 0 && formDataV2.class_ids.length > 0) {
+      if (data.time_slots_json) {
+        try {
+          timeSlotsData = JSON.parse(data.time_slots_json);
+        } catch (e) {
+          console.error('解析时间段JSON失败:', e);
+        }
+      }
+      
+      // 将JSON格式转换为临时ID列表
+      Object.entries(timeSlotsData).forEach(([day, codes]) => {
+        codes.forEach((code: string) => {
+          const slot = timeSlotList.value.find(s => s.day === day && s.code === code);
+          if (slot) {
+            tempSlotIds.push(slot.id);
+          }
+        });
+      });
+      
+      // 设置时间段数据
+      formDataV2.time_slots = timeSlotsData;
+      tempTimeSlotIds.value = tempSlotIds;
+
+      console.log('编辑模式解析的时间段数据:', timeSlotsData);
+      console.log('编辑模式生成的临时ID列表:', tempSlotIds);
+
+      // 手动加载学员列表（等待加载完成后再关闭 loading）
+      if (tempSlotIds.length > 0) {
         await loadAvailableStudents();
       }
-      
+
+      // 学员列表加载完成，允许 watch 正常工作
+      isEditingLoading.value = false;
+
       console.log('加载完成后，selectedStudentIds:', selectedStudentIds.value);
       console.log('加载完成后，availableStudents:', availableStudents.value);
-      
-      // 所有数据加载完成后，再显示弹窗
-      dialogVisible.visible = true;
-      return;
     }
-  } else {
-    dialogVisible.title = "新增排课记录";
+  } finally {
+    // 无论成功还是失败，都关闭 loading
+    if (type === "update") {
+      dialogLoading.value = false;
+    }
   }
-  
-  dialogVisible.visible = true;
-  
-  // 加载V2版本所需的数据
-  await Promise.all([
-    loadSemesters(),
-    loadCoaches(),
-    loadTimeSlotDict()
-  ]);
+  } else {
+    // 新增模式
+    dialogVisible.title = "新增排课记录";
+    dialogVisible.visible = true;
+
+    // 加载V2版本所需的数据
+    await Promise.all([
+      loadSemesters(),
+      loadCoaches(),
+      loadTimeSlotDict()
+    ]);
+  }
 }
 
 // 禁用日期（不在学期范围内的日期）
@@ -1281,7 +1489,7 @@ async function handleSubmit() {
         await handleSubmitV2();
       } else if (dialogVisible.type === "update") {
         console.log('更新排课记录，提交的数据:', JSON.stringify(formDataV2));
-        await ClassScheduleAPI.updateClassSchedule(formDataV2.id!, formDataV2);
+        await ClassScheduleAPI.updateClassSchedule(editingScheduleId.value!, formDataV2);
         ElMessage.success("更新成功");
         dialogVisible.visible = false;
         loadingData();
@@ -1413,5 +1621,49 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* 时间段显示样式 */
+.time-slots-container {
+  line-height: 1.8;
+}
+
+.day-group {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 4px;
+}
+
+.day-label {
+  font-weight: 600;
+  color: #606266;
+  min-width: 40px;
+  flex-shrink: 0;
+}
+
+.time-labels {
+  color: #909399;
+  font-size: 13px;
+}
+
+/* 对话框全屏 loading 覆盖层 */
+.dialog-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background-color: rgba(255, 255, 255, 0.9);
+  z-index: 9999;
+}
+
+.dialog-loading-overlay .loading-text {
+  margin-top: 20px;
+  font-size: 16px;
+  color: #606266;
 }
 </style>
