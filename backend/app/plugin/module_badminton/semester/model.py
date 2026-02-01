@@ -20,7 +20,7 @@ class SemesterModel(ModelMixin, UserMixin):
     """
     __tablename__: str = 'badminton_semester'
     __table_args__: dict[str, str] = ({'comment': '学期表'})
-    __loader_options__: list[str] = ["created_by", "updated_by"]
+    __loader_options__: list[str] = []  # 移除预加载以优化远程数据库查询性能
 
     # 覆盖ModelMixin的status字段为status_flag，避免与学期状态字段冲突
     status_flag: Mapped[str] = mapped_column(String(10), default='0', nullable=False, comment="是否启用(0:启用 1:禁用)", index=True)
@@ -57,12 +57,12 @@ class SemesterModel(ModelMixin, UserMixin):
     classes: Mapped[list[Any]] = relationship(
         "ClassModel",
         back_populates="semester",
-        lazy="selectin",
+        lazy="select",  # 改为惰性加载，避免预加载
         cascade="all, delete-orphan"
     )
     purchases: Mapped[list[Any]] = relationship(
         "PurchaseModel",
         back_populates="semester",
-        lazy="selectin",
+        lazy="select",  # 改为惰性加载，避免预加载
         cascade="all, delete-orphan"
     )

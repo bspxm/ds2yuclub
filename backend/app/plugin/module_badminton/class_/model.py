@@ -23,7 +23,7 @@ class ClassModel(ModelMixin, UserMixin):
     """
     __tablename__: str = 'badminton_class'
     __table_args__: dict[str, str] = ({'comment': '班级表'})
-    __loader_options__: list[str] = ["semester", "coach_user", "created_by", "updated_by"]
+    __loader_options__: list[str] = []  # 移除预加载以优化远程数据库查询性能
 
     # 基本信息
     semester_id: Mapped[int] = mapped_column(

@@ -32,8 +32,10 @@
             clearable
           >
             <el-option value="planning" label="规划中" />
-            <el-option value="in_progress" label="进行中" />
+            <el-option value="active" label="进行中" />
             <el-option value="completed" label="已结束" />
+            <el-option value="settled" label="已结算" />
+            <el-option value="archived" label="已归档" />
           </el-select>
         </el-form-item>
         <el-form-item v-if="isExpand" prop="start_date" label="开始日期范围">
@@ -211,14 +213,22 @@
           v-if="tableColumns.find((col) => col.prop === 'start_date')?.show"
           label="开始日期"
           prop="start_date"
-          min-width="110"
-        />
+          min-width="180"
+        >
+          <template #default="scope">
+            {{ formatDateTime(scope.row.start_date) }}
+          </template>
+        </el-table-column>
         <el-table-column
           v-if="tableColumns.find((col) => col.prop === 'end_date')?.show"
           label="结束日期"
           prop="end_date"
-          min-width="110"
-        />
+          min-width="180"
+        >
+          <template #default="scope">
+            {{ formatDateTime(scope.row.end_date) }}
+          </template>
+        </el-table-column>
         <el-table-column
           v-if="tableColumns.find((col) => col.prop === 'week_count')?.show"
           label="总周数"
@@ -232,8 +242,8 @@
           min-width="90"
         >
           <template #default="scope">
-            <el-tag :type="scope.row.status === 'planning' ? 'info' : scope.row.status === 'in_progress' ? 'success' : 'warning'">
-              {{ scope.row.status === 'planning' ? '规划中' : scope.row.status === 'in_progress' ? '进行中' : '已结束' }}
+            <el-tag :type="statusTypeMap[scope.row.status] || 'info'">
+              {{ statusMap[scope.row.status] || scope.row.status }}
             </el-tag>
           </template>
         </el-table-column>
@@ -242,7 +252,11 @@
           label="创建时间"
           prop="created_time"
           min-width="180"
-        />
+        >
+          <template #default="scope">
+            {{ formatDateTime(scope.row.created_time) }}
+          </template>
+        </el-table-column>
         <el-table-column
           v-if="tableColumns.find((col) => col.prop === 'operation')?.show"
           fixed="right"
@@ -316,23 +330,18 @@
             </el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="学期状态">
-            <el-tag :type="detailFormData.status === 'planning' ? 'info' : detailFormData.status === 'in_progress' ? 'success' : 'warning'">
-              {{ detailFormData.status === 'planning' ? '规划中' : detailFormData.status === 'in_progress' ? '进行中' : '已结束' }}
+            <el-tag :type="statusTypeMap[detailFormData.status] || 'info'">
+              {{ statusMap[detailFormData.status] || detailFormData.status }}
             </el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="开始日期">
-            {{ detailFormData.start_date }}
+            {{ formatDateTime(detailFormData.start_date) }}
           </el-descriptions-item>
           <el-descriptions-item label="结束日期">
-            {{ detailFormData.end_date }}
+            {{ formatDateTime(detailFormData.end_date) }}
           </el-descriptions-item>
           <el-descriptions-item label="总周数">
             {{ detailFormData.week_count || 0 }}
-          </el-descriptions-item>
-          <el-descriptions-item label="状态">
-            <el-tag :type="detailFormData.status === '0' ? 'success' : 'info'">
-              {{ detailFormData.status === '0' ? '启用' : '停用' }}
-            </el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="创建人">
             {{ detailFormData.created_by?.name || '系统' }}
@@ -341,10 +350,10 @@
             {{ detailFormData.updated_by?.name || '系统' }}
           </el-descriptions-item>
           <el-descriptions-item label="创建时间">
-            {{ detailFormData.created_time }}
+            {{ formatDateTime(detailFormData.created_time) }}
           </el-descriptions-item>
           <el-descriptions-item label="更新时间">
-            {{ detailFormData.updated_time }}
+            {{ formatDateTime(detailFormData.updated_time) }}
           </el-descriptions-item>
           <el-descriptions-item label="备注" :span="2">
             {{ detailFormData.description || '无' }}
@@ -411,8 +420,10 @@
               <el-form-item label="学期状态" prop="status">
                 <el-select v-model="formData.status" placeholder="请选择学期状态" style="width: 100%">
                   <el-option value="planning" label="规划中" />
-                  <el-option value="in_progress" label="进行中" />
+                  <el-option value="active" label="进行中" />
                   <el-option value="completed" label="已结束" />
+                  <el-option value="settled" label="已结算" />
+                  <el-option value="archived" label="已归档" />
                 </el-select>
               </el-form-item>
             </el-col>
@@ -454,9 +465,59 @@ defineOptions({
 });
 
 import { ref, reactive, onMounted } from "vue";
-import { ElMessage, ElMessageBox } from "element-plus";
+import { ElMessage, ElMessageBox, ElNotification } from "element-plus";
 import { QuestionFilled, ArrowUp, ArrowDown } from "@element-plus/icons-vue";
 import { formatToDateTime } from "@/utils/dateUtil";
+
+// 时间格式化函数（精确到秒）
+function formatDateTime(timestamp: any): string {
+  if (!timestamp) return '';
+  if (typeof timestamp === 'string') {
+    // 处理 ISO 8601 格式的时间字符串（如：2026-01-20T23:49:12.804965）
+    // 去掉微秒部分（.后的内容）
+    const cleanTimestamp = timestamp.replace(/\.\d+$/, '');
+    const date = new Date(cleanTimestamp);
+    if (isNaN(date.getTime())) {
+      return timestamp; // 如果解析失败，返回原字符串
+    }
+    return date.toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+  }
+  const date = new Date(timestamp);
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+}
+
+// 状态显示映射（与后端 SemesterStatusEnum 保持一致）
+const statusMap: Record<string, string> = {
+  planning: '规划中',
+  active: '进行中',
+  completed: '已结束',
+  settled: '已结算',
+  archived: '已归档'
+};
+
+const statusTypeMap: Record<string, string> = {
+  planning: 'info',
+  active: 'success',
+  completed: 'warning',
+  settled: 'info',
+  archived: 'info'
+};
 import DatePicker from "@/components/DatePicker/index.vue";
 import SemesterAPI, { SemesterTable, SemesterForm, SemesterPageQuery } from "@/api/module_badminton/semester";
 
@@ -631,24 +692,70 @@ async function handleOpenDialog(type: "create" | "update" | "detail", id?: numbe
 // 提交表单
 async function handleSubmit() {
   if (!dataFormRef.value) return;
-  
-  await dataFormRef.value.validate(async (valid: boolean) => {
-    if (!valid) return;
-    
-    try {
-      if (dialogVisible.type === "create") {
-        await SemesterAPI.createSemester(formData);
-        ElMessage.success("创建成功");
-      } else if (dialogVisible.type === "update") {
-        await SemesterAPI.updateSemester(formData.id!, formData);
-        ElMessage.success("更新成功");
-      }
-      dialogVisible.visible = false;
-      loadingData();
-    } catch (error: any) {
-      console.error(error);
-    }
+
+  const valid = await dataFormRef.value.validate().catch(() => false);
+  if (!valid) return;
+
+  // 保存表单数据副本
+  const submitData = { ...formData };
+  delete submitData.id;
+
+  // 保存操作类型和ID
+  const operationType = dialogVisible.type;
+  const updateId = formData.id;
+
+  // 立即关闭窗口
+  handleCloseDialog();
+
+  // 显示持久化通知
+  const notification = ElNotification({
+    title: operationType === "create" ? "创建" : "更新",
+    message: "后台保存中...",
+    type: "info",
+    duration: 0,
+    position: "bottom-right",
   });
+
+  // 在后台保存
+  try {
+    let res;
+    if (operationType === "create") {
+      res = await SemesterAPI.createSemester(submitData);
+    } else if (operationType === "update" && updateId) {
+      res = await SemesterAPI.updateSemester(updateId, submitData);
+    }
+
+    if (res.data.code === 0) {
+      notification.close();
+      ElNotification({
+        title: operationType === "create" ? "创建成功" : "更新成功",
+        message: operationType === "create" ? "创建成功" : "更新成功",
+        type: "success",
+        duration: 3000,
+        position: "bottom-right",
+      });
+      loadingData();
+    } else {
+      notification.close();
+      ElNotification({
+        title: "操作失败",
+        message: res.data.msg || "操作失败",
+        type: "error",
+        duration: 3000,
+        position: "bottom-right",
+      });
+    }
+  } catch (error: any) {
+    console.error("提交失败:", error);
+    notification.close();
+    ElNotification({
+      title: "提交失败",
+      message: "网络错误或服务器异常",
+      type: "error",
+      duration: 3000,
+      position: "bottom-right",
+    });
+  }
 }
 
 // 删除

@@ -463,15 +463,15 @@
             
             <!-- 第三行：每周排班（占满一整行） -->
             <el-col :span="24">
-              <el-form-item label="每周排班">
+              <el-form-item label="每周排班" prop="weekly_schedule_days">
                 <el-checkbox-group v-model="formData.weekly_schedule_days">
+                  <el-checkbox label="周日" value="周日" />
                   <el-checkbox label="周一" value="周一" />
                   <el-checkbox label="周二" value="周二" />
                   <el-checkbox label="周三" value="周三" />
                   <el-checkbox label="周四" value="周四" />
                   <el-checkbox label="周五" value="周五" />
                   <el-checkbox label="周六" value="周六" />
-                  <el-checkbox label="周日" value="周日" />
                 </el-checkbox-group>
               </el-form-item>
             </el-col>
@@ -480,8 +480,20 @@
             <el-col :span="24">
               <el-form-item label="时间段选择">
                 <div style="display: flex; flex-wrap: wrap; gap: 20px;">
-                  <div v-for="day in formData.weekly_schedule_days" :key="day" style="flex: 1; min-width: 200px;">
-                    <div style="margin-bottom: 8px; font-weight: bold;">{{ day }}</div>
+                  <div
+                    v-for="day in sortedWeeklyScheduleDays"
+                    :key="day"
+                    :style="{
+                      flex: 1,
+                      minWidth: '200px',
+                      padding: '16px',
+                      borderRadius: '8px',
+                      border: timeSlotsValidationError[day] ? '2px solid var(--el-color-error)' : '1px solid var(--el-border-color)',
+                      backgroundColor: timeSlotsValidationError[day] ? 'var(--el-color-error-light-9)' : 'var(--el-bg-color)',
+                      transition: 'all 0.3s'
+                    }"
+                  >
+                    <div style="margin-bottom: 8px; font-weight: bold; color: timeSlotsValidationError[day] ? 'var(--el-color-error)' : 'inherit';">{{ day }}</div>
                     <el-checkbox-group v-model="formData.time_slots[day]">
                       <el-checkbox label="A" value="A">09:00-10:30</el-checkbox>
                       <el-checkbox label="B" value="B">10:30-12:00</el-checkbox>
@@ -577,8 +589,8 @@ defineOptions({
   inheritAttrs: false,
 });
 
-import { ref, reactive, onMounted } from "vue";
-import { ElMessage, ElMessageBox } from "element-plus";
+import { ref, reactive, onMounted, computed, watch } from "vue";
+import { ElMessage, ElMessageBox, ElNotification } from "element-plus";
 import { QuestionFilled, ArrowUp, ArrowDown } from "@element-plus/icons-vue";
 import DatePicker from "@/components/DatePicker/index.vue";
 import ClassAPI, { ClassTable, ClassForm, ClassPageQuery } from "@/api/module_badminton/class";
@@ -678,12 +690,59 @@ const initialFormData: ClassForm = {
 // 编辑表单
 const formData = reactive<ClassForm>(initialFormData);
 
+// 计算属性：按星期顺序排序的星期列表（周日在前，强制排序）
+const sortedWeeklyScheduleDays = computed(() => {
+  const dayOrder = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+  // 过滤出选中的星期
+  const selectedDays = formData.weekly_schedule_days.filter(day => dayOrder.includes(day));
+  // 按固定顺序排序
+  return selectedDays.sort((a, b) => dayOrder.indexOf(a) - dayOrder.indexOf(b));
+});
+
 // 弹窗状态
 const dialogVisible = reactive({
   title: "",
   visible: false,
   type: "create" as "create" | "update" | "detail",
 });
+
+// 时间段验证错误状态（按星期）
+const timeSlotsValidationError = reactive<Record<string, boolean>>({
+  周日: false,
+  周一: false,
+  周二: false,
+  周三: false,
+  周四: false,
+  周五: false,
+  周六: false
+});
+
+// 自定义验证器：确保每个选中的星期都有至少一个时间段
+const validateTimeSlots = (rule: any, value: any, callback: any) => {
+  if (!formData.weekly_schedule_days || formData.weekly_schedule_days.length === 0) {
+    // 没有选择星期，不验证时间段
+    Object.keys(timeSlotsValidationError).forEach(day => timeSlotsValidationError[day] = false);
+    callback();
+    return;
+  }
+
+  // 检查每个选中的星期是否有时间段
+  const emptyDays: string[] = [];
+  for (const day of formData.weekly_schedule_days) {
+    if (!formData.time_slots[day] || formData.time_slots[day].length === 0) {
+      emptyDays.push(day);
+      timeSlotsValidationError[day] = true;
+    } else {
+      timeSlotsValidationError[day] = false;
+    }
+  }
+
+  if (emptyDays.length > 0) {
+    callback(new Error(`以下星期未选择时间段：${emptyDays.join('、')}`));
+  } else {
+    callback();
+  }
+};
 
 // 表单验证规则
 const rules = reactive({
@@ -693,6 +752,10 @@ const rules = reactive({
   coach_id: [{ required: true, message: "请选择主管教练", trigger: "change" }],
   max_students: [{ required: true, message: "请输入最大学员数", trigger: "blur" }],
   class_status: [{ required: true, message: "请选择班级状态", trigger: "blur" }],
+  weekly_schedule_days: [
+    { required: true, message: "请选择每周排班", trigger: "change" },
+    { validator: validateTimeSlots, trigger: "change" }
+  ],
 });
 
 // 加载学期选项
@@ -769,8 +832,8 @@ function formatTimeSlots(timeSlotsJson: string): { day: string; slots: string[] 
     const timeSlots = JSON.parse(timeSlotsJson);
     const result: { day: string; slots: string[] }[] = [];
     
-    // 按天排序
-    const dayOrder = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+    // 按天排序（周日在前）
+    const dayOrder = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
     
     // 遍历每天的时段
     dayOrder.forEach(day => {
@@ -838,7 +901,41 @@ async function resetForm() {
   }
   // 完全重置 formData 为初始状态
   Object.assign(formData, initialFormData);
+  // 重置验证错误状态
+  Object.keys(timeSlotsValidationError).forEach(day => timeSlotsValidationError[day] = false);
 }
+
+// 监听时间段变化，清除对应星期的验证错误
+watch(
+  () => formData.time_slots,
+  (newTimeSlots) => {
+    for (const day in newTimeSlots) {
+      if (timeSlotsValidationError[day] && newTimeSlots[day] && newTimeSlots[day].length > 0) {
+        timeSlotsValidationError[day] = false;
+      }
+    }
+  },
+  { deep: true }
+);
+
+// 监听星期变化，清除取消选择星期的时间段
+watch(
+  () => formData.weekly_schedule_days,
+  (newDays, oldDays = []) => {
+    // 找出被移除的星期
+    const removedDays = oldDays.filter(day => !newDays.includes(day));
+
+    // 清除被移除星期的时间段数据
+    removedDays.forEach(day => {
+      if (formData.time_slots[day]) {
+        formData.time_slots[day] = [];
+      }
+      // 同时清除该星期的验证错误状态
+      timeSlotsValidationError[day] = false;
+    });
+  },
+  { deep: true }
+);
 
 // 行复选框选中项变化
 async function handleSelectionChange(selection: any) {
@@ -865,9 +962,11 @@ async function handleOpenDialog(type: "create" | "update" | "detail", id?: numbe
     } else if (type === "update") {
       dialogVisible.title = "修改班级";
       Object.assign(formData, response.data.data);
-      // 将weekly_schedule字符串解析为数组
+      // 将weekly_schedule字符串解析为数组，并按周日到周六排序
       if (formData.weekly_schedule) {
-        formData.weekly_schedule_days = formData.weekly_schedule.split("、");
+        const dayOrder = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+        const days = formData.weekly_schedule.split("、");
+        formData.weekly_schedule_days = days.filter(day => dayOrder.includes(day));
       }
       // 解析time_slots_json
       if (response.data.data.time_slots_json) {
@@ -888,28 +987,76 @@ async function handleOpenDialog(type: "create" | "update" | "detail", id?: numbe
 async function handleSubmit() {
   if (!dataFormRef.value) return;
 
-  await dataFormRef.value.validate(async (valid: boolean) => {
-    if (!valid) return;
+  const valid = await dataFormRef.value.validate().catch(() => false);
+  if (!valid) return;
 
-    try {
-      // 将time_slots对象转换为JSON字符串存储
-      formData.time_slots_json = JSON.stringify(formData.time_slots || {});
-      // 将选中的星期数组转换为逗号分隔的字符串
-      formData.weekly_schedule = formData.weekly_schedule_days?.join("、") || "";
+  // 将time_slots对象转换为JSON字符串存储
+  formData.time_slots_json = JSON.stringify(formData.time_slots || {});
+  // 将选中的星期数组转换为逗号分隔的字符串（按固定顺序：周日、周一...周六）
+  const dayOrder = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+  const sortedDays = formData.weekly_schedule_days.filter(day => dayOrder.includes(day));
+  formData.weekly_schedule = sortedDays.join("、") || "";
 
-      if (dialogVisible.type === "create") {
-        await ClassAPI.createClass(formData);
-        ElMessage.success("创建成功");
-      } else if (dialogVisible.type === "update") {
-        await ClassAPI.updateClass(formData.id!, formData);
-        ElMessage.success("更新成功");
-      }
-      dialogVisible.visible = false;
-      loadingData();
-    } catch (error: any) {
-      console.error(error);
-    }
+  // 保存表单数据副本
+  const submitData = { ...formData };
+  delete submitData.id;
+
+  // 保存操作类型和ID
+  const operationType = dialogVisible.type;
+  const updateId = formData.id;
+
+  // 立即关闭窗口
+  handleCloseDialog();
+
+  // 显示持久化通知
+  const notification = ElNotification({
+    title: operationType === "create" ? "创建" : "更新",
+    message: "后台保存中...",
+    type: "info",
+    duration: 0,
+    position: "bottom-right",
   });
+
+  // 在后台保存
+  try {
+    let res;
+    if (operationType === "create") {
+      res = await ClassAPI.createClass(submitData);
+    } else if (operationType === "update" && updateId) {
+      res = await ClassAPI.updateClass(updateId, submitData);
+    }
+
+    if (res.data.code === 0) {
+      notification.close();
+      ElNotification({
+        title: operationType === "create" ? "创建成功" : "更新成功",
+        message: operationType === "create" ? "创建成功" : "更新成功",
+        type: "success",
+        duration: 3000,
+        position: "bottom-right",
+      });
+      loadingData();
+    } else {
+      notification.close();
+      ElNotification({
+        title: "操作失败",
+        message: res.data.msg || "操作失败",
+        type: "error",
+        duration: 3000,
+        position: "bottom-right",
+      });
+    }
+  } catch (error: any) {
+    console.error("提交失败:", error);
+    notification.close();
+    ElNotification({
+      title: "提交失败",
+      message: "网络错误或服务器异常",
+      type: "error",
+      duration: 3000,
+      position: "bottom-right",
+    });
+  }
 }
 
 // 删除

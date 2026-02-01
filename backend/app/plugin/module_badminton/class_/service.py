@@ -34,14 +34,82 @@ class ClassService:
 
     @classmethod
     async def detail_service(cls, auth: AuthSchema, class_id: int) -> dict:
-        """获取班级详情"""
-        class_obj = await ClassCRUD(auth).get_by_id_crud(
-            id=class_id,
-            preload=["semester", "coach_user", "created_by", "updated_by"]
-        )
+        """获取班级详情（使用视图优化性能）"""
+        import asyncio
+        # 使用视图查询班级信息（已包含学期和教练信息）
+        class_obj = await ClassListCRUD(auth).get_by_id_crud(id=class_id)
         if not class_obj:
             raise CustomException(msg="班级不存在")
-        return ClassOutSchema.model_validate(class_obj).model_dump()
+        
+        # 并行查询创建人和更新人
+        from app.api.v1.module_system.user.crud import UserCRUD
+        related_queries = []
+        
+        if class_obj.created_id:
+            related_queries.append(("creator", UserCRUD(auth).get_by_id_crud(id=class_obj.created_id)))
+        
+        if class_obj.updated_id:
+            related_queries.append(("updater", UserCRUD(auth).get_by_id_crud(id=class_obj.updated_id)))
+        
+        # 等待查询完成
+        related_results = await asyncio.gather(*[r[1] for r in related_queries], return_exceptions=True)
+        
+        # 提取结果
+        created_by = None
+        updated_by = None
+        for i, (query_name, result) in enumerate(zip([r[0] for r in related_queries], related_results)):
+            if isinstance(result, Exception):
+                logger.error(f"查询{query_name}信息失败: {result}")
+            else:
+                if query_name == "creator":
+                    created_by = result
+                elif query_name == "updater":
+                    updated_by = result
+        
+        # 构建返回数据
+        item = {
+            'id': class_obj.id,
+            'uuid': class_obj.uuid,
+            'semester_id': class_obj.semester_id,
+            'name': class_obj.name,
+            'class_type': class_obj.class_type,
+            'coach_id': class_obj.coach_id,
+            'total_sessions': class_obj.total_sessions,
+            'sessions_per_week': class_obj.sessions_per_week,
+            'session_duration': class_obj.session_duration,
+            'session_price': class_obj.session_price,
+            'max_students': class_obj.max_students,
+            'min_students': class_obj.min_students,
+            'current_students': class_obj.current_students,
+            'start_date': class_obj.start_date.isoformat() if class_obj.start_date else None,
+            'end_date': class_obj.end_date.isoformat() if class_obj.end_date else None,
+            'weekly_schedule': class_obj.weekly_schedule,
+            'time_slots_json': class_obj.time_slots_json,
+            'location': class_obj.location,
+            'class_status': class_obj.class_status,
+            'is_active': class_obj.is_active,
+            'enrollment_open': class_obj.enrollment_open,
+            'fee_per_session': class_obj.fee_per_session,
+            'description': class_obj.description,
+            'notes': class_obj.notes,
+            'created_time': class_obj.created_time.isoformat() if class_obj.created_time else None,
+            'updated_time': class_obj.updated_time.isoformat() if class_obj.updated_time else None,
+            # 视图字段 - 学期信息
+            'semester': {
+                'id': class_obj.semester_ref_id,
+                'name': class_obj.semester_name
+            } if class_obj.semester_ref_id else None,
+            # 视图字段 - 教练信息
+            'coach_user': {
+                'id': class_obj.coach_user_id,
+                'name': class_obj.coach_user_name
+            } if class_obj.coach_user_id else None,
+            # 创建人和更新人
+            'created_by': {'id': created_by.id, 'name': created_by.name} if created_by else None,
+            'updated_by': {'id': updated_by.id, 'name': updated_by.name} if updated_by else None,
+        }
+        
+        return item
 
     @classmethod
     async def list_service(cls, auth: AuthSchema, search: Optional[dict] = None, order_by: Optional[list[dict]] = None) -> list[dict]:
@@ -55,7 +123,7 @@ class ClassService:
 
     @classmethod
     async def page_service(cls, auth: AuthSchema, page_no: int, page_size: int, search: Optional[dict | ClassQueryParam] = None, order_by: Optional[list[dict]] = None) -> dict:
-        """班级分页查询"""
+        """班级分页查询（使用视图优化性能）"""
         # 将QueryParam对象转换为字典
         if isinstance(search, ClassQueryParam):
             search_dict = vars(search)
@@ -65,17 +133,18 @@ class ClassService:
         order_by_list = order_by or [{'id': 'asc'}]
         offset = (page_no - 1) * page_size
 
-        # 不使用 out_schema，直接获取原始对象以避免加载过多关联数据
-        result = await ClassCRUD(auth).page_crud(
+        # 使用视图模型查询，避免预加载性能问题
+        # 视图已经包含了学期和教练信息，不需要预加载
+        result = await ClassListCRUD(auth).page_crud(
             offset=offset,
             limit=page_size,
             order_by=order_by_list,
             search=search_dict,
-            preload=["semester", "coach_user"],
+            preload=[],  # 视图不需要预加载
             out_schema=None
         )
 
-        # 手动构建返回数据，只包含必要的字段
+        # 手动构建返回数据，使用视图的字段
         items = []
         for class_obj in result["items"]:
             item = {
@@ -83,7 +152,7 @@ class ClassService:
                 'uuid': class_obj.uuid,
                 'semester_id': class_obj.semester_id,
                 'name': class_obj.name,
-                'class_type': class_obj.class_type.value if class_obj.class_type else None,
+                'class_type': class_obj.class_type,
                 'coach_id': class_obj.coach_id,
                 'total_sessions': class_obj.total_sessions,
                 'session_duration': class_obj.session_duration,
@@ -96,24 +165,24 @@ class ClassService:
                 'weekly_schedule': class_obj.weekly_schedule,
                 'time_slots_json': class_obj.time_slots_json,
                 'location': class_obj.location,
-                'class_status': class_obj.class_status.value if class_obj.class_status else None,
+                'class_status': class_obj.class_status,
                 'is_active': class_obj.is_active,
                 'enrollment_open': class_obj.enrollment_open,
                 'fee_per_session': class_obj.fee_per_session,
                 'description': class_obj.description,
                 'notes': class_obj.notes,
-                'status': class_obj.status,
                 'created_time': class_obj.created_time.isoformat() if class_obj.created_time else None,
                 'updated_time': class_obj.updated_time.isoformat() if class_obj.updated_time else None,
-                # 关联对象
+                # 视图字段 - 学期信息
                 'semester': {
-                    'id': class_obj.semester.id,
-                    'name': class_obj.semester.name
-                } if class_obj.semester else None,
+                    'id': class_obj.semester_ref_id,
+                    'name': class_obj.semester_name
+                } if class_obj.semester_ref_id else None,
+                # 视图字段 - 教练信息
                 'coach_user': {
-                    'id': class_obj.coach_user.id,
-                    'name': class_obj.coach_user.name
-                } if class_obj.coach_user else None,
+                    'id': class_obj.coach_user_id,
+                    'name': class_obj.coach_user_name
+                } if class_obj.coach_user_id else None,
             }
             items.append(item)
 
@@ -212,16 +281,9 @@ class ClassService:
                 logger.info(f"从缓存获取班级可用时间段: class_id={class_id}, result_type={type(cached_result)}, time_slots数量: {len(cached_result.get('time_slots', []))}")
                 # 确保返回的是字典类型且时间段不为空
                 if isinstance(cached_result, dict) and "time_slots" in cached_result and len(cached_result["time_slots"]) > 0:
-                    # 如果指定了 day_of_week，则过滤结果
-                    if day_of_week is not None:
-                        filtered_slots = [slot for slot in cached_result["time_slots"] if slot.get("day_index") == day_of_week]
-                        result = {
-                            **cached_result,
-                            "time_slots": filtered_slots
-                        }
-                        logger.info(f"从缓存过滤后返回，时间段数: {len(filtered_slots)}")
-                        return result
-                    logger.info(f"从缓存返回，时间段数: {len(cached_result['time_slots'])}")
+                    # 不在后端过滤 day_of_week，返回完整的时间段列表
+                    # 前端会根据选择的日期进行过滤
+                    logger.info(f"从缓存返回完整时间段列表（包含所有星期几），时间段数: {len(cached_result['time_slots'])}")
                     return cached_result
                 else:
                     logger.warning(f"缓存数据无效（时间段为空或类型不正确），将重新查询")
@@ -270,17 +332,8 @@ class ClassService:
 
         logger.info(f"筛选时间段 - day_of_week={day_of_week}, time_slots_config={time_slots_config}")
 
-        # 遍历每一天的时间段配置
+        # 遍历每一天的时间段配置（不按 day_of_week 过滤，生成所有星期几的时间段）
         for day, slots in time_slots_config.items():
-            # 如果指定了 day_of_week，只处理该星期
-            if day_of_week is not None:
-                day_index = day_names.index(day) if day in day_names else 0
-                logger.info(f"检查星期: day={day}, day_index={day_index}, day_of_week={day_of_week}, 匹配: {day_index == day_of_week}")
-                if day_index != day_of_week:
-                    logger.info(f"跳过: day_index({day_index}) != day_of_week({day_of_week})")
-                    continue
-                else:
-                    logger.info(f"匹配成功: day={day}, day_index={day_index}")
 
             if slots:  # 如果该天有可选时间段
                 for slot_code in slots:

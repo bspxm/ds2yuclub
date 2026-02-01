@@ -325,7 +325,7 @@ defineOptions({
 });
 
 import { ref, reactive, onMounted } from "vue";
-import { ElMessage, ElMessageBox } from "element-plus";
+import { ElMessage, ElMessageBox, ElNotification } from "element-plus";
 import { QuestionFilled } from "@element-plus/icons-vue";
 import ClassAttendanceAPI, { ClassAttendanceTable, ClassAttendanceForm, ClassAttendancePageQuery } from "@/api/module_badminton/class-attendance";
 
@@ -470,24 +470,70 @@ async function handleOpenDialog(type: "create" | "update" | "detail", id?: numbe
 // 提交表单
 async function handleSubmit() {
   if (!dataFormRef.value) return;
-  
-  await dataFormRef.value.validate(async (valid: boolean) => {
-    if (!valid) return;
-    
-    try {
-      if (dialogVisible.type === "create") {
-        await ClassAttendanceAPI.createClassAttendance(formData);
-        ElMessage.success("创建成功");
-      } else if (dialogVisible.type === "update") {
-        await ClassAttendanceAPI.updateClassAttendance(formData.id!, formData);
-        ElMessage.success("更新成功");
-      }
-      dialogVisible.visible = false;
-      loadingData();
-    } catch (error: any) {
-      console.error(error);
-    }
+
+  const valid = await dataFormRef.value.validate().catch(() => false);
+  if (!valid) return;
+
+  // 保存表单数据副本
+  const submitData = { ...formData };
+  delete submitData.id;
+
+  // 保存操作类型和ID
+  const operationType = dialogVisible.type;
+  const updateId = formData.id;
+
+  // 立即关闭窗口
+  handleCloseDialog();
+
+  // 显示持久化通知
+  const notification = ElNotification({
+    title: operationType === "create" ? "创建" : "更新",
+    message: "后台保存中...",
+    type: "info",
+    duration: 0,
+    position: "bottom-right",
   });
+
+  // 在后台保存
+  try {
+    let res;
+    if (operationType === "create") {
+      res = await ClassAttendanceAPI.createClassAttendance(submitData);
+    } else if (operationType === "update" && updateId) {
+      res = await ClassAttendanceAPI.updateClassAttendance(updateId, submitData);
+    }
+
+    if (res.data.code === 0) {
+      notification.close();
+      ElNotification({
+        title: operationType === "create" ? "创建成功" : "更新成功",
+        message: operationType === "create" ? "创建成功" : "更新成功",
+        type: "success",
+        duration: 3000,
+        position: "bottom-right",
+      });
+      loadingData();
+    } else {
+      notification.close();
+      ElNotification({
+        title: "操作失败",
+        message: res.data.msg || "操作失败",
+        type: "error",
+        duration: 3000,
+        position: "bottom-right",
+      });
+    }
+  } catch (error: any) {
+    console.error("提交失败:", error);
+    notification.close();
+    ElNotification({
+      title: "提交失败",
+      message: "网络错误或服务器异常",
+      type: "error",
+      duration: 3000,
+      position: "bottom-right",
+    });
+  }
 }
 
 // 删除

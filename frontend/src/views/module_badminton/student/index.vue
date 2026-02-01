@@ -696,7 +696,7 @@ defineOptions({
 });
 
 import { ref, reactive, onMounted } from "vue";
-import { ElMessage, ElMessageBox } from "element-plus";
+import { ElMessage, ElMessageBox, ElNotification } from "element-plus";
 import { QuestionFilled, ArrowUp, ArrowDown, UploadFilled } from "@element-plus/icons-vue";
 import { formatToDateTime } from "@/utils/dateUtil";
 import DatePicker from "@/components/DatePicker/index.vue";
@@ -921,39 +921,71 @@ async function handleOpenDialog(type: "create" | "update" | "detail", id?: numbe
 
 // 提交表单
 async function handleSubmit() {
-  // 表单校验
-  dataFormRef.value.validate(async (valid: any) => {
-    if (valid) {
-      loading.value = true;
-      const submitData = { ...formData };
-      const id = formData.id;
-      if (id) {
-        try {
-          await StudentAPI.updateStudent(id, submitData);
-          dialogVisible.visible = false;
-          resetForm();
-          handleCloseDialog();
-          handleResetQuery();
-        } catch (error: any) {
-          console.error(error);
-        } finally {
-          loading.value = false;
-        }
-      } else {
-        try {
-          await StudentAPI.createStudent(submitData);
-          dialogVisible.visible = false;
-          resetForm();
-          handleCloseDialog();
-          handleResetQuery();
-        } catch (error: any) {
-          console.error(error);
-        } finally {
-          loading.value = false;
-        }
-      }
-    }
+  if (!dataFormRef.value) return;
+
+  const valid = await dataFormRef.value.validate().catch(() => false);
+  if (!valid) return;
+
+  // 保存表单数据副本
+  const submitData = { ...formData };
+  delete submitData.id;
+
+  // 保存操作类型和ID
+  const operationType = formData.id ? "update" : "create";
+  const updateId = formData.id;
+
+  // 立即关闭窗口
+  handleCloseDialog();
+
+  // 显示持久化通知
+  const notification = ElNotification({
+    title: operationType === "create" ? "创建" : "更新",
+    message: "后台保存中...",
+    type: "info",
+    duration: 0,
+    position: "bottom-right",
   });
+
+  // 在后台保存
+  try {
+    let res;
+    if (operationType === "create") {
+      res = await StudentAPI.createStudent(submitData);
+    } else if (operationType === "update" && updateId) {
+      res = await StudentAPI.updateStudent(updateId, submitData);
+    }
+
+    if (res.data.code === 0) {
+      notification.close();
+      ElNotification({
+        title: operationType === "create" ? "创建成功" : "更新成功",
+        message: operationType === "create" ? "创建成功" : "更新成功",
+        type: "success",
+        duration: 3000,
+        position: "bottom-right",
+      });
+      handleResetQuery();
+    } else {
+      notification.close();
+      ElNotification({
+        title: "操作失败",
+        message: res.data.msg || "操作失败",
+        type: "error",
+        duration: 3000,
+        position: "bottom-right",
+      });
+    }
+  } catch (error: any) {
+    console.error("提交失败:", error);
+    notification.close();
+    ElNotification({
+      title: "提交失败",
+      message: "网络错误或服务器异常",
+      type: "error",
+      duration: 3000,
+      position: "bottom-right",
+    });
+  }
 }
 
 // 删除、批量删除

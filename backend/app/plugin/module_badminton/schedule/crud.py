@@ -53,6 +53,10 @@ class ClassScheduleListCRUD(CRUDBase[ClassScheduleListView, None, None]):
     def __init__(self, auth: AuthSchema) -> None:
         super().__init__(model=ClassScheduleListView, auth=auth)
 
+    async def get_by_id_crud(self, id: int, preload: Optional[list[str]] = None) -> Optional[ClassScheduleListView]:
+        """获取排课记录详情（使用视图，已包含班级和教练信息）"""
+        return await self.get(id=id, preload=preload)
+
     async def page_crud(self, offset: int, limit: int, order_by: list[dict[str, str]], search: dict, out_schema: type = None, preload: list[str] | None = None) -> dict:
         """排课记录分页查询（使用视图）"""
         return await self.page(offset=offset, limit=limit, order_by=order_by, search=search, out_schema=out_schema, preload=preload)

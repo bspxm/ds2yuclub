@@ -306,7 +306,7 @@ defineOptions({
 });
 
 import { ref, reactive, computed, onMounted } from "vue";
-import { ElMessage, ElMessageBox } from "element-plus";
+import { ElMessage, ElMessageBox, ElNotification } from "element-plus";
 import type { FormInstance, FormRules } from "element-plus";
 import { QuestionFilled, ArrowUp, ArrowDown } from "@element-plus/icons-vue";
 
@@ -475,19 +475,63 @@ async function resetForm() {
 // 提交表单
 async function handleSubmit() {
   if (!dataFormRef.value) return;
-  await dataFormRef.value.validate((valid: boolean) => {
-    if (valid) {
-      loading.value = true;
-      // TODO: 调用API保存数据
-      setTimeout(() => {
-        loading.value = false;
-        ElMessage.success(dialogVisible.type === "create" ? "新增成功" : "编辑成功");
-        dialogVisible.visible = false;
-        resetForm();
-        loadingData();
-      }, 500);
-    }
+
+  const valid = await dataFormRef.value.validate().catch(() => false);
+  if (!valid) return;
+
+  // 保存表单数据副本
+  const submitData = { ...formData };
+  delete submitData.id;
+
+  // 保存操作类型和ID
+  const operationType = dialogVisible.type;
+  const updateId = formData.id;
+
+  // 立即关闭窗口
+  handleCloseDialog();
+
+  // 显示持久化通知
+  const notification = ElNotification({
+    title: operationType === "create" ? "创建" : "更新",
+    message: "后台保存中...",
+    type: "info",
+    duration: 0,
+    position: "bottom-right",
   });
+
+  // 在后台保存（TODO: 调用API保存数据）
+  try {
+    // TODO: 替换为实际的API调用
+    // let res;
+    // if (operationType === "create") {
+    //   res = await SomeAPI.create(submitData);
+    // } else if (operationType === "update" && updateId) {
+    //   res = await SomeAPI.update(updateId, submitData);
+    // }
+
+    // 模拟API调用
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    notification.close();
+    ElNotification({
+      title: operationType === "create" ? "创建成功" : "更新成功",
+      message: operationType === "create" ? "创建成功" : "更新成功",
+      type: "success",
+      duration: 3000,
+      position: "bottom-right",
+    });
+    loadingData();
+  } catch (error: any) {
+    console.error("提交失败:", error);
+    notification.close();
+    ElNotification({
+      title: "提交失败",
+      message: "网络错误或服务器异常",
+      type: "error",
+      duration: 3000,
+      position: "bottom-right",
+    });
+  }
 }
 
 // 删除、批量删除

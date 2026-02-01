@@ -896,7 +896,7 @@ defineOptions({
 });
 
 import { ref, reactive, onMounted, computed, watch } from "vue";
-import { ElMessage, ElMessageBox } from "element-plus";
+import { ElMessage, ElMessageBox, ElNotification } from "element-plus";
 import { QuestionFilled, ArrowUp, ArrowDown, Search, Loading, WarningFilled } from "@element-plus/icons-vue";
 import PurchaseAPI, { PurchaseTable, PurchaseForm, PurchasePageQuery, BatchPurchaseForm } from "@/api/module_badminton/purchase";
 import SemesterAPI, { SemesterTable } from "@/api/module_badminton/semester";
@@ -1569,70 +1569,95 @@ async function handleOpenDialog(type: "create" | "update" | "detail", id?: numbe
 // 提交表单
 async function handleSubmit() {
   if (!dataFormRef.value) return;
-  
-  await dataFormRef.value.validate(async (valid: boolean) => {
-    if (!valid) return;
-    
-    try {
-      // 手动构建 selected_time_slots 对象
-      const timeSlots: { [key: string]: string[] } = {};
-      if (formData.selected_time_slots) {
-        Object.keys(formData.selected_time_slots).forEach(key => {
-          timeSlots[key] = [...formData.selected_time_slots[key]];
-        });
-      }
-      
-      if (dialogVisible.type === "create") {
-        const submitData = {
-          student_id: formData.student_id,
-          semester_id: formData.semester_id,
-          class_id: formData.class_id,
-          purchase_type: formData.purchase_type,
-          session_count: formData.session_count,
-          unit_price: formData.unit_price,
-          total_amount: formData.total_amount,
-          total_sessions: formData.session_count,
-          original_price: formData.unit_price,
-          actual_price: formData.unit_price,
-          discount_rate: 1.0,
-          purchase_date: formData.purchase_date,
-          valid_from: formData.start_date,
-          valid_until: formData.end_date,
-          status: formData.status,
-          purchase_notes: formData.description,
-          selected_time_slots: timeSlots
-        };
-        await PurchaseAPI.createPurchase(submitData);
-        ElMessage.success("创建成功");
-      } else if (dialogVisible.type === "update") {
-        const submitData = {
-          student_id: formData.student_id,
-          semester_id: formData.semester_id,
-          class_id: formData.class_id,
-          purchase_type: formData.purchase_type,
-          session_count: formData.session_count,
-          unit_price: formData.unit_price,
-          total_amount: formData.total_amount,
-          total_sessions: formData.session_count,
-          original_price: formData.unit_price,
-          actual_price: formData.unit_price,
-          discount_rate: 1.0,
-          purchase_date: formData.purchase_date,
-          valid_from: formData.start_date,
-          valid_until: formData.end_date,
-          status: formData.status,
-          purchase_notes: formData.description,
-          selected_time_slots: timeSlots
-        };
-        await PurchaseAPI.updatePurchase(formData.id!, submitData);
-        ElMessage.success("更新成功");
-      }
-      dialogVisible.visible = false;
-      loadingData();
-    } catch (error: any) {
-      console.error(error);
-    }
+
+  const valid = await dataFormRef.value.validate().catch(() => false);
+  if (!valid) return;
+
+  // 手动构建 selected_time_slots 对象
+  const timeSlots: { [key: string]: string[] } = {};
+  if (formData.selected_time_slots) {
+    Object.keys(formData.selected_time_slots).forEach(key => {
+      timeSlots[key] = [...formData.selected_time_slots[key]];
+    });
+  }
+
+  // 保存表单数据副本
+  const submitData = {
+    student_id: formData.student_id,
+    semester_id: formData.semester_id,
+    class_id: formData.class_id,
+    purchase_type: formData.purchase_type,
+    session_count: formData.session_count,
+    unit_price: formData.unit_price,
+    total_amount: formData.total_amount,
+    total_sessions: formData.session_count,
+    original_price: formData.unit_price,
+    actual_price: formData.unit_price,
+    discount_rate: 1.0,
+    purchase_date: formData.purchase_date,
+    valid_from: formData.start_date,
+    valid_until: formData.end_date,
+    status: formData.status,
+    purchase_notes: formData.description,
+    selected_time_slots: timeSlots
+  };
+
+  // 保存操作类型和ID
+  const operationType = dialogVisible.type;
+  const updateId = formData.id;
+
+  // 立即关闭窗口
+  handleCloseDialog();
+
+  // 显示持久化通知
+  const notification = ElNotification({
+    title: operationType === "create" ? "创建" : "更新",
+    message: "后台保存中...",
+    type: "info",
+    duration: 0,
+    position: "bottom-right",
   });
+
+  // 在后台保存
+  try {
+    let res;
+    if (operationType === "create") {
+      res = await PurchaseAPI.createPurchase(submitData);
+    } else if (operationType === "update" && updateId) {
+      res = await PurchaseAPI.updatePurchase(updateId, submitData);
+    }
+
+    if (res.data.code === 0) {
+      notification.close();
+      ElNotification({
+        title: operationType === "create" ? "创建成功" : "更新成功",
+        message: operationType === "create" ? "创建成功" : "更新成功",
+        type: "success",
+        duration: 3000,
+        position: "bottom-right",
+      });
+      loadingData();
+    } else {
+      notification.close();
+      ElNotification({
+        title: "操作失败",
+        message: res.data.msg || "操作失败",
+        type: "error",
+        duration: 3000,
+        position: "bottom-right",
+      });
+    }
+  } catch (error: any) {
+    console.error("提交失败:", error);
+    notification.close();
+    ElNotification({
+      title: "提交失败",
+      message: "网络错误或服务器异常",
+      type: "error",
+      duration: 3000,
+      position: "bottom-right",
+    });
+  }
 }
 
 // 删除

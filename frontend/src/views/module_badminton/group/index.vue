@@ -271,7 +271,7 @@
     >
       <!-- 详情 -->
       <template v-if="dialogVisible.type === 'detail'">
-        <div v-loading="dialogLoading" element-loading-text="加载中...">
+        <div v-loading="dialogLoading" :element-loading-text="loadingText">
           <el-descriptions :column="2" border>
             <el-descriptions-item label="分组名称" :span="2">
               {{ detailFormData.name }}
@@ -325,7 +325,7 @@
 
       <!-- 新增、编辑表单 -->
       <template v-else>
-        <div v-loading="dialogLoading" element-loading-text="加载中...">
+        <div v-loading="dialogLoading" :element-loading-text="loadingText">
           <el-row :gutter="20">
             <!-- 左侧：学员选择 -->
             <el-col :span="8">
@@ -485,7 +485,7 @@ defineOptions({
 });
 
 import { ref, reactive, onMounted, computed } from "vue";
-import { ElMessage, ElMessageBox } from "element-plus";
+import { ElMessage, ElMessageBox, ElNotification } from "element-plus";
 import { QuestionFilled, Search } from "@element-plus/icons-vue";
 import GroupAPI, { GroupTable, GroupForm, GroupPageQuery } from "@/api/module_badminton/group";
 import UserAPI from "@/api/module_system/user";
@@ -811,31 +811,69 @@ const handleSubmit = async () => {
   const valid = await dataFormRef.value.validate().catch(() => false);
   if (!valid) return;
 
-  dialogLoading.value = true;
-  try {
-    const data = { ...formData };
-    delete data.id;
+  // 保存表单数据副本（用于后台提交）
+  const submitData = { ...formData };
+  delete submitData.id;
 
+  // 保存操作类型和ID（在关闭窗口之前）
+  const operationType = dialogVisible.type;
+  const updateId = formData.id;
+
+  // 立即关闭窗口
+  handleCloseDialog();
+
+  // 在右下角显示持久化通知
+  const notification = ElNotification({
+    title: operationType === "create" ? "创建分组" : "更新分组",
+    message: "后台保存中...",
+    type: "info",
+    duration: 0, // 不自动关闭
+    position: "bottom-right",
+  });
+
+  // 在后台保存数据
+  try {
     let res;
-    if (dialogVisible.type === "create") {
-      res = await GroupAPI.createGroup(data);
-    } else if (dialogVisible.type === "update" && formData.id) {
-      res = await GroupAPI.updateGroup(formData.id, data);
+    if (operationType === "create") {
+      res = await GroupAPI.createGroup(submitData);
+    } else if (operationType === "update" && updateId) {
+      res = await GroupAPI.updateGroup(updateId, submitData);
     }
 
     console.log('提交响应:', res);
     if (res.data.code === 0) {
-      ElMessage.success(dialogVisible.type === "create" ? "创建成功" : "更新成功");
-      handleCloseDialog();
+      // 关闭加载通知，显示成功通知
+      notification.close();
+      ElNotification({
+        title: operationType === "create" ? "创建成功" : "更新成功",
+        message: operationType === "create" ? "分组创建成功" : "分组更新成功",
+        type: "success",
+        duration: 3000,
+        position: "bottom-right",
+      });
       loadingData();
     } else {
-      ElMessage.error(res.data.msg || "操作失败");
+      // 关闭加载通知，显示错误通知
+      notification.close();
+      ElNotification({
+        title: "操作失败",
+        message: res.data.msg || "操作失败",
+        type: "error",
+        duration: 3000,
+        position: "bottom-right",
+      });
     }
   } catch (error) {
     console.error("提交失败:", error);
-    ElMessage.error("提交失败");
-  } finally {
-    dialogLoading.value = false;
+    // 关闭加载通知，显示错误通知
+    notification.close();
+    ElNotification({
+      title: "提交失败",
+      message: "网络错误或服务器异常",
+      type: "error",
+      duration: 3000,
+      position: "bottom-right",
+    });
   }
 };
 
@@ -864,6 +902,13 @@ const handleDelete = async (ids: number[]) => {
 };
 
 // 初始化
+const loadingText = computed(() => {
+  if (dialogVisible.type === 'update') {
+    return '保存中...';
+  }
+  return '加载中...';
+});
+
 onMounted(() => {
   loadingData();
   loadCoachOptions();

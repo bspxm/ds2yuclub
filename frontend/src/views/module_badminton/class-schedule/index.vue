@@ -569,7 +569,7 @@ defineOptions({
 });
 
 import { ref, reactive, onMounted, watch, computed, nextTick } from "vue";
-import { ElMessage, ElMessageBox } from "element-plus";
+import { ElMessage, ElMessageBox, ElNotification } from "element-plus";
 import { QuestionFilled, Search, Loading } from "@element-plus/icons-vue";
 import ClassScheduleAPI, { ClassScheduleTable, ClassSchedulePageQuery, AvailableStudentInfo, ClassScheduleCreateV2Form, TimeSlotInfo, DictDataItem } from "@/api/module_badminton/class-schedule";
 import SemesterAPI from "@/api/module_badminton/semester";
@@ -1063,8 +1063,14 @@ async function loadAvailableStudents() {
 
 // 加载可用时间段（根据班级和日期的星期几）
 async function loadAvailableTimeSlots() {
+  console.log('开始加载可用时间段:', {
+    class_ids: formDataV2.class_ids,
+    schedule_date: formDataV2.schedule_date
+  });
+  
   // 从后端获取完整的时间段列表（包含所有7天 × 10个基础时段 + 扩展时段）
   if (!formDataV2.class_ids.length || !formDataV2.schedule_date) {
+    console.log('缺少班级或日期，使用字典数据');
     // 使用字典数据作为默认值
     if (timeSlotDict.value.length === 0) {
       await loadTimeSlotDict();
@@ -1076,29 +1082,62 @@ async function loadAvailableTimeSlots() {
     // 计算星期几（0=周日，1=周一，...，6=周六）
     const date = new Date(formDataV2.schedule_date);
     const dayOfWeek = date.getDay(); // 0=周日，1=周一，...，6=周六
+    console.log('计算星期几:', dayOfWeek, '(0=周日，1=周一，...，6=周六)');
     
     // 并行获取所有选定班级的时间段配置
+    console.log('开始调用 API 获取时间段，班级ID:', formDataV2.class_ids);
     const timeSlotPromises = formDataV2.class_ids.map(classId => 
       ClassAPI.getAvailableTimeSlots(classId, dayOfWeek)
     );
     
     const results = await Promise.all(timeSlotPromises);
-    
-    console.log('各班级返回的时间段数据:', results);
+    console.log('API 返回结果:', results);
     
     // 合并所有时间段数据
     let allTimeSlots: any[] = [];
-    results.forEach(response => {
-      if (response.data && response.data.data && response.data.data.time_slots) {
-        allTimeSlots = allTimeSlots.concat(response.data.data.time_slots);
+    results.forEach((response, index) => {
+      console.log(`班级 ${formDataV2.class_ids[index]} 的完整响应:`, response);
+      console.log(`班级 ${formDataV2.class_ids[index]} 的 data 字段:`, response.data);
+      // 后端返回格式: response.data.data.time_slots
+      if (response.data && response.data.data) {
+        console.log(`班级 ${formDataV2.class_ids[index]} 的 data.data:`, response.data.data);
+        if (response.data.data.time_slots) {
+          console.log(`班级 ${formDataV2.class_ids[index]} 的 time_slots:`, response.data.data.time_slots);
+          allTimeSlots = allTimeSlots.concat(response.data.data.time_slots);
+        } else {
+          console.warn(`班级 ${formDataV2.class_ids[index]} 没有 time_slots 字段`);
+        }
+      } else {
+        console.warn(`班级 ${formDataV2.class_ids[index]} 没有 data.data 字段`);
       }
     });
     
     console.log('合并后的时间段数据:', allTimeSlots);
     
+    // 根据选择的日期过滤出对应星期的时间段
+    const dayOfWeekMap: Record<number, string> = {
+      0: '周日',
+      1: '周一',
+      2: '周二',
+      3: '周三',
+      4: '周四',
+      5: '周五',
+      6: '周六'
+    };
+    const dayOfWeekName = dayOfWeekMap[dayOfWeek];
+    const filteredTimeSlots = allTimeSlots.filter(slot => slot.day === dayOfWeekName);
+    console.log(`过滤 ${dayOfWeekName} 的时间段，过滤前: ${allTimeSlots.length} 个，过滤后: ${filteredTimeSlots.length} 个`);
+    
+    // 如果没有获取到时间段，使用字典数据
+    if (filteredTimeSlots.length === 0) {
+      console.warn(`未获取到 ${dayOfWeekName} 的时间段数据，使用字典数据`);
+      await loadTimeSlotDict();
+      return;
+    }
+    
     // 去重时间段（按 day 和 slot_code 组合去重，避免不同班级的相同时间段代码冲突）
     const uniqueTimeSlots = new Map();
-    for (const slot of allTimeSlots) {
+    for (const slot of filteredTimeSlots) {
       const key = `${slot.day}_${slot.slot_code}`;
       if (!uniqueTimeSlots.has(key)) {
         uniqueTimeSlots.set(key, slot);
@@ -1119,13 +1158,21 @@ async function loadAvailableTimeSlots() {
     }));
     
     console.log('最终的时间段列表:', timeSlotList.value);
+    console.log('时间段时间段数量:', timeSlotList.value.length);
 
     // 如果之前选择的时间段不在新列表中，清空选择
     const validIds = timeSlotList.value.map((s: any) => s.id);
     tempTimeSlotIds.value = tempTimeSlotIds.value.filter((id: number) => validIds.includes(id));
+    console.log('清理后的已选时间段:', tempTimeSlotIds.value);
+    
+    // 如果有已选时间段，自动加载学员列表
+    if (tempTimeSlotIds.value.length > 0) {
+      console.log('时间段加载完成，自动加载学员列表');
+      await loadAvailableStudents();
+    }
   } catch (error: any) {
     console.error("加载可用时间段失败:", error);
-    ElMessage.error("加载可用时间段失败");
+    ElMessage.error(`加载可用时间段失败: ${error.message || error}`);
     // 加载失败时使用字典数据
     if (timeSlotList.value.length === 0) {
       await loadTimeSlotDict();
@@ -1197,15 +1244,12 @@ watch(() => formDataV2.semester_id, (newVal, oldVal) => {
 
 // 监听班级和日期变化，重新加载可用时间段
 watch(() => [formDataV2.class_ids, formDataV2.schedule_date], () => {
-  // 只在新增模式下（没有 id）清空数据，编辑模式不清空
-  if (!editingScheduleId.value) {
-    tempTimeSlotIds.value = [];
-    formDataV2.time_slots = {};
-    formDataV2.student_ids = [];
-    selectedStudentIds.value = [];
-    availableStudents.value = [];
-  }
-  // 编辑模式下不清空任何数据，保留用户的选择
+  // 清空时间段和学员选择（日期改变时，原来的时间段可能不再有效）
+  tempTimeSlotIds.value = [];
+  formDataV2.time_slots = {};
+  formDataV2.student_ids = [];
+  selectedStudentIds.value = [];
+  availableStudents.value = [];
   
   // 加载可用时间段
   if (formDataV2.class_ids.length > 0 && formDataV2.schedule_date) {
@@ -1244,31 +1288,75 @@ function resetFormV2() {
 // 提交V2表单
 async function handleSubmitV2() {
   if (!dataFormRef.value) return;
-  
-  await dataFormRef.value.validate(async (valid: boolean) => {
-    if (!valid) return;
-    
-    // 手动验证时间段选择
-    if (tempTimeSlotIds.value.length === 0) {
-      ElMessage.warning("请选择时间段");
-      return;
-    }
-    
-    if (formDataV2.student_ids.length === 0) {
-      ElMessage.warning("请至少选择一名学员");
-      return;
-    }
-    
-    try {
-      await ClassScheduleAPI.createScheduleV2(formDataV2);
-      ElMessage.success("创建排课记录成功");
-      dialogVisible.visible = false;
-      loadingData();
-    } catch (error: any) {
-      console.error(error);
-      ElMessage.error("创建排课记录失败");
-    }
+
+  const valid = await dataFormRef.value.validate().catch(() => false);
+  if (!valid) return;
+
+  // 手动验证时间段选择
+  if (tempTimeSlotIds.value.length === 0) {
+    ElMessage.warning("请选择时间段");
+    return;
+  }
+
+  if (formDataV2.student_ids.length === 0) {
+    ElMessage.warning("请至少选择一名学员");
+    return;
+  }
+
+  // 保存表单数据副本
+  const submitData = { ...formDataV2 };
+  delete submitData.student_ids; // student_ids 会在 API 中处理
+
+  // 保存操作类型和ID
+  const operationType = "create";
+
+  // 立即关闭窗口
+  handleCloseDialog();
+
+  // 显示持久化通知
+  const notification = ElNotification({
+    title: "创建",
+    message: "后台保存中...",
+    type: "info",
+    duration: 0,
+    position: "bottom-right",
   });
+
+  // 在后台保存
+  try {
+    const res = await ClassScheduleAPI.createScheduleV2(submitData);
+
+    if (res.data.code === 0) {
+      notification.close();
+      ElNotification({
+        title: "创建成功",
+        message: "创建成功",
+        type: "success",
+        duration: 3000,
+        position: "bottom-right",
+      });
+      loadingData();
+    } else {
+      notification.close();
+      ElNotification({
+        title: "操作失败",
+        message: res.data.msg || "操作失败",
+        type: "error",
+        duration: 3000,
+        position: "bottom-right",
+      });
+    }
+  } catch (error: any) {
+    console.error("提交失败:", error);
+    notification.close();
+    ElNotification({
+      title: "提交失败",
+      message: "网络错误或服务器异常",
+      type: "error",
+      duration: 3000,
+      position: "bottom-right",
+    });
+  }
 }
 
 // 加载表格数据
@@ -1484,29 +1572,84 @@ function disabledDate(time: Date) {
 // 提交表单
 async function handleSubmit() {
   if (!dataFormRef.value) return;
-  
-  await dataFormRef.value.validate(async (valid: boolean) => {
-    if (!valid) return;
-    
-    try {
-      submitLoading.value = true;
-      
-      if (dialogVisible.type === "create") {
-        // 使用V2版本创建
-        await handleSubmitV2();
-      } else if (dialogVisible.type === "update") {
-        console.log('更新排课记录，提交的数据:', JSON.stringify(formDataV2));
-        await ClassScheduleAPI.updateClassSchedule(editingScheduleId.value!, formDataV2);
-        ElMessage.success("更新成功");
-        dialogVisible.visible = false;
-        loadingData();
-      }
-    } catch (error: any) {
-      console.error(error);
-    } finally {
-      submitLoading.value = false;
+
+  const valid = await dataFormRef.value.validate().catch(() => false);
+  if (!valid) return;
+
+  // 手动验证时间段选择（仅更新时需要验证）
+  if (dialogVisible.type === "update") {
+    if (tempTimeSlotIds.value.length === 0) {
+      ElMessage.warning("请选择时间段");
+      return;
     }
+
+    if (formDataV2.student_ids.length === 0) {
+      ElMessage.warning("请至少选择一名学员");
+      return;
+    }
+  }
+
+  // 保存表单数据副本
+  const submitData = { ...formDataV2 };
+  delete submitData.student_ids; // student_ids 会在 API 中处理
+
+  // 保存操作类型和ID
+  const operationType = dialogVisible.type;
+  const updateId = editingScheduleId.value;
+
+  // 立即关闭窗口
+  handleCloseDialog();
+
+  // 显示持久化通知
+  const notification = ElNotification({
+    title: operationType === "create" ? "创建" : "更新",
+    message: "后台保存中...",
+    type: "info",
+    duration: 0,
+    position: "bottom-right",
   });
+
+  // 在后台保存
+  try {
+    let res;
+    if (operationType === "create") {
+      res = await ClassScheduleAPI.createScheduleV2(submitData);
+    } else if (operationType === "update" && updateId) {
+      console.log('更新排课记录，提交的数据:', JSON.stringify(submitData));
+      res = await ClassScheduleAPI.updateClassSchedule(updateId, submitData);
+    }
+
+    if (res.data.code === 0) {
+      notification.close();
+      ElNotification({
+        title: operationType === "create" ? "创建成功" : "更新成功",
+        message: operationType === "create" ? "创建成功" : "更新成功",
+        type: "success",
+        duration: 3000,
+        position: "bottom-right",
+      });
+      loadingData();
+    } else {
+      notification.close();
+      ElNotification({
+        title: "操作失败",
+        message: res.data.msg || "操作失败",
+        type: "error",
+        duration: 3000,
+        position: "bottom-right",
+      });
+    }
+  } catch (error: any) {
+    console.error("提交失败:", error);
+    notification.close();
+    ElNotification({
+      title: "提交失败",
+      message: "网络错误或服务器异常",
+      type: "error",
+      duration: 3000,
+      position: "bottom-right",
+    });
+  }
 }
 
 // 删除

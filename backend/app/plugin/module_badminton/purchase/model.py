@@ -22,7 +22,7 @@ class PurchaseModel(ModelMixin, UserMixin):
     """
     __tablename__: str = 'badminton_purchase'
     __table_args__: dict[str, str] = ({'comment': '购买记录表'})
-    __loader_options__: list[str] = ["student", "class_ref", "semester", "created_by", "updated_by"]
+    __loader_options__: list[str] = []  # 移除预加载以优化远程数据库查询性能
 
     # 购买信息
     student_id: Mapped[int] = mapped_column(

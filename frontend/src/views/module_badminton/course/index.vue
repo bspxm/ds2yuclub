@@ -496,7 +496,7 @@ defineOptions({
 });
 
 import { ref, reactive, onMounted } from "vue";
-import { ElMessage, ElMessageBox } from "element-plus";
+import { ElMessage, ElMessageBox, ElNotification } from "element-plus";
 import { QuestionFilled, ArrowUp, ArrowDown } from "@element-plus/icons-vue";
 import { formatToDateTime } from "@/utils/dateUtil";
 import DatePicker from "@/components/DatePicker/index.vue";
@@ -712,27 +712,65 @@ async function handleOpenDialog(type: "create" | "update" | "detail", id?: numbe
 
 // 提交表单
 async function handleSubmit() {
-  // 表单校验
-  dataFormRef.value.validate(async (valid: any) => {
-    if (valid) {
-      loading.value = true;
-      const submitData = { ...formData };
-      
-      try {
-        await CourseAPI.createCourse(submitData);
-        ElMessage.success("创建成功");
-        dialogVisible.visible = false;
-        resetForm();
-        handleCloseDialog();
-        loadingData(); // 重新加载课程列表
-      } catch (error: any) {
-        console.error(error);
-        ElMessage.error("创建失败：" + (error.message || "未知错误"));
-      } finally {
-        loading.value = false;
-      }
-    }
+  if (!dataFormRef.value) return;
+
+  const valid = await dataFormRef.value.validate().catch(() => false);
+  if (!valid) return;
+
+  // 保存表单数据副本
+  const submitData = { ...formData };
+  delete submitData.id;
+
+  // 保存操作类型
+  const operationType = "create";
+
+  // 立即关闭窗口
+  handleCloseDialog();
+
+  // 显示持久化通知
+  const notification = ElNotification({
+    title: "创建",
+    message: "后台保存中...",
+    type: "info",
+    duration: 0,
+    position: "bottom-right",
   });
+
+  // 在后台保存
+  try {
+    const res = await CourseAPI.createCourse(submitData);
+
+    if (res.data.code === 0) {
+      notification.close();
+      ElNotification({
+        title: "创建成功",
+        message: "创建成功",
+        type: "success",
+        duration: 3000,
+        position: "bottom-right",
+      });
+      loadingData();
+    } else {
+      notification.close();
+      ElNotification({
+        title: "操作失败",
+        message: res.data.msg || "操作失败",
+        type: "error",
+        duration: 3000,
+        position: "bottom-right",
+      });
+    }
+  } catch (error: any) {
+    console.error("提交失败:", error);
+    notification.close();
+    ElNotification({
+      title: "提交失败",
+      message: "网络错误或服务器异常",
+      type: "error",
+      duration: 3000,
+      position: "bottom-right",
+    });
+  }
 }
 
 // 删除、批量删除

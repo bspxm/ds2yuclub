@@ -24,7 +24,7 @@ class ClassAttendanceModel(ModelMixin, UserMixin):
     """
     __tablename__: str = 'badminton_class_attendance'
     __table_args__: dict[str, str] = ({'comment': '班级考勤表'})
-    __loader_options__: list[str] = ["student", "class_ref", "schedule", "purchase", "created_by", "updated_by"]
+    __loader_options__: list[str] = []  # 移除预加载以优化远程数据库查询性能
 
     # 关联信息
     student_id: Mapped[int] = mapped_column(

@@ -42,14 +42,94 @@ class StudentService:
 
     @classmethod
     async def detail_service(cls, auth: AuthSchema, student_id: int) -> dict:
-        """获取学员详情"""
-        student = await StudentCRUD(auth).get_by_id_crud(
-            id=student_id,
-            preload=["parents", "assessments", "created_by", "updated_by"]
-        )
+        """获取学员详情（使用视图优化性能）"""
+        import asyncio
+        # 使用视图查询学员信息（已包含家长信息）
+        student = await StudentListCRUD(auth).get_by_id_crud(id=student_id)
         if not student:
             raise CustomException(msg="学员不存在")
-        return StudentOutSchema.model_validate(student).model_dump()
+        
+        # 并行查询创建人和更新人
+        from app.api.v1.module_system.user.crud import UserCRUD
+        from .crud import AbilityAssessmentCRUD
+        related_queries = []
+        
+        if student.created_id:
+            related_queries.append(("creator", UserCRUD(auth).get_by_id_crud(id=student.created_id)))
+        
+        if student.updated_id:
+            related_queries.append(("updater", UserCRUD(auth).get_by_id_crud(id=student.updated_id)))
+        
+        # 查询能力评估记录
+        related_queries.append(("assessments", AbilityAssessmentCRUD(auth).list_crud(
+            search={"student_id": ("eq", student_id)},
+            order_by=[{"assessment_date": "desc"}]
+        )))
+        
+        # 等待查询完成
+        related_results = await asyncio.gather(*[r[1] for r in related_queries], return_exceptions=True)
+        
+        # 提取结果
+        created_by = None
+        updated_by = None
+        assessments = []
+        for i, (query_name, result) in enumerate(zip([r[0] for r in related_queries], related_results)):
+            if isinstance(result, Exception):
+                logger.error(f"查询{query_name}信息失败: {result}")
+            else:
+                if query_name == "creator":
+                    created_by = result
+                elif query_name == "updater":
+                    updated_by = result
+                elif query_name == "assessments":
+                    assessments = result[:5] if result else []  # 只取前5条
+        
+        # 解析家长列表
+        parents = []
+        if student.parents_json:
+            try:
+                parents_data = json.loads(student.parents_json) if isinstance(student.parents_json, str) else student.parents_json
+                if isinstance(parents_data, list):
+                    parents = parents_data
+            except json.JSONDecodeError:
+                logger.warning(f"家长信息JSON解析失败")
+        
+        # 构建返回数据
+        item = {
+            'id': student.id,
+            'uuid': student.uuid,
+            'name': student.name,
+            'english_name': student.english_name,
+            'gender': student.gender.value if student.gender else None,
+            'birth_date': student.birth_date.isoformat() if student.birth_date else None,
+            'height': student.height,
+            'weight': student.weight,
+            'handedness': student.handedness.value if student.handedness else None,
+            'join_date': student.join_date.isoformat() if student.join_date else None,
+            'level': student.level,
+            'group_name': student.group_name,
+            'campus': student.campus,
+            'contact': student.contact,
+            'mobile': student.mobile,
+            'description': student.description,
+            'total_matches': student.total_matches,
+            'wins': student.wins,
+            'losses': student.losses,
+            'win_rate': student.win_rate,
+            'status': student.status,
+            'created_time': student.created_time.isoformat() if student.created_time else None,
+            'updated_time': student.updated_time.isoformat() if student.updated_time else None,
+            # 视图字段 - 家长信息
+            'parents': parents,
+            'parent_count': student.parent_count if hasattr(student, 'parent_count') else len(parents),
+            # 能力评估记录
+            'assessments': [ass.model_dump() for ass in assessments],
+            # 创建人和更新人
+            'created_by': {'id': created_by.id, 'name': created_by.name} if created_by else None,
+            'updated_by': {'id': updated_by.id, 'name': updated_by.name} if updated_by else None,
+        }
+        
+        return item
 
     @classmethod
     async def list_service(cls, auth: AuthSchema, search: Optional[StudentQueryParam] = None, order_by: Optional[list[dict[str, str]]] = None) -> list[dict]:
@@ -64,7 +144,7 @@ class StudentService:
 
     @classmethod
     async def page_service(cls, auth: AuthSchema, page_no: int, page_size: int, search: Optional[StudentQueryParam] = None, order_by: Optional[list[dict[str, str]]] = None) -> dict:
-        """学员分页查询"""
+        """学员分页查询（使用视图优化性能）"""
         if search:
             # 调试：记录search.__dict__的内容
             import json
@@ -74,19 +154,22 @@ class StudentService:
         order_by_list = order_by or [{'id': 'asc'}]
         offset = (page_no - 1) * page_size
 
-        # 不使用 out_schema，直接获取原始对象
-        result = await StudentCRUD(auth).page_crud(
+        # 使用视图模型查询，避免预加载性能问题
+        result = await StudentListCRUD(auth).page_crud(
             offset=offset,
             limit=page_size,
             order_by=order_by_list,
             search=search_dict,
-            preload=["parents"],
+            preload=[],  # 视图不需要预加载
             out_schema=None
         )
 
-        # 手动构建返回数据，避免 Pydantic 自动访问懒加载属性
+        # 手动构建返回数据，使用视图的字段
         items = []
         for student in result["items"]:
+            # 从 JSON 字段中解析家长列表
+            parents = student.parents_json if student.parents_json else []
+
             item = {
                 'id': student.id,
                 'uuid': student.uuid,
@@ -108,6 +191,8 @@ class StudentService:
                 'losses': student.losses,
                 'win_rate': student.win_rate,
                 'status': student.status,
+                'parent_count': student.parent_count,
+                'parents': parents,
                 'created_time': student.created_time.isoformat() if student.created_time else None,
                 'updated_time': student.updated_time.isoformat() if student.updated_time else None,
             }

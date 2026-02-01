@@ -10,6 +10,7 @@ from app.core.base_crud import CRUDBase
 from app.core.database import SessionDep
 
 from .model import *
+from .view_model import StudentListView
 from .schema import (
     StudentCreateSchema,
     StudentUpdateSchema,
@@ -251,3 +252,22 @@ class AbilityAssessmentCRUD(CRUDBase[AbilityAssessmentModel, AbilityAssessmentCr
     async def page_crud(self, offset: int, limit: int, order_by: Optional[list[dict]] = None, search: Optional[dict] = None, preload: Optional[list] = None, out_schema: Optional[type] = None) -> dict:
         """评估分页"""
         return await self.page(offset=offset, limit=limit, order_by=order_by, search=search, preload=preload, out_schema=out_schema)
+
+
+class StudentListCRUD(CRUDBase[StudentListView, None, None]):
+    """学员列表查询（使用视图模型，优化性能）"""
+
+    def __init__(self, auth: AuthSchema) -> None:
+        super().__init__(model=StudentListView, auth=auth)
+
+    async def get_by_id_crud(self, id: int, preload: Optional[list[str]] = None) -> Optional[StudentListView]:
+        """获取学员详情（使用视图，已包含家长信息）"""
+        return await self.get(id=id, preload=preload)
+
+    async def list_crud(self, search: Optional[dict] = None, order_by: Optional[list[dict]] = None, preload: Optional[list[str]] = None) -> Sequence[StudentListView]:
+        """学员列表（使用视图）"""
+        return await self.list(search=search, order_by=order_by, preload=preload)
+
+    async def page_crud(self, offset: int, limit: int, order_by: list[dict[str, str]], search: dict, out_schema: type = None, preload: list[str] | None = None) -> dict:
+        """学员分页查询（使用视图）"""
+        return await self.page(offset=offset, limit=limit, order_by=order_by, search=search, out_schema=out_schema, preload=preload)

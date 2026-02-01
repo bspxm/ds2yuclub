@@ -17,6 +17,7 @@ from app.core.logger import logger
 
 from .model import *
 from .crud import *
+from .view_model import ClassScheduleListView
 from ..class_.schema import (
     ClassScheduleCreateV2Schema,
     ClassScheduleOutSchema,
@@ -49,12 +50,12 @@ class ClassScheduleService:
 
     @classmethod
     async def detail_service(cls, auth: AuthSchema, redis: Redis, schedule_id: int) -> dict:
-        """获取排课记录详情（优化版：拆分JOIN查询 + Redis缓存）"""
+        """获取排课记录详情（优化版：使用视图获取排课、班级、教练信息 + 并行查询其他数据 + Redis缓存）"""
         import time as time_module
         logger.info(f"获取排课记录详情，schedule_id={schedule_id}")
-        
+
         total_start = time_module.time()
-        
+
         # 尝试从Redis缓存获取
         cache_key = f"{BadmintonCacheKeys.CLASS_SCHEDULE_DETAIL}:{schedule_id}"
         cache_start = time_module.time()
@@ -67,87 +68,74 @@ class ClassScheduleService:
         except Exception as e:
             cache_end = time_module.time()
             logger.warning(f"获取缓存失败: schedule_id={schedule_id}, error={e}")
-        
-        # 1. 查询排课记录（不加载关联数据）
+
+        # 1. 使用视图查询排课记录（已包含班级和教练信息）
         schedule_start = time_module.time()
-        schedule = await ClassScheduleCRUD(auth).get_by_id_crud(id=schedule_id)
+        from .crud import ClassScheduleListCRUD
+        schedule = await ClassScheduleListCRUD(auth).get_by_id_crud(id=schedule_id)
         schedule_end = time_module.time()
-        logger.info(f"查询排课记录耗时: {schedule_end - schedule_start:.3f}秒")
-        
+        logger.info(f"查询排课记录（使用视图）耗时: {schedule_end - schedule_start:.3f}秒")
+
         if not schedule:
             raise CustomException(msg="排课记录不存在")
-        
-        # 2. 并行查询关联数据
-        from app.plugin.module_badminton.class_.crud import ClassCRUD
+
+        # 2. 并行查询其他关联数据（创建人、更新人、考勤记录）
         from app.api.v1.module_system.user.crud import UserCRUD
         from app.plugin.module_badminton.attendance.crud import ClassAttendanceCRUD
-        
-        # 并行查询班级、教练、创建人、更新人
+
+        # 并行查询创建人、更新人、考勤记录
         related_queries = []
-        
-        if schedule.class_id:
-            related_queries.append(("class", ClassCRUD(auth).get_by_id_crud(id=schedule.class_id)))
-        
-        if schedule.coach_id:
-            related_queries.append(("coach", UserCRUD(auth).get_by_id_crud(id=schedule.coach_id)))
-        
+
         if schedule.created_id:
             related_queries.append(("creator", UserCRUD(auth).get_by_id_crud(id=schedule.created_id)))
-        
+
         if schedule.updated_id:
             related_queries.append(("updater", UserCRUD(auth).get_by_id_crud(id=schedule.updated_id)))
-        
-        # 查询考勤记录
+
+        # 查询考勤记录（只获取 student_id，不预加载关联数据）
         related_queries.append(("attendance", ClassAttendanceCRUD(auth).list_crud(
-            search={"schedule_id": ("eq", schedule_id)}
+            search={"schedule_id": ("eq", schedule_id)},
+            preload=[]  # 不预加载任何关联数据，只需要 student_id
         )))
-        
+
         # 等待所有查询完成
         related_start = time_module.time()
         related_results = await asyncio.gather(*[r[1] for r in related_queries], return_exceptions=True)
         related_end = time_module.time()
-        logger.info(f"并行查询关联数据耗时: {related_end - related_start:.3f}秒，查询数: {len(related_queries)}")
-        
+        logger.info(f"并行查询其他关联数据耗时: {related_end - related_start:.3f}秒，查询数: {len(related_queries)}")
+
         # 提取结果并处理异常
-        class_ref = None
-        coach_user = None
         created_by = None
         updated_by = None
         attendance_records = []
-        
+
         for i, (query_name, result) in enumerate(zip([r[0] for r in related_queries], related_results)):
             if isinstance(result, Exception):
                 logger.error(f"查询{query_name}信息失败: {result}")
             else:
                 logger.info(f"查询{query_name}成功")
-                if query_name == "class":
-                    class_ref = result
-                elif query_name == "coach":
-                    coach_user = result
-                elif query_name == "creator":
+                if query_name == "creator":
                     created_by = result
                 elif query_name == "updater":
                     updated_by = result
                 elif query_name == "attendance":
                     attendance_records = result if result else []
-        
+
         # 构建返回数据
         data = ClassScheduleOutSchema.model_validate(schedule).model_dump()
-        
-        # 手动添加关联数据
-        if class_ref:
-            data['semester_id'] = class_ref.semester_id
-            data['class'] = {"id": class_ref.id, "name": class_ref.name}
-        
-        if coach_user:
-            data['coach'] = {"id": coach_user.id, "name": coach_user.name}
-        
+
+        # 从视图中获取的班级和教练信息
+        data['semester_id'] = schedule.class_ref_semester_id if schedule.class_ref_semester_id else None
+        data['class'] = {"id": schedule.class_ref_id, "name": schedule.class_ref_name} if schedule.class_ref_id else None
+        data['coach'] = {"id": schedule.coach_user_id, "name": schedule.coach_user_name} if schedule.coach_user_id else None
+
+        # 添加创建人和更新人信息
         if created_by:
             data['created_by'] = {"id": created_by.id, "name": created_by.name}
-        
+
         if updated_by:
             data['updated_by'] = {"id": updated_by.id, "name": updated_by.name}
-        
+
         # 添加学员ID列表（从考勤记录中提取）
         if attendance_records:
             student_ids = [att.student_id for att in attendance_records if att.student_id]
@@ -156,17 +144,17 @@ class ClassScheduleService:
         else:
             data['student_ids'] = []
             logger.info(f"没有考勤记录，student_ids=[]")
-        
+
         # 存入Redis缓存（缓存5分钟）
         try:
             await BadmintonCache.set_json(redis, cache_key, data, 300)
             logger.info(f"排课详情已缓存: schedule_id={schedule_id}")
         except Exception as e:
             logger.warning(f"缓存写入失败: schedule_id={schedule_id}, error={e}")
-        
+
         total_end = time_module.time()
         logger.info(f"detail_service 总耗时: {total_end - total_start:.3f}秒")
-        
+
         return data
     @classmethod
     async def list_service(cls, auth: AuthSchema, search: Optional[dict] = None, order_by: Optional[list[dict]] = None) -> list[dict]:
@@ -511,44 +499,55 @@ class ClassScheduleService:
         try:
             cached_result = await BadmintonCache.get_json(redis, cache_key)
             if cached_result is not None:
-                logger.info(f"从缓存获取可用学员列表: semester_id={semester_id}, date={schedule_date}")
+                logger.info(f"从缓存获取可用学员列表: semester_id={semester_id}, date={schedule_date}, 学员数={len(cached_result) if isinstance(cached_result, list) else 'N/A'}")
                 return cached_result
         except Exception as e:
             logger.warning(f"获取缓存失败，将继续查询数据库: key={cache_key}, error={e}")
 
-        # 1. 查询班级（如果未提供class_ids则查询该学期下所有班级）
+        # 1. 查询班级（使用视图优化）
+        from ..class_.crud import ClassListCRUD
+        class_query_start = time_module.time()
         if class_ids and len(class_ids) > 0:
-            # 查询指定班级
-            classes = await ClassCRUD(auth).list_crud(
+            # 查询指定班级（使用视图）
+            classes = await ClassListCRUD(auth).list_crud(
                 search={"id": ("in", class_ids)}
             )
         else:
-            # 查询该学期下所有班级
-            classes = await ClassCRUD(auth).list_crud(
+            # 查询该学期下所有班级（使用视图）
+            classes = await ClassListCRUD(auth).list_crud(
                 search={"semester_id": ("eq", semester_id)}
             )
+        class_query_end = time_module.time()
+        logger.info(f"查询班级耗时（使用视图）: {class_query_end - class_query_start:.3f}秒, 班级数: {len(classes)}")
         
         if not classes:
             return []
 
         target_class_ids = [c.id for c in classes]
 
-        # 2. 查询这些班级的购买记录（不preload学员）
-        purchases = await PurchaseCRUD(auth).list(
+        # 2. 查询这些班级的购买记录（使用视图优化）
+        from ..purchase.crud import PurchaseListCRUD
+        purchase_query_start = time_module.time()
+        purchases = await PurchaseListCRUD(auth).list_crud(
             search={"class_id": ("in", target_class_ids)}
         )
+        purchase_query_end = time_module.time()
+        logger.info(f"查询购买记录耗时（使用视图）: {purchase_query_end - purchase_query_start:.3f}秒, 购买记录数: {len(purchases)}")
         if not purchases:
             return []
 
-        # 3. 批量查询学员信息（使用IN查询）
+        # 3. 批量查询学员信息（使用学员视图，提高性能）
+        student_query_start = time_module.time()
         student_ids = list(set([p.student_id for p in purchases if p.student_id]))
         students_map = {}
         if student_ids:
-            from app.plugin.module_badminton.student.crud import StudentCRUD
-            students = await StudentCRUD(auth).list_crud(
+            from app.plugin.module_badminton.student.crud import StudentListCRUD
+            students = await StudentListCRUD(auth).list_crud(
                 search={"id": ("in", student_ids)}
             )
             students_map = {s.id: s for s in students}
+        student_query_end = time_module.time()
+        logger.info(f"查询学员信息耗时: {student_query_end - student_query_start:.3f}秒, 学员数: {len(students_map)}")
 
         available_students = []
         day_names = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
@@ -559,6 +558,7 @@ class ClassScheduleService:
         # time_slots 已经是 JSON 格式: {'周一': ['A', 'B'], '周二': ['C']}
         target_slots = time_slots
 
+        filter_start = time_module.time()
         for purchase in purchases:
             # 3. 筛选 selected_time_slots 包含任一时间段代码的购买记录
             if not purchase.selected_time_slots:
@@ -618,6 +618,9 @@ class ClassScheduleService:
                 valid_from=purchase.valid_from.isoformat(),
                 valid_until=purchase.valid_until.isoformat()
             ).model_dump())
+
+        filter_end = time_module.time()
+        logger.info(f"筛选逻辑耗时: {filter_end - filter_start:.3f}秒, 检查了 {len(purchases)} 条购买记录, 筛选出 {len(available_students)} 名学员")
 
         logger.info(f"获取可用学员列表：学期ID={semester_id}, 日期={schedule_date}, 时间段={time_slots}, 班级ID={class_ids if class_ids else '全部'}, 学员数={len(available_students)}")
 

@@ -30,14 +30,62 @@ class SemesterService:
 
     @classmethod
     async def detail_service(cls, auth: AuthSchema, semester_id: int) -> dict:
-        """获取学期详情"""
-        semester = await SemesterCRUD(auth).get_by_id_crud(
-            id=semester_id,
-            preload=["created_by", "updated_by"]
-        )
+        """获取学期详情（使用视图优化性能）"""
+        import asyncio
+        # 使用视图查询学期信息
+        semester = await SemesterListCRUD(auth).get_by_id_crud(id=semester_id)
         if not semester:
             raise CustomException(msg="学期不存在")
-        return SemesterOutSchema.model_validate(semester).model_dump(mode='json')
+        
+        # 并行查询创建人和更新人
+        from app.api.v1.module_system.user.crud import UserCRUD
+        related_queries = []
+        
+        if semester.created_id:
+            related_queries.append(("creator", UserCRUD(auth).get_by_id_crud(id=semester.created_id)))
+        
+        if semester.updated_id:
+            related_queries.append(("updater", UserCRUD(auth).get_by_id_crud(id=semester.updated_id)))
+        
+        # 等待查询完成
+        related_results = await asyncio.gather(*[r[1] for r in related_queries], return_exceptions=True)
+        
+        # 提取结果
+        created_by = None
+        updated_by = None
+        for i, (query_name, result) in enumerate(zip([r[0] for r in related_queries], related_results)):
+            if isinstance(result, Exception):
+                logger.error(f"查询{query_name}信息失败: {result}")
+            else:
+                if query_name == "creator":
+                    created_by = result
+                elif query_name == "updater":
+                    updated_by = result
+        
+        # 构建返回数据
+        item = {
+            'id': semester.id,
+            'uuid': semester.uuid,
+            'name': semester.name,
+            'semester_type': semester.semester_type.value if semester.semester_type else None,
+            'start_date': semester.start_date.isoformat() if semester.start_date else None,
+            'end_date': semester.end_date.isoformat() if semester.end_date else None,
+            'week_count': semester.week_count,
+            'status': semester.status.value if semester.status else None,
+            'is_current': semester.is_current,
+            'settlement_date': semester.settlement_date.isoformat() if semester.settlement_date else None,
+            'carry_over_enabled': semester.carry_over_enabled,
+            'max_carry_over_sessions': semester.max_carry_over_sessions,
+            'description': semester.description,
+            'status_flag': semester.status_flag,
+            'created_time': semester.created_time.isoformat() if semester.created_time else None,
+            'updated_time': semester.updated_time.isoformat() if semester.updated_time else None,
+            # 创建人和更新人
+            'created_by': {'id': created_by.id, 'name': created_by.name} if created_by else None,
+            'updated_by': {'id': updated_by.id, 'name': updated_by.name} if updated_by else None,
+        }
+        
+        return item
 
     @classmethod
     async def list_service(cls, auth: AuthSchema, search: Optional[dict] = None, order_by: Optional[list[dict]] = None) -> list[dict]:
@@ -45,13 +93,13 @@ class SemesterService:
         semesters = await SemesterCRUD(auth).list_crud(
             search=search,
             order_by=order_by,
-            preload=["created_by"]
+            preload=[]
         )
         return [SemesterOutSchema.model_validate(semester).model_dump(mode='json') for semester in semesters]
 
     @classmethod
     async def page_service(cls, auth: AuthSchema, page_no: int, page_size: int, search: Optional[dict | SemesterQueryParam] = None, order_by: Optional[list[dict]] = None) -> dict:
-        """学期分页查询"""
+        """学期分页查询（使用视图优化性能）"""
         # 将QueryParam对象转换为字典
         if isinstance(search, SemesterQueryParam):
             search_dict = vars(search)
@@ -61,17 +109,17 @@ class SemesterService:
         order_by_list = order_by or [{'id': 'asc'}]
         offset = (page_no - 1) * page_size
 
-        # 不使用 out_schema，直接获取原始对象以避免加载过多关联数据
-        result = await SemesterCRUD(auth).page_crud(
+        # 使用视图模型查询，避免预加载性能问题
+        result = await SemesterListCRUD(auth).page_crud(
             offset=offset,
             limit=page_size,
             order_by=order_by_list,
             search=search_dict,
-            preload=["created_by"],
+            preload=[],  # 视图不需要预加载
             out_schema=None
         )
 
-        # 手动构建返回数据，只包含必要的字段
+        # 手动构建返回数据，使用视图的字段
         items = []
         for semester in result["items"]:
             item = {
@@ -119,14 +167,34 @@ class SemesterService:
     @classmethod
     async def update_service(cls, auth: AuthSchema, semester_id: int, data: SemesterUpdateSchema) -> dict:
         """更新学期"""
+        import time
+        total_start = time.time()
+        
+        logger.info(f"开始更新学期，semester_id={semester_id}, data={data}")
+        
+        # 更新学期
+        update_start = time.time()
         semester = await SemesterCRUD(auth).update_crud(id=semester_id, data=data)
+        update_end = time.time()
+        logger.info(f"学期更新耗时: {update_end - update_start:.3f}秒")
+        
         if not semester:
             raise CustomException(msg="学期不存在或更新失败")
-        return SimpleResponse(
+        
+        # 验证数据
+        validate_start = time.time()
+        result = SimpleResponse(
             success=True,
             message="学期更新成功",
             data=SemesterOutSchema.model_validate(semester).model_dump(mode='json')
         ).model_dump()
+        validate_end = time.time()
+        logger.info(f"数据验证耗时: {validate_end - validate_start:.3f}秒")
+        
+        total_end = time.time()
+        logger.info(f"更新学期总耗时: {total_end - total_start:.3f}秒")
+        
+        return result
 
     @classmethod
     async def delete_service(cls, auth: AuthSchema, semester_ids: list[int]) -> dict:

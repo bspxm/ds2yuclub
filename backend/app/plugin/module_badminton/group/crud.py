@@ -12,6 +12,7 @@ from app.core.base_crud import CRUDBase
 from app.core.database import async_db_session
 
 from .model import *
+from .view_model import GroupListView
 from ..student.model import StudentModel
 from .schema import (
     AbilityGroupCreateSchema,
@@ -201,3 +202,18 @@ class AbilityGroupCRUD(CRUDBase[AbilityGroupModel, AbilityGroupCreateSchema, Abi
                 )
             result = await db.execute(stmt)
             return result.scalars().all()
+
+
+class GroupListCRUD(CRUDBase[GroupListView, None, None]):
+    """分组列表查询（使用视图模型，优化性能）"""
+
+    def __init__(self, auth: AuthSchema) -> None:
+        super().__init__(model=GroupListView, auth=auth)
+
+    async def get_by_id_crud(self, id: int, preload: Optional[list[str]] = None) -> Optional[GroupListView]:
+        """获取分组详情（使用视图，已包含教练和学员信息）"""
+        return await self.get(id=id, preload=preload)
+
+    async def page_crud(self, offset: int, limit: int, order_by: list[dict[str, str]], search: dict, out_schema: type = None, preload: list[str] | None = None) -> dict:
+        """分组分页查询（使用视图）"""
+        return await self.page(offset=offset, limit=limit, order_by=order_by, search=search, out_schema=out_schema, preload=preload)

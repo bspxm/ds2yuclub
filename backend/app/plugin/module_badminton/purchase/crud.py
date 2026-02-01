@@ -9,6 +9,7 @@ from app.core.base_crud import CRUDBase
 from app.core.database import SessionDep
 
 from .model import *
+from .view_model import PurchaseListView
 from .schema import PurchaseCreateSchema, PurchaseUpdateSchema
 
 # ============================================================================
@@ -43,4 +44,23 @@ class PurchaseCRUD(CRUDBase[PurchaseModel, PurchaseCreateSchema, PurchaseUpdateS
 
     async def page_crud(self, offset: int, limit: int, order_by: list[dict[str, str]], search: dict, out_schema: type, preload: list[str] | None = None) -> dict:
         """购买记录分页查询"""
+        return await self.page(offset=offset, limit=limit, order_by=order_by, search=search, out_schema=out_schema, preload=preload)
+
+
+class PurchaseListCRUD(CRUDBase[PurchaseListView, None, None]):
+    """购买记录列表查询（使用视图模型，优化性能）"""
+
+    def __init__(self, auth: AuthSchema) -> None:
+        super().__init__(model=PurchaseListView, auth=auth)
+
+    async def get_by_id_crud(self, id: int, preload: Optional[list[str]] = None) -> Optional[PurchaseListView]:
+        """获取购买记录详情（使用视图，已包含学员、班级、学期、教练信息）"""
+        return await self.get(id=id, preload=preload)
+
+    async def list_crud(self, search: Optional[dict] = None, order_by: Optional[list[dict]] = None, preload: Optional[list[str]] = None) -> Sequence[PurchaseListView]:
+        """购买记录列表查询（使用视图）"""
+        return await self.list(search=search, order_by=order_by, preload=preload)
+
+    async def page_crud(self, offset: int, limit: int, order_by: list[dict[str, str]], search: dict, out_schema: type = None, preload: list[str] | None = None) -> dict:
+        """购买记录分页查询（使用视图）"""
         return await self.page(offset=offset, limit=limit, order_by=order_by, search=search, out_schema=out_schema, preload=preload)

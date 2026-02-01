@@ -71,14 +71,91 @@ class PurchaseService:
 
     @classmethod
     async def detail_service(cls, auth: AuthSchema, purchase_id: int) -> dict:
-        """获取购买记录详情"""
-        purchase = await PurchaseCRUD(auth).get_by_id_crud(
-            id=purchase_id,
-            preload=["student", "class_ref", "semester", "created_by", "updated_by"]
-        )
+        """获取购买记录详情（使用视图优化性能）"""
+        import asyncio
+        # 使用视图查询购买记录（已包含学员、班级、学期、教练信息）
+        purchase = await PurchaseListCRUD(auth).get_by_id_crud(id=purchase_id)
         if not purchase:
             raise CustomException(msg="购买记录不存在")
-        return PurchaseOutSchema.model_validate(purchase).model_dump()
+        
+        # 并行查询创建人和更新人
+        from app.api.v1.module_system.user.crud import UserCRUD
+        related_queries = []
+        
+        if purchase.created_id:
+            related_queries.append(("creator", UserCRUD(auth).get_by_id_crud(id=purchase.created_id)))
+        
+        if purchase.updated_id:
+            related_queries.append(("updater", UserCRUD(auth).get_by_id_crud(id=purchase.updated_id)))
+        
+        # 等待查询完成
+        related_results = await asyncio.gather(*[r[1] for r in related_queries], return_exceptions=True)
+        
+        # 提取结果
+        created_by = None
+        updated_by = None
+        for i, (query_name, result) in enumerate(zip([r[0] for r in related_queries], related_results)):
+            if isinstance(result, Exception):
+                logger.error(f"查询{query_name}信息失败: {result}")
+            else:
+                if query_name == "creator":
+                    created_by = result
+                elif query_name == "updater":
+                    updated_by = result
+        
+        # 构建返回数据
+        item = {
+            'id': purchase.id,
+            'uuid': purchase.uuid,
+            'student_id': purchase.student_id,
+            'class_id': purchase.class_id,
+            'semester_id': purchase.semester_id,
+            'purchase_date': purchase.purchase_date.isoformat() if purchase.purchase_date else None,
+            'total_sessions': purchase.total_sessions,
+            'used_sessions': purchase.used_sessions,
+            'remaining_sessions': purchase.remaining_sessions,
+            'carry_over_sessions': purchase.carry_over_sessions,
+            'credit_sessions': purchase.credit_sessions,
+            'selected_time_slots': purchase.selected_time_slots,
+            'valid_from': purchase.valid_from.isoformat() if purchase.valid_from else None,
+            'valid_until': purchase.valid_until.isoformat() if purchase.valid_until else None,
+            'status': purchase.status.value if hasattr(purchase.status, 'value') else str(purchase.status),
+            'is_settled': purchase.is_settled,
+            'settlement_date': purchase.settlement_date.isoformat() if purchase.settlement_date else None,
+            # 财务信息
+            'original_price': purchase.original_price,
+            'actual_price': purchase.actual_price,
+            'discount_rate': purchase.discount_rate,
+            'purchase_notes': purchase.purchase_notes,
+            'description': purchase.description,
+            'created_time': purchase.created_time.isoformat() if purchase.created_time else None,
+            'updated_time': purchase.updated_time.isoformat() if purchase.updated_time else None,
+            # 视图字段 - 学员信息
+            'student': {
+                'id': purchase.student_id,
+                'name': purchase.student_name
+            } if purchase.student_name else None,
+            # 视图字段 - 班级信息
+            'class': {
+                'id': purchase.class_id,
+                'name': purchase.class_name
+            } if purchase.class_name else None,
+            # 视图字段 - 学期信息
+            'semester': {
+                'id': purchase.semester_id,
+                'name': purchase.semester_name
+            } if purchase.semester_name else None,
+            # 视图字段 - 教练信息
+            'coach_user': {
+                'id': purchase.coach_user_id,
+                'name': purchase.coach_user_name
+            } if purchase.coach_user_name else None,
+            # 创建人和更新人
+            'created_by': {'id': created_by.id, 'name': created_by.name} if created_by else None,
+            'updated_by': {'id': updated_by.id, 'name': updated_by.name} if updated_by else None,
+        }
+        
+        return item
 
     @classmethod
     async def list_service(cls, auth: AuthSchema, search: Optional[dict] = None, order_by: Optional[list[dict]] = None) -> list[dict]:
@@ -92,7 +169,10 @@ class PurchaseService:
 
     @classmethod
     async def page_service(cls, auth: AuthSchema, page_no: int, page_size: int, search: Optional[dict | PurchaseQueryParam] = None, order_by: Optional[list[dict]] = None) -> dict:
-        """购买记录分页查询"""
+        """购买记录分页查询（使用视图优化性能）"""
+        import time as time_module
+        total_start = time_module.time()
+        
         # 将QueryParam对象转换为字典
         if isinstance(search, PurchaseQueryParam):
             search_dict = vars(search)
@@ -102,18 +182,23 @@ class PurchaseService:
         order_by_list = order_by or [{'id': 'asc'}]
         offset = (page_no - 1) * page_size
 
-        # 不使用 out_schema，直接获取原始对象以避免加载过多关联数据
-        result = await PurchaseCRUD(auth).page_crud(
+        # 使用视图模型查询，避免预加载性能问题
+        # 视图已经包含了学员、班级、学期和教练信息，不需要预加载
+        page_start = time_module.time()
+        from .crud import PurchaseListCRUD
+        result = await PurchaseListCRUD(auth).page_crud(
             offset=offset,
             limit=page_size,
             order_by=order_by_list,
             search=search_dict,
-            preload=["student", "class_ref", "semester"],
+            preload=[],  # 视图不需要预加载
             out_schema=None
         )
+        page_end = time_module.time()
+        logger.info(f"购买记录分页查询耗时（使用视图）: {page_end - page_start:.3f}秒, 结果数: {len(result['items'])}")
 
         import json
-        # 手动构建返回数据，只包含必要的字段
+        # 手动构建返回数据，使用视图的字段
         items = []
         for purchase in result["items"]:
             # 转换 selected_time_slots 从 JSON 字符串到字典
@@ -149,21 +234,29 @@ class PurchaseService:
                 'description': purchase.description,
                 'created_time': purchase.created_time.isoformat() if purchase.created_time else None,
                 'updated_time': purchase.updated_time.isoformat() if purchase.updated_time else None,
-                # 关联对象
+                # 关联对象（使用视图字段）
                 'student': {
-                    'id': purchase.student.id,
-                    'name': purchase.student.name
-                } if purchase.student else None,
+                    'id': purchase.student_ref_id,
+                    'name': purchase.student_name,
+                    'gender': purchase.student_gender,
+                    'mobile': purchase.student_mobile
+                } if purchase.student_ref_id else None,
                 'class_ref': {
-                    'id': purchase.class_ref.id,
-                    'name': purchase.class_ref.name
-                } if purchase.class_ref else None,
+                    'id': purchase.class_ref_id,
+                    'name': purchase.class_name,
+                    'class_type': purchase.class_type,
+                    'coach_id': purchase.class_coach_id
+                } if purchase.class_ref_id else None,
                 'semester': {
-                    'id': purchase.semester.id,
-                    'name': purchase.semester.name
-                } if purchase.semester else None,
+                    'id': purchase.semester_ref_id,
+                    'name': purchase.semester_name,
+                    'semester_type': purchase.semester_type
+                } if purchase.semester_ref_id else None,
             }
             items.append(item)
+
+        total_end = time_module.time()
+        logger.info(f"购买记录列表查询总耗时: {total_end - total_start:.3f}秒")
 
         return {
             "total": result["total"],
