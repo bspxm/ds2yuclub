@@ -34,7 +34,7 @@ class ClassModel(ModelMixin, UserMixin):
     )
     name: Mapped[str] = mapped_column(String(128), nullable=False, comment='班级名称')
     class_type: Mapped[ClassTypeEnum] = mapped_column(
-        Enum(ClassTypeEnum),
+        Enum(ClassTypeEnum, values_callable=lambda x: [e.value for e in x]),
         nullable=False,
         comment='班级类型'
     )

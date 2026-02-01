@@ -2,6 +2,7 @@
 schedule模块 - Service服务层
 """
 
+import asyncio
 from datetime import date, datetime, timedelta
 from typing import Optional, List, Dict, Any
 from redis.asyncio.client import Redis
@@ -91,27 +92,114 @@ class ClassScheduleService:
 
     @classmethod
     async def detail_service(cls, auth: AuthSchema, schedule_id: int) -> dict:
-        """获取排课记录详情"""
+        """获取排课记录详情（优化版：拆分JOIN查询）"""
         logger.info(f"获取排课记录详情，schedule_id={schedule_id}")
-        schedule = await ClassScheduleCRUD(auth).get_by_id_crud(
-            id=schedule_id,
-            preload=["class_ref", "coach_user", "created_by", "updated_by", "attendance_records"]
-        )
+        
+        # 1. 查询排课记录（不加载关联数据）
+        schedule = await ClassScheduleCRUD(auth).get_by_id_crud(id=schedule_id)
         if not schedule:
             raise CustomException(msg="排课记录不存在")
         
-        logger.info(f"排课记录加载成功，attendance_records={schedule.attendance_records}")
+        # 2. 并行查询关联数据
+        from app.plugin.module_badminton.class_.crud import ClassCRUD
+        from app.api.v1.module_system.user.crud import UserCRUD
+        from app.plugin.module_badminton.attendance.crud import ClassAttendanceCRUD
         
-        # 使用 Schema 序列化数据
+        # 并行查询班级、教练、创建人、更新人
+        related_queries = []
+        
+        if schedule.class_id:
+            related_queries.append(ClassCRUD(auth).get_by_id_crud(id=schedule.class_id))
+        
+        if schedule.coach_id:
+            related_queries.append(UserCRUD(auth).get_by_id_crud(id=schedule.coach_id))
+        
+        if schedule.created_id:
+            related_queries.append(UserCRUD(auth).get_by_id_crud(id=schedule.created_id))
+        
+        if schedule.updated_id:
+            related_queries.append(UserCRUD(auth).get_by_id_crud(id=schedule.updated_id))
+        
+        # 查询考勤记录
+        attendance_query = ClassAttendanceCRUD(auth).list_crud(
+            search={"schedule_id": ("eq", schedule_id)}
+        )
+        related_queries.append(attendance_query)
+        
+        # 等待所有查询完成
+        related_results = await asyncio.gather(*related_queries, return_exceptions=True)
+        
+        # 提取结果并处理异常
+        class_ref = None
+        coach_user = None
+        created_by = None
+        updated_by = None
+        attendance_records = []
+        
+        result_index = 0
+        
+        # 检查每个结果是否为异常
+        if schedule.class_id:
+            result = related_results[result_index]
+            if isinstance(result, Exception):
+                logger.error(f"查询班级信息失败: {result}")
+            else:
+                class_ref = result
+            result_index += 1
+            
+        if schedule.coach_id:
+            result = related_results[result_index]
+            if isinstance(result, Exception):
+                logger.error(f"查询教练信息失败: {result}")
+            else:
+                coach_user = result
+            result_index += 1
+            
+        if schedule.created_id:
+            result = related_results[result_index]
+            if isinstance(result, Exception):
+                logger.error(f"查询创建人信息失败: {result}")
+            else:
+                created_by = result
+            result_index += 1
+            
+        if schedule.updated_id:
+            result = related_results[result_index]
+            if isinstance(result, Exception):
+                logger.error(f"查询更新人信息失败: {result}")
+            else:
+                updated_by = result
+            result_index += 1
+            
+        # 考勤记录（最后一个查询）
+        if related_results:
+            result = related_results[-1]
+            if isinstance(result, Exception):
+                logger.error(f"查询考勤记录失败: {result}")
+                attendance_records = []
+            else:
+                attendance_records = result if result else []
+        
+        # 构建返回数据
         data = ClassScheduleOutSchema.model_validate(schedule).model_dump()
         
-        # 手动添加 semester_id（从 class_ref 中获取）
-        if schedule.class_ref:
-            data['semester_id'] = schedule.class_ref.semester_id
+        # 手动添加关联数据
+        if class_ref:
+            data['semester_id'] = class_ref.semester_id
+            data['class'] = {"id": class_ref.id, "name": class_ref.name}
+        
+        if coach_user:
+            data['coach'] = {"id": coach_user.id, "name": coach_user.name}
+        
+        if created_by:
+            data['created_by'] = {"id": created_by.id, "name": created_by.name}
+        
+        if updated_by:
+            data['updated_by'] = {"id": updated_by.id, "name": updated_by.name}
         
         # 添加学员ID列表（从考勤记录中提取）
-        if schedule.attendance_records:
-            student_ids = [att.student_id for att in schedule.attendance_records if att.student_id]
+        if attendance_records:
+            student_ids = [att.student_id for att in attendance_records if att.student_id]
             data['student_ids'] = student_ids
             logger.info(f"从考勤记录中提取学员IDs: {student_ids}")
         else:
@@ -119,7 +207,6 @@ class ClassScheduleService:
             logger.info(f"没有考勤记录，student_ids=[]")
         
         return data
-
     @classmethod
     async def list_service(cls, auth: AuthSchema, search: Optional[dict] = None, order_by: Optional[list[dict]] = None) -> list[dict]:
         """排课记录列表查询"""
@@ -411,13 +498,22 @@ class ClassScheduleService:
 
         target_class_ids = [c.id for c in classes]
 
-        # 2. 查询这些班级的购买记录
+        # 2. 查询这些班级的购买记录（不preload学员）
         purchases = await PurchaseCRUD(auth).list(
-            search={"class_id": ("in", target_class_ids)},
-            preload=["student"]
+            search={"class_id": ("in", target_class_ids)}
         )
         if not purchases:
             return []
+
+        # 3. 批量查询学员信息（使用IN查询）
+        student_ids = list(set([p.student_id for p in purchases if p.student_id]))
+        students_map = {}
+        if student_ids:
+            from app.plugin.module_badminton.student.crud import StudentCRUD
+            students = await StudentCRUD(auth).list_crud(
+                search={"id": ("in", student_ids)}
+            )
+            students_map = {s.id: s for s in students}
 
         available_students = []
         day_names = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
@@ -448,25 +544,28 @@ class ClassScheduleService:
                         has_matching_slot = True
                         break
 
+            # 从批量查询的学员信息中获取学员
+            student = students_map.get(purchase.student_id)
+            if not student:
+                continue
+
             # 添加调试日志
-            if purchase.student:
-                logger.info(f"检查学员: {purchase.student.name}, 购买记录selected_time_slots: {selected_slots}, 目标时间段: {target_slots}, 匹配: {has_matching_slot}, 剩余课时: {purchase.remaining_sessions}, 有效期: {purchase.valid_from} ~ {purchase.valid_until}")
+            logger.info(f"检查学员: {student.name}, 购买记录selected_time_slots: {selected_slots}, 目标时间段: {target_slots}, 匹配: {has_matching_slot}, 剩余课时: {purchase.remaining_sessions}, 有效期: {purchase.valid_from} ~ {purchase.valid_until}")
 
             if not has_matching_slot:
                 continue
 
             # 4. 检查学员是否有剩余课时
             if purchase.remaining_sessions <= 0:
-                logger.info(f"学员 {purchase.student.name} 剩余课时不足: {purchase.remaining_sessions}")
+                logger.info(f"学员 {student.name} 剩余课时不足: {purchase.remaining_sessions}")
                 continue
 
             # 5. 检查排课日期是否在购买记录的有效期内
             if not (purchase.valid_from <= schedule_date <= purchase.valid_until):
-                logger.info(f"学员 {purchase.student.name} 排课日期不在有效期内: {schedule_date} 不在 {purchase.valid_from} ~ {purchase.valid_until} 之间")
+                logger.info(f"学员 {student.name} 排课日期不在有效期内: {schedule_date} 不在 {purchase.valid_from} ~ {purchase.valid_until} 之间")
                 continue
 
             # 添加到可用学员列表
-            student = purchase.student
             available_students.append(AvailableStudentSchema(
                 id=student.id,
                 uuid=student.uuid,

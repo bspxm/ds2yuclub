@@ -34,7 +34,7 @@ class LeaveRequestModel(ModelMixin):
     leave_date: Mapped[date] = mapped_column(Date, nullable=False, comment="请假日期")
     leave_reason: Mapped[str] = mapped_column(String(255), nullable=False, comment="请假原因")
     leave_status: Mapped[LeaveStatusEnum] = mapped_column(
-        Enum(LeaveStatusEnum),
+        Enum(LeaveStatusEnum, values_callable=lambda x: [e.value for e in x]),
         default=LeaveStatusEnum.PENDING,
         nullable=False,
         comment="请假状态"

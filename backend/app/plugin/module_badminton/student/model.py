@@ -29,11 +29,11 @@ class StudentModel(ModelMixin, UserMixin):
     # 基本信息
     name: Mapped[str] = mapped_column(String(32), nullable=False, comment='姓名')
     english_name: Mapped[str | None] = mapped_column(String(64), nullable=True, comment='英文名')
-    gender: Mapped[GenderEnum] = mapped_column(Enum(GenderEnum), default=GenderEnum.UNKNOWN, nullable=False, comment='性别')
+    gender: Mapped[GenderEnum] = mapped_column(Enum(GenderEnum, values_callable=lambda x: [e.value for e in x]), default=GenderEnum.UNKNOWN, nullable=False, comment='性别')
     birth_date: Mapped[date | None] = mapped_column(Date, nullable=True, comment='出生日期')
     height: Mapped[float | None] = mapped_column(Float, nullable=True, comment='身高(cm)')
     weight: Mapped[float | None] = mapped_column(Float, nullable=True, comment='体重(kg)')
-    handedness: Mapped[HandednessEnum] = mapped_column(Enum(HandednessEnum), default=HandednessEnum.RIGHT, nullable=False, comment='惯用手')
+    handedness: Mapped[HandednessEnum] = mapped_column(Enum(HandednessEnum, values_callable=lambda x: [e.value for e in x]), default=HandednessEnum.RIGHT, nullable=False, comment='惯用手')
     
     # 训练信息
     join_date: Mapped[date] = mapped_column(Date, nullable=False, comment='入训日期')
@@ -111,7 +111,7 @@ class ParentStudentModel(ModelMixin):
         comment="学员ID"
     )
     relation_type: Mapped[RelationTypeEnum] = mapped_column(
-        Enum(RelationTypeEnum),
+        Enum(RelationTypeEnum, values_callable=lambda x: [e.value for e in x]),
         default=RelationTypeEnum.OTHER,
         nullable=False,
         comment="关系类型"

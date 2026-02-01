@@ -37,18 +37,18 @@ class TournamentStatusEnum(enum.Enum):
     """赛事状态枚举"""
     DRAFT = "draft"          # 草稿
     REGISTRATION = "registration"  # 报名中
-    IN_PROGRESS = "in_progress"    # 进行中
-    COMPLETED = "completed"        # 已结束
-    CANCELLED = "cancelled"        # 已取消
+    ACTIVE = "active"        # 进行中
+    COMPLETED = "completed"  # 已结束
+    CANCELLED = "cancelled"  # 已取消
 
 
 class MatchStatusEnum(enum.Enum):
     """比赛状态枚举"""
-    SCHEDULED = "scheduled"        # 已安排
-    IN_PROGRESS = "in_progress"    # 进行中
-    COMPLETED = "completed"        # 已完成
-    CANCELLED = "cancelled"        # 已取消
-    WALKOVER = "walkover"          # 弃权
+    SCHEDULED = "scheduled"  # 已安排
+    ACTIVE = "active"        # 进行中
+    COMPLETED = "completed"  # 已完成
+    CANCELLED = "cancelled"  # 已取消
+    WALKOVER = "walkover"    # 弃权
 
 
 class CourseTypeEnum(enum.Enum):
@@ -109,30 +109,29 @@ class AttendanceStatusEnum(enum.Enum):
 
 class SemesterStatusEnum(enum.Enum):
     """学期状态枚举"""
-    PLANNING = "planning"      # 规划中
-    IN_PROGRESS = "in_progress"  # 进行中
-    ACTIVE = "active"          # 激活中
-    COMPLETED = "completed"    # 已结束
-    SETTLED = "settled"        # 已结算
-    ARCHIVED = "archived"      # 已归档
+    PLANNING = "planning"    # 规划中
+    ACTIVE = "active"        # 进行中
+    COMPLETED = "completed"  # 已结束
+    SETTLED = "settled"      # 已结算
+    ARCHIVED = "archived"    # 已归档
 
 
 class ScheduleStatusEnum(enum.Enum):
     """排课状态枚举"""
-    SCHEDULED = "SCHEDULED"        # 已安排
-    CONFIRMED = "CONFIRMED"        # 已确认
-    IN_PROGRESS = "IN_PROGRESS"    # 进行中
-    COMPLETED = "COMPLETED"        # 已完成
-    CANCELLED = "CANCELLED"        # 已取消
-    MAKEUP = "MAKEUP"              # 补课
+    SCHEDULED = "scheduled"  # 已安排
+    CONFIRMED = "confirmed"  # 已确认
+    ACTIVE = "active"        # 进行中
+    COMPLETED = "completed"  # 已完成
+    CANCELLED = "cancelled"  # 已取消
+    MAKEUP = "makeup"        # 补课
 
 
 class ScheduleTypeEnum(enum.Enum):
     """排课类型枚举"""
-    REGULAR = "REGULAR"            # 常规课
-    MAKEUP = "MAKEUP"              # 补课
-    EXTRA = "EXTRA"                # 加课
-    CANCELLED = "CANCELLED"        # 取消课（占位）
+    REGULAR = "regular"      # 常规课
+    MAKEUP = "makeup"        # 补课
+    EXTRA = "extra"          # 加课
+    CANCELLED = "cancelled"  # 取消课（占位）
 
 
 class ClassStatusEnum(enum.Enum):

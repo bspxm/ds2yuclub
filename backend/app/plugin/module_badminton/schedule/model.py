@@ -8,33 +8,12 @@ from sqlalchemy import Boolean, Date, DateTime, Enum, ForeignKey, Integer, Small
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.base_model import ModelMixin, UserMixin
+from ..enums import ScheduleStatusEnum, ScheduleTypeEnum
 
 if TYPE_CHECKING:
     from app.api.v1.module_system.user.model import UserModel
     from ..class_.model import ClassModel
     from ..attendance.model import ClassAttendanceModel
-
-
-# ============================================================================
-# 排课相关枚举定义
-# ============================================================================
-
-class ScheduleStatusEnum(enum.Enum):
-    """排课状态枚举"""
-    SCHEDULED = "SCHEDULED"        # 已安排
-    CONFIRMED = "CONFIRMED"        # 已确认
-    IN_PROGRESS = "IN_PROGRESS"    # 进行中
-    COMPLETED = "COMPLETED"        # 已完成
-    CANCELLED = "CANCELLED"        # 已取消
-    MAKEUP = "MAKEUP"              # 补课
-
-
-class ScheduleTypeEnum(enum.Enum):
-    """排课类型枚举"""
-    REGULAR = "REGULAR"            # 常规课
-    MAKEUP = "MAKEUP"              # 补课
-    EXTRA = "EXTRA"                # 加课
-    CANCELLED = "CANCELLED"        # 取消课（占位）
 
 
 # ============================================================================
@@ -69,13 +48,13 @@ class ClassScheduleModel(ModelMixin, UserMixin):
     
     # 排课信息
     schedule_type: Mapped[ScheduleTypeEnum] = mapped_column(
-        Enum(ScheduleTypeEnum),
+        Enum(ScheduleTypeEnum, values_callable=lambda x: [e.value for e in x]),
         default=ScheduleTypeEnum.REGULAR,
         nullable=False,
         comment='排课类型'
     )
     schedule_status: Mapped[ScheduleStatusEnum] = mapped_column(
-        Enum(ScheduleStatusEnum),
+        Enum(ScheduleStatusEnum, values_callable=lambda x: [e.value for e in x]),
         default=ScheduleStatusEnum.SCHEDULED,
         nullable=False,
         comment='排课状态'

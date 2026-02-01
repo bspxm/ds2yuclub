@@ -23,12 +23,12 @@ class TournamentModel(ModelMixin, UserMixin):
 
     name: Mapped[str] = mapped_column(String(128), nullable=False, comment="赛事名称")
     tournament_type: Mapped[TournamentTypeEnum] = mapped_column(
-        Enum(TournamentTypeEnum),
+        Enum(TournamentTypeEnum, values_callable=lambda x: [e.value for e in x]),
         nullable=False,
         comment="赛事类型（赛制）"
     )
     status: Mapped[TournamentStatusEnum] = mapped_column(
-        Enum(TournamentStatusEnum),
+        Enum(TournamentStatusEnum, values_callable=lambda x: [e.value for e in x]),
         default=TournamentStatusEnum.DRAFT,
         nullable=False,
         comment="赛事状态"
@@ -205,7 +205,7 @@ class TournamentMatchModel(ModelMixin):
     
     # 比赛状态
     status: Mapped[MatchStatusEnum] = mapped_column(
-        Enum(MatchStatusEnum),
+        Enum(MatchStatusEnum, values_callable=lambda x: [e.value for e in x]),
         default=MatchStatusEnum.SCHEDULED,
         nullable=False,
         comment="比赛状态"

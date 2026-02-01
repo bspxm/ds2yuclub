@@ -2,6 +2,7 @@
 class_模块 - Service服务层
 """
 
+import time as time_module
 from datetime import date, datetime, timedelta
 from typing import Optional, List, Dict, Any
 from redis.asyncio.client import Redis
@@ -191,43 +192,70 @@ class ClassService:
         """
         logger.info(f"Service接收参数: class_id={class_id}, day_of_week={day_of_week}, redis_type={type(redis).__name__}")
 
-        # 尝试从Redis缓存获取
-        cache_key = f"{BadmintonCacheKeys.CLASS_TIME_SLOTS}:{class_id}"
-        if day_of_week is not None:
-            cache_key += f":{day_of_week}"
+        # 性能监控开始
+        total_start = time_module.time()
 
+        # 初始化所有计时变量
+        cache_start = cache_end = db_start = db_end = json_start = json_end = cache_write_start = cache_write_end = 0
+
+        # 尝试从Redis缓存获取（缓存整个班级的所有时间段，避免多次查询）
+        cache_key = f"{BadmintonCacheKeys.CLASS_TIME_SLOTS}:{class_id}"
+
+        cache_start = time_module.time()
         try:
             cached_result = await BadmintonCache.get_json(redis, cache_key)
+            cache_end = time_module.time()
+            logger.info(f"Redis缓存查询耗时: {cache_end - cache_start:.3f}秒")
+
             if cached_result is not None:
-                logger.info(f"从缓存获取班级可用时间段: class_id={class_id}, day_of_week={day_of_week}, result_type={type(cached_result)}")
+                logger.info(f"从缓存获取班级可用时间段: class_id={class_id}, result_type={type(cached_result)}")
                 # 确保返回的是字典类型
-                if isinstance(cached_result, dict):
+                if isinstance(cached_result, dict) and "time_slots" in cached_result:
+                    # 如果指定了 day_of_week，则过滤结果
+                    if day_of_week is not None:
+                        filtered_slots = [slot for slot in cached_result["time_slots"] if slot.get("day_index") == day_of_week]
+                        result = {
+                            **cached_result,
+                            "time_slots": filtered_slots
+                        }
+                        return result
                     return cached_result
                 else:
                     logger.warning(f"缓存数据类型不正确，期望dict，实际为{type(cached_result)}，将重新查询")
         except Exception as e:
-            logger.error(f"获取缓存异常: class_id={class_id}, error={e}")
+            cache_end = time_module.time()
+            logger.error(f"获取缓存异常: class_id={class_id}, error={e}, 耗时: {cache_end - cache_start:.3f}秒")
 
-        # 获取班级信息
+        # 获取班级信息（优化：只加载必要的字段，不加载关联数据）
+        db_start = time_module.time()
         class_obj = await ClassCRUD(auth).get_by_id_crud(
             id=class_id,
-            preload=["semester", "coach_user"]
+            preload=None  # 不加载关联数据，减少查询时间
         )
+        db_end = time_module.time()
+        logger.info(f"数据库查询耗时: {db_end - db_start:.3f}秒")
+
         if not class_obj:
             raise CustomException(msg="班级不存在")
 
         # 解析时间段JSON配置
-        import json
+        json_start = time_module.time()
         time_slots = []
-        
+
         if class_obj.time_slots_json:
             try:
                 time_slots_config = json.loads(class_obj.time_slots_json)
+                json_end = time_module.time()
+                logger.info(f"JSON解析耗时: {json_end - json_start:.3f}秒")
                 logger.info(f"解析time_slots_json: {time_slots_config}")
-                
+            except json.JSONDecodeError:
+                json_end = time_module.time()
+                logger.warning(f"JSON解析失败: 耗时 {json_end - json_start:.3f}秒")
+                time_slots_config = {}
+
                 # 定义星期映射
                 day_names = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
-                
+
                 # 定义时间段映射
                 time_slot_names = {
                     'A': '08:00-09:30',
@@ -236,7 +264,7 @@ class ClassService:
                     'D': '15:30-17:00',
                     'E': '18:00-19:30'
                 }
-                
+
                 # 定义时间段ID映射
                 time_slot_ids = {
                     'A': 1,
@@ -245,9 +273,9 @@ class ClassService:
                     'D': 4,
                     'E': 5
                 }
-                
+
                 logger.info(f"筛选时间段 - day_of_week={day_of_week}, time_slots_config={time_slots_config}")
-                
+
                 # 遍历每一天的时间段配置
                 for day, slots in time_slots_config.items():
                     # 如果指定了 day_of_week，只处理该星期
@@ -259,7 +287,7 @@ class ClassService:
                             continue
                         else:
                             logger.info(f"匹配成功: day={day}, day_index={day_index}")
-                    
+
                     if slots:  # 如果该天有可选时间段
                         for slot_code in slots:
                             if slot_code in time_slot_names:
@@ -269,7 +297,7 @@ class ClassService:
                                 # 生成唯一ID：使用 day_index * 10 + slot_id 的方式
                                 # 例如：周六A = 6*10 + 1 = 61, 周日A = 0*10 + 1 = 1
                                 slot_id = day_index * 10 + time_slot_ids[slot_code]
-                                
+
                                 time_slots.append({
                                     "id": slot_id,
                                     "day_of_week": day,
@@ -303,8 +331,15 @@ class ClassService:
 
         logger.info(f"获取班级可用时间段成功：班级ID={class_id}, 星期几={day_of_week}, 时间段数={len(time_slots)}")
 
-        # 存入Redis缓存
+        # 存入Redis缓存（缓存所有时间段，不区分星期几）
+        cache_write_start = time_module.time()
         await BadmintonCache.set_json(redis, cache_key, result, CacheExpireTime.CLASS_TIME_SLOTS)
-        logger.info(f"班级可用时间段已缓存: class_id={class_id}, day_of_week={day_of_week}")
+        cache_write_end = time_module.time()
+        logger.info(f"Redis缓存写入耗时: {cache_write_end - cache_write_start:.3f}秒")
+        logger.info(f"班级可用时间段已缓存: class_id={class_id}, 缓存键={cache_key}")
+
+        # 性能监控结束
+        total_end = time_module.time()
+        logger.info(f"总耗时: {total_end - total_start:.3f}秒 (缓存查询: {cache_end - cache_start:.3f}s | 数据库查询: {db_end - db_start:.3f}s | JSON解析: {json_end - json_start:.3f}s | 缓存写入: {cache_write_end - cache_write_start:.3f}s)")
 
         return result

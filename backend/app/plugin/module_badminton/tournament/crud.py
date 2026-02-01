@@ -82,7 +82,7 @@ class TournamentCRUD(CRUDBase[TournamentModel, TournamentCreateSchema, Tournamen
     async def get_active_tournaments_crud(self) -> Sequence[TournamentModel]:
         """获取进行中的赛事"""
         return await self.list(
-            search={"status": ("eq", "in_progress")},
+            search={"status": ("eq", "active")},
             order_by=[{"start_date": "asc"}]
         )
 

@@ -58,7 +58,7 @@ class PurchaseModel(ModelMixin, UserMixin):
     
     # 状态信息
     status: Mapped[PurchaseStatusEnum] = mapped_column(
-        Enum(PurchaseStatusEnum),
+        Enum(PurchaseStatusEnum, values_callable=lambda x: [e.value for e in x]),
         default=PurchaseStatusEnum.ACTIVE,
         nullable=False,
         comment='购买状态'

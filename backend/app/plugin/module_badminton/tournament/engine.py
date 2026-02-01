@@ -72,7 +72,7 @@ class Match:
     player1_name: str = ""
     player2_name: str = ""
     scheduled_time: Optional[str] = None
-    status: str = "scheduled"  # scheduled, in_progress, completed, cancelled
+    status: str = "scheduled"  # scheduled, active, completed, cancelled
     scores: Optional[List[Tuple[int, int]]] = None  # 每局比分 [(21,19), (19,21), (21,17)]
     winner_id: Optional[int] = None
     

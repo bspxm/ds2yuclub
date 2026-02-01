@@ -9,6 +9,7 @@ from functools import lru_cache
 from typing import Any, Optional
 
 from redis.asyncio.client import Redis
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logger import logger
 from app.core.redis_crud import RedisCURD
@@ -269,3 +270,164 @@ class BadmintonCacheInvalidator:
             logger.error(f"失效班级相关缓存失败: class_id={class_id}, error={e}")
             success = False
         return success
+
+
+# ============================================================================
+# 缓存预热工具类
+# ============================================================================
+
+class BadmintonCacheWarmer:
+    """羽毛球业务缓存预热工具类"""
+
+    @staticmethod
+    async def warmup_time_slot_dict(redis: Redis) -> dict:
+        """预热时间段字典"""
+        from app.api.v1.module_system.dict.service import DictDataService
+        try:
+            # 触发加载，会自动缓存
+            time_slot_data = await get_time_slot_dict_with_cache(redis, 'badminton_time_slot')
+            logger.info(f"✅ 缓存预热成功: 时间段字典")
+            return {"status": "success", "data": time_slot_data}
+        except Exception as e:
+            logger.error(f"❌ 缓存预热失败: 时间段字典, error={e}")
+            return {"status": "error", "message": str(e)}
+
+    @staticmethod
+    async def warmup_active_semesters(redis: Redis, db: AsyncSession = None) -> dict:
+        """预热活跃学期列表"""
+        try:
+            from app.plugin.module_badminton.semester.crud import SemesterCRUD
+            from app.plugin.module_badminton.class_.crud import ClassCRUD
+            from app.api.v1.module_system.auth.schema import AuthSchema
+            from sqlalchemy import select, or_
+            from app.plugin.module_badminton.semester.model import SemesterModel
+
+            # 查询活跃学期
+            auth = AuthSchema(db=db, check_data_scope=False) if db else AuthSchema(db=None, check_data_scope=False)
+
+            if not db:
+                raise ValueError("warmup_active_semesters 需要数据库会话参数 db")
+
+            # 尝试多种状态：active, planning（只要是未归档的学期）
+            stmt = (
+                select(SemesterModel)
+                .where(
+                    or_(
+                        SemesterModel.status == "active",
+                        SemesterModel.status == "planning"
+                    )
+                )
+                .order_by(SemesterModel.start_date.desc())
+            )
+            result = await db.execute(stmt)
+            semesters = result.scalars().all()
+
+            logger.info(f"缓存预热: 找到 {len(semesters)} 个活跃/进行中/规划中的学期")
+
+            # 预热每个学期的班级列表
+            for semester in semesters:
+                cache_key = f"{BadmintonCacheKeys.SEMESTER_CLASSES}:{semester.id}"
+                classes = await ClassCRUD(auth).list_crud(
+                    search={"semester_id": ("eq", semester.id)}
+                )
+
+                # 缓存班级列表
+                class_list = [{"id": c.id, "name": c.name, "class_type": c.class_type.value if c.class_type else None} for c in classes]
+                await BadmintonCache.set_json(redis, cache_key, class_list, CacheExpireTime.SEMESTER_CLASSES)
+                logger.info(f"  ✅ 缓存学期 {semester.name} (状态: {semester.status}) 的班级列表: {len(classes)} 个班级")
+
+            return {"status": "success", "count": len(semesters)}
+        except Exception as e:
+            logger.error(f"❌ 缓存预热失败: 活跃学期列表, error={e}")
+            return {"status": "error", "message": str(e)}
+
+    @staticmethod
+    async def warmup_coaches(redis: Redis, db: AsyncSession = None) -> dict:
+        """
+        预热教练列表
+
+        Args:
+            redis: Redis 客户端
+            db: 数据库会话（可选）
+
+        Returns:
+            dict: 预热结果
+        """
+        from sqlalchemy import select
+
+        try:
+            if not db:
+                raise ValueError("warmup_coaches 需要数据库会话参数 db")
+
+            from app.api.v1.module_system.user.model import UserModel, UserRolesModel
+            from app.api.v1.module_system.role.model import RoleModel
+
+            # 查询所有教练角色用户
+            stmt = (
+                select(UserModel)
+                .join(UserRolesModel, UserModel.id == UserRolesModel.user_id)
+                .join(RoleModel, UserRolesModel.role_id == RoleModel.id)
+                .where((RoleModel.name == "教练") | (RoleModel.code == "教练"))
+                .where(UserModel.status == "0")  # 启用状态
+                .order_by(UserModel.id)
+            )
+            result = await db.execute(stmt)
+            coaches = result.scalars().all()
+
+            coaches_data = [
+                {
+                    "id": c.id,
+                    "username": c.username,
+                    "nickname": c.name,
+                    "mobile": c.mobile,
+                }
+                for c in coaches
+            ]
+
+            cache_key = "badminton:coaches"
+            await BadmintonCache.set_json(redis, cache_key, coaches_data, CacheExpireTime.CLASS_DETAIL)
+
+            return {
+                "status": "success",
+                "count": len(coaches_data),
+                "message": f"成功预热 {len(coaches_data)} 个教练信息",
+            }
+        except Exception as e:
+            logger.error(f"❌ 缓存预热失败: 教练列表, error={e}")
+            return {"status": "error", "message": str(e)}
+
+    @staticmethod
+    async def warmup_all(redis: Redis, db: AsyncSession = None) -> dict:
+        """预热所有常用缓存
+
+        Args:
+            redis: Redis 客户端
+            db: 数据库会话（可选，用于需要数据库查询的预热）
+
+        Returns:
+            dict: 所有预热结果
+        """
+        logger.info("🚀 开始羽毛球业务缓存预热...")
+        
+        results = {}
+        
+        # 预热时间段字典（不需要数据库）
+        results["time_slot"] = await BadmintonCacheWarmer.warmup_time_slot_dict(redis)
+
+        # 预热活跃学期和班级列表（需要数据库）
+        if db:
+            results["semesters"] = await BadmintonCacheWarmer.warmup_active_semesters(redis, db)
+        else:
+            results["semesters"] = {"status": "skipped", "message": "未提供数据库会话"}
+
+        # 预热教练列表（需要数据库）
+        if db:
+            results["coaches"] = await BadmintonCacheWarmer.warmup_coaches(redis, db)
+        else:
+            results["coaches"] = {"status": "skipped", "message": "未提供数据库会话"}
+        
+        success_count = sum(1 for r in results.values() if r.get("status") == "success")
+        
+        logger.info(f"✅ 羽毛球业务缓存预热完成: {success_count}/{len(results)} 成功")
+        
+        return results

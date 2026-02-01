@@ -60,7 +60,7 @@ class ClassAttendanceModel(ModelMixin, UserMixin):
     
     # 考勤状态
     attendance_status: Mapped[AttendanceStatusEnum] = mapped_column(
-        Enum(AttendanceStatusEnum),
+        Enum(AttendanceStatusEnum, values_callable=lambda x: [e.value for e in x]),
         default=AttendanceStatusEnum.PRESENT,
         nullable=False,
         comment='考勤状态'

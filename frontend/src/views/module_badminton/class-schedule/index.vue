@@ -151,7 +151,7 @@
         </el-table-column>
         <el-table-column label="排课类型" min-width="100">
           <template #default="scope">
-            <el-tag :type="scope.row.schedule_type === 'REGULAR' ? '' : scope.row.schedule_type === 'MAKEUP' ? 'warning' : scope.row.schedule_type === 'EXTRA' ? 'success' : 'info'">
+            <el-tag :type="scope.row.schedule_type === 'regular' ? '' : scope.row.schedule_type === 'makeup' ? 'warning' : scope.row.schedule_type === 'extra' ? 'success' : 'info'">
               {{ getScheduleTypeName(scope.row.schedule_type) }}
             </el-tag>
           </template>
@@ -160,8 +160,8 @@
         <el-table-column label="教练" prop="coach.name" min-width="100" />
         <el-table-column label="排课状态" prop="schedule_status" min-width="90">
           <template #default="scope">
-            <el-tag :type="scope.row.schedule_status === 'SCHEDULED' ? 'info' : scope.row.schedule_status === 'IN_PROGRESS' ? 'success' : scope.row.schedule_status === 'COMPLETED' ? 'warning' : 'danger'">
-                        {{ scope.row.schedule_status === 'SCHEDULED' ? '已排课' : scope.row.schedule_status === 'IN_PROGRESS' ? '进行中' : scope.row.schedule_status === 'COMPLETED' ? '已完成' : '已取消' }}
+            <el-tag :type="scope.row.schedule_status === 'scheduled' ? 'info' : scope.row.schedule_status === 'active' ? 'success' : scope.row.schedule_status === 'completed' ? 'warning' : 'danger'">
+                        {{ scope.row.schedule_status === 'scheduled' ? '已排课' : scope.row.schedule_status === 'active' ? '进行中' : scope.row.schedule_status === 'completed' ? '已完成' : '已取消' }}
                       </el-tag>          </template>
         </el-table-column>
         <el-table-column label="学员数" prop="student_count" min-width="80" align="center">
@@ -264,8 +264,8 @@
             {{ detailFormData.coach?.name || '未指定' }}
           </el-descriptions-item>
           <el-descriptions-item label="排课状态">
-            <el-tag :type="detailFormData.schedule_status === 'SCHEDULED' ? 'info' : detailFormData.schedule_status === 'IN_PROGRESS' ? 'success' : detailFormData.schedule_status === 'COMPLETED' ? 'warning' : 'danger'">
-                      {{ detailFormData.schedule_status === 'SCHEDULED' ? '已排课' : detailFormData.schedule_status === 'IN_PROGRESS' ? '进行中' : detailFormData.schedule_status === 'COMPLETED' ? '已完成' : '已取消' }}
+            <el-tag :type="detailFormData.schedule_status === 'scheduled' ? 'info' : detailFormData.schedule_status === 'active' ? 'success' : detailFormData.schedule_status === 'completed' ? 'warning' : 'danger'">
+                      {{ detailFormData.schedule_status === 'scheduled' ? '已排课' : detailFormData.schedule_status === 'active' ? '进行中' : detailFormData.schedule_status === 'completed' ? '已完成' : '已取消' }}
                     </el-tag>          </el-descriptions-item>
           <el-descriptions-item label="实际开始时间">
             {{ detailFormData.actual_start_time || '未记录' }}
@@ -491,11 +491,11 @@
                         placeholder="请选择排课状态"
                         style="width: 100%"
                       >
-                        <el-option value="SCHEDULED" label="已排课" />
-                        <el-option value="CONFIRMED" label="已确认" />
-                        <el-option value="IN_PROGRESS" label="进行中" />
-                        <el-option value="COMPLETED" label="已完成" />
-                        <el-option value="CANCELLED" label="已取消" />
+                        <el-option value="scheduled" label="已排课" />
+                        <el-option value="confirmed" label="已确认" />
+                        <el-option value="active" label="进行中" />
+                        <el-option value="completed" label="已完成" />
+                        <el-option value="cancelled" label="已取消" />
                       </el-select>
                     </el-form-item>
                   </el-col>
@@ -836,10 +836,10 @@ function getTimeSlotName(timeSlotId: number | undefined): string {
 // 获取排课类型名称
 function getScheduleTypeName(type: string | undefined): string {
   const typeMap: Record<string, string> = {
-    'REGULAR': '常规课',
-    'MAKEUP': '补课',
-    'EXTRA': '加课',
-    'CANCELLED': '取消课'
+    'regular': '常规课',
+    'makeup': '补课',
+    'extra': '加课',
+    'cancelled': '取消课'
   };
   return type ? typeMap[type] || type : '-';
 }
@@ -1367,7 +1367,7 @@ async function handleOpenDialog(type: "create" | "update" | "detail", id?: numbe
         schedule_date: schedule_date,
         class_ids: class_id ? [class_id] : [],
         coach_id: data.coach_id,
-        schedule_status: data.schedule_status || "SCHEDULED",
+        schedule_status: data.schedule_status || "scheduled",
         student_ids: studentIdsFromBackend,
         location: data.location || "",
         topic: data.topic || "",

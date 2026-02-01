@@ -25,7 +25,7 @@ class CourseModel(ModelMixin, UserMixin):
 
     name: Mapped[str] = mapped_column(String(128), nullable=False, comment="课程名称")
     course_type: Mapped[CourseTypeEnum] = mapped_column(
-        Enum(CourseTypeEnum),
+        Enum(CourseTypeEnum, values_callable=lambda x: [e.value for e in x]),
         default=CourseTypeEnum.REGULAR,
         nullable=False,
         comment="课程类型"

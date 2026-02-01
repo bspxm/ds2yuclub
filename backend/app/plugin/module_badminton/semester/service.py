@@ -147,14 +147,14 @@ class SemesterService:
         current_date = date.today()
         
         # 1. 优先查找状态为"进行中"的学期
-        in_progress_semesters = await SemesterCRUD(auth).list_crud(
-            search={"status": SemesterStatusEnum.IN_PROGRESS},
+        active_semesters = await SemesterCRUD(auth).list_crud(
+            search={"status": SemesterStatusEnum.ACTIVE},
             order_by=[{"start_date": "desc"}]
         )
         
-        if in_progress_semesters:
+        if active_semesters:
             # 返回最新的进行中学期
-            semester = in_progress_semesters[0]
+            semester = active_semesters[0]
             return SimpleResponse(
                 success=True,
                 message="获取当前学期成功",
@@ -162,14 +162,14 @@ class SemesterService:
             ).model_dump()
         
         # 2. 如果没有进行中的学期，查找未开始的学期（按开始日期升序，找到即将开始的）
-        not_started_semesters = await SemesterCRUD(auth).list_crud(
-            search={"status": SemesterStatusEnum.NOT_STARTED},
+        planning_semesters = await SemesterCRUD(auth).list_crud(
+            search={"status": SemesterStatusEnum.PLANNING},
             order_by=[{"start_date": "asc"}]
         )
         
-        if not_started_semesters:
+        if planning_semesters:
             # 返回即将开始的学期
-            semester = not_started_semesters[0]
+            semester = planning_semesters[0]
             return SimpleResponse(
                 success=True,
                 message="获取即将开始的学期成功",
