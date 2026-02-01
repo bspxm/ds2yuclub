@@ -45,14 +45,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[Any, Any]:
         await DictDataService().init_dict_service(redis=app.state.redis)
         log.info("✅ Redis数据字典初始化完成")
 
-# 羽毛球业务缓存预热
-        from app.plugin.module_badminton.cache_utils import BadmintonCacheWarmer
-        try:
-            async with async_db_session() as db:
-                warmup_results = await BadmintonCacheWarmer.warmup_all(app.state.redis, db)
-                log.info(f"✅ 羽毛球业务缓存预热完成: {warmup_results}")
-        except Exception as e:
-            log.warning(f"⚠️  羽毛球业务缓存预热失败: {e}")
+# 羽毛球业务缓存预热（暂时关闭）
+        # from app.plugin.module_badminton.cache_utils import BadmintonCacheWarmer
+        # try:
+        #     async with async_db_session() as db:
+        #         warmup_results = await BadmintonCacheWarmer.warmup_all(app.state.redis, db)
+        #         log.info(f"✅ 羽毛球业务缓存预热完成: {warmup_results}")
+        # except Exception as e:
+        #     log.warning(f"⚠️  羽毛球业务缓存预热失败: {e}")
 
         await SchedulerUtil.init_system_scheduler(redis=app.state.redis)
         log.info("✅ 定时任务调度器初始化完成")

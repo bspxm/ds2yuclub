@@ -26,8 +26,7 @@ class ClassScheduleModel(ModelMixin, UserMixin):
     """
     __tablename__: str = 'badminton_class_schedule'
     __table_args__: dict[str, str] = ({'comment': '班级排课表'})
-    __loader_options__: list[str] = ["class_ref", "coach_user", "attendance_records", "created_by", "updated_by"]
-
+    __loader_options__: list[str] = ["class_ref", "coach_user"]
     # 关联信息
     class_id: Mapped[int] = mapped_column(
         Integer,
