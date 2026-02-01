@@ -8,6 +8,10 @@ __pycache__
 
 IFLOW.md
 
+# 日志文件
+*.log
+backend.log
+
 backend/__pycache__
 backend/.vscode
 backend/.idea
