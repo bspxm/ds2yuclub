@@ -3,6 +3,7 @@ schedule模块 - Service服务层
 """
 
 import asyncio
+import time as time_module
 from datetime import date, datetime, timedelta
 from typing import Optional, List, Dict, Any
 from redis.asyncio.client import Redis
@@ -24,6 +25,10 @@ from ..class_.schema import (
     ClassAttendanceCreateSchema,
     ClassAttendanceUpdateSchema
 )
+from ..purchase.model import PurchaseModel
+from ..attendance.model import AttendanceStatusEnum
+from ..purchase.crud import PurchaseCRUD
+from ..attendance.crud import ClassAttendanceCRUD
 from app.common.response import PaginatedResponse
 from ..response import SimpleResponse
 from app.api.v1.module_system.auth.schema import AuthSchema
@@ -35,54 +40,6 @@ from ..cache_utils import get_time_slot_dict_with_cache, BadmintonCache, Badmint
 # 格式：{day_index}{slot_code}，例如：0A, 6A, 6J
 # ============================================================================
 
-TIME_SLOT_CODES = {
-    1: 'A', 2: 'B', 3: 'C', 4: 'D', 5: 'E',
-    6: 'F', 7: 'G', 8: 'H', 9: 'I', 10: 'J'
-}
-
-def get_time_slot_info_by_dict(time_slot_id: str | int, time_slot_dict: dict) -> dict:
-    """
-    根据时间槽ID获取时间段信息（从字典中获取）
-    
-    参数：
-        time_slot_id: 完整的时间槽ID（字符串格式：{day_index}{slot_code}）
-        time_slot_dict: 字典数据列表，格式为 [{id, dict_value, start, end, duration}, ...]
-    
-    返回：
-        dict: 包含 start_time_str, end_time_str, duration_minutes, slot_code, day_index 的字典
-    """
-    # 确保time_slot_id是字符串
-    if isinstance(time_slot_id, int):
-        time_slot_id_str = str(time_slot_id)
-    else:
-        time_slot_id_str = time_slot_id
-    
-    if not time_slot_id_str or not time_slot_dict:
-        raise ValueError("time_slot_id 和 time_slot_dict 不能为空")
-    
-    # 解析ID格式：{day_index}{slot_code}
-    day_index = time_slot_id_str[:-1]  # 提取星期几（前部分）
-    slot_code = time_slot_id_str[-1]  # 提取时段代码（最后一位）
-    
-    # 从字典中查找对应的时间段
-    time_slot = None
-    for item in time_slot_dict:
-        if item.get('dict_value') == time_slot_id_str:
-            time_slot = item
-            break
-    
-    if not time_slot:
-        raise ValueError(f"时间段ID {time_slot_id_str} 在字典中不存在")
-    
-    return {
-        'start_time_str': time_slot.get('start'),
-        'end_time_str': time_slot.get('end'),
-        'duration_minutes': int(time_slot.get('duration', '90')),
-        'slot_code': slot_code,
-        'day_index': int(day_index) if day_index.isdigit() else 0,
-        'id': time_slot_id_str
-    }
-
 # ============================================================================
 # 排课记录管理服务
 # ============================================================================
@@ -91,12 +48,32 @@ class ClassScheduleService:
     """排课记录管理服务层"""
 
     @classmethod
-    async def detail_service(cls, auth: AuthSchema, schedule_id: int) -> dict:
-        """获取排课记录详情（优化版：拆分JOIN查询）"""
+    async def detail_service(cls, auth: AuthSchema, redis: Redis, schedule_id: int) -> dict:
+        """获取排课记录详情（优化版：拆分JOIN查询 + Redis缓存）"""
+        import time as time_module
         logger.info(f"获取排课记录详情，schedule_id={schedule_id}")
         
+        total_start = time_module.time()
+        
+        # 尝试从Redis缓存获取
+        cache_key = f"{BadmintonCacheKeys.CLASS_SCHEDULE_DETAIL}:{schedule_id}"
+        cache_start = time_module.time()
+        try:
+            cached_result = await BadmintonCache.get_json(redis, cache_key)
+            cache_end = time_module.time()
+            if cached_result is not None:
+                logger.info(f"从缓存获取排课详情: schedule_id={schedule_id}, 缓存耗时: {cache_end - cache_start:.3f}秒")
+                return cached_result
+        except Exception as e:
+            cache_end = time_module.time()
+            logger.warning(f"获取缓存失败: schedule_id={schedule_id}, error={e}")
+        
         # 1. 查询排课记录（不加载关联数据）
+        schedule_start = time_module.time()
         schedule = await ClassScheduleCRUD(auth).get_by_id_crud(id=schedule_id)
+        schedule_end = time_module.time()
+        logger.info(f"查询排课记录耗时: {schedule_end - schedule_start:.3f}秒")
+        
         if not schedule:
             raise CustomException(msg="排课记录不存在")
         
@@ -109,25 +86,27 @@ class ClassScheduleService:
         related_queries = []
         
         if schedule.class_id:
-            related_queries.append(ClassCRUD(auth).get_by_id_crud(id=schedule.class_id))
+            related_queries.append(("class", ClassCRUD(auth).get_by_id_crud(id=schedule.class_id)))
         
         if schedule.coach_id:
-            related_queries.append(UserCRUD(auth).get_by_id_crud(id=schedule.coach_id))
+            related_queries.append(("coach", UserCRUD(auth).get_by_id_crud(id=schedule.coach_id)))
         
         if schedule.created_id:
-            related_queries.append(UserCRUD(auth).get_by_id_crud(id=schedule.created_id))
+            related_queries.append(("creator", UserCRUD(auth).get_by_id_crud(id=schedule.created_id)))
         
         if schedule.updated_id:
-            related_queries.append(UserCRUD(auth).get_by_id_crud(id=schedule.updated_id))
+            related_queries.append(("updater", UserCRUD(auth).get_by_id_crud(id=schedule.updated_id)))
         
         # 查询考勤记录
-        attendance_query = ClassAttendanceCRUD(auth).list_crud(
+        related_queries.append(("attendance", ClassAttendanceCRUD(auth).list_crud(
             search={"schedule_id": ("eq", schedule_id)}
-        )
-        related_queries.append(attendance_query)
+        )))
         
         # 等待所有查询完成
-        related_results = await asyncio.gather(*related_queries, return_exceptions=True)
+        related_start = time_module.time()
+        related_results = await asyncio.gather(*[r[1] for r in related_queries], return_exceptions=True)
+        related_end = time_module.time()
+        logger.info(f"并行查询关联数据耗时: {related_end - related_start:.3f}秒，查询数: {len(related_queries)}")
         
         # 提取结果并处理异常
         class_ref = None
@@ -136,49 +115,21 @@ class ClassScheduleService:
         updated_by = None
         attendance_records = []
         
-        result_index = 0
-        
-        # 检查每个结果是否为异常
-        if schedule.class_id:
-            result = related_results[result_index]
+        for i, (query_name, result) in enumerate(zip([r[0] for r in related_queries], related_results)):
             if isinstance(result, Exception):
-                logger.error(f"查询班级信息失败: {result}")
+                logger.error(f"查询{query_name}信息失败: {result}")
             else:
-                class_ref = result
-            result_index += 1
-            
-        if schedule.coach_id:
-            result = related_results[result_index]
-            if isinstance(result, Exception):
-                logger.error(f"查询教练信息失败: {result}")
-            else:
-                coach_user = result
-            result_index += 1
-            
-        if schedule.created_id:
-            result = related_results[result_index]
-            if isinstance(result, Exception):
-                logger.error(f"查询创建人信息失败: {result}")
-            else:
-                created_by = result
-            result_index += 1
-            
-        if schedule.updated_id:
-            result = related_results[result_index]
-            if isinstance(result, Exception):
-                logger.error(f"查询更新人信息失败: {result}")
-            else:
-                updated_by = result
-            result_index += 1
-            
-        # 考勤记录（最后一个查询）
-        if related_results:
-            result = related_results[-1]
-            if isinstance(result, Exception):
-                logger.error(f"查询考勤记录失败: {result}")
-                attendance_records = []
-            else:
-                attendance_records = result if result else []
+                logger.info(f"查询{query_name}成功")
+                if query_name == "class":
+                    class_ref = result
+                elif query_name == "coach":
+                    coach_user = result
+                elif query_name == "creator":
+                    created_by = result
+                elif query_name == "updater":
+                    updated_by = result
+                elif query_name == "attendance":
+                    attendance_records = result if result else []
         
         # 构建返回数据
         data = ClassScheduleOutSchema.model_validate(schedule).model_dump()
@@ -206,6 +157,16 @@ class ClassScheduleService:
             data['student_ids'] = []
             logger.info(f"没有考勤记录，student_ids=[]")
         
+        # 存入Redis缓存（缓存5分钟）
+        try:
+            await BadmintonCache.set_json(redis, cache_key, data, 300)
+            logger.info(f"排课详情已缓存: schedule_id={schedule_id}")
+        except Exception as e:
+            logger.warning(f"缓存写入失败: schedule_id={schedule_id}, error={e}")
+        
+        total_end = time_module.time()
+        logger.info(f"detail_service 总耗时: {total_end - total_start:.3f}秒")
+        
         return data
     @classmethod
     async def list_service(cls, auth: AuthSchema, search: Optional[dict] = None, order_by: Optional[list[dict]] = None) -> list[dict]:
@@ -219,7 +180,14 @@ class ClassScheduleService:
 
     @classmethod
     async def page_service(cls, auth: AuthSchema, page_no: int, page_size: int, search: Optional[dict | ClassScheduleQueryParam] = None, order_by: Optional[list[dict]] = None) -> dict:
-        """排课记录分页查询"""
+        """排课记录分页查询（使用视图优化性能）"""
+        import time as time_module
+        total_start = time_module.time()
+        
+        # 显式导入需要的模型，避免循环导入问题
+        from ..attendance.model import ClassAttendanceModel
+        from .view_model import ClassScheduleListView
+        
         # 将QueryParam对象转换为字典
         if isinstance(search, ClassScheduleQueryParam):
             search_dict = vars(search)
@@ -229,23 +197,49 @@ class ClassScheduleService:
         order_by_list = order_by or [{'id': 'asc'}]
         offset = (page_no - 1) * page_size
 
-        # 不使用 out_schema，直接获取原始对象以避免加载过多关联数据
-        result = await ClassScheduleCRUD(auth).page_crud(
+        # 使用视图模型查询，避免预加载性能问题
+        # 视图已经包含了班级和教练信息，不需要预加载
+        page_start = time_module.time()
+        from .crud import ClassScheduleListCRUD
+        result = await ClassScheduleListCRUD(auth).page_crud(
             offset=offset,
             limit=page_size,
             order_by=order_by_list,
             search=search_dict,
-            preload=["class_ref", "coach_user", "attendance_records"],
+            preload=[],  # 视图不需要预加载
             out_schema=None
         )
+        page_end = time_module.time()
+        logger.info(f"排课记录分页查询耗时（使用视图）: {page_end - page_start:.3f}秒, 结果数: {len(result['items'])}")
 
-        # 手动构建返回数据，只包含必要的字段
+        # 批量查询学员数（使用子查询，避免N+1问题）
+        from sqlalchemy import select, func
+        schedule_ids = [s.id for s in result["items"]]
+        student_counts = {}
+        
+        student_count_start = time_module.time()
+        if schedule_ids:
+            # 使用子查询统计每个排课的学员数
+            student_count_query = (
+                select(
+                    ClassAttendanceModel.schedule_id,
+                    func.count(ClassAttendanceModel.id).label('count')
+                )
+                .where(ClassAttendanceModel.schedule_id.in_(schedule_ids))
+                .group_by(ClassAttendanceModel.schedule_id)
+            )
+            count_result = await auth.db.execute(student_count_query)
+            for row in count_result:
+                student_counts[row.schedule_id] = row.count
+        
+        student_count_end = time_module.time()
+        logger.info(f"学员数统计查询耗时: {student_count_end - student_count_start:.3f}秒")
+
+        # 手动构建返回数据，使用视图的字段
         items = []
         for schedule in result["items"]:
-            # 计算学员数（从考勤记录中统计）
-            student_count = 0
-            if hasattr(schedule, 'attendance_records') and schedule.attendance_records:
-                student_count = len(schedule.attendance_records)
+            # 使用批量查询的学员数
+            student_count = student_counts.get(schedule.id, 0)
             
             item = {
                 'id': schedule.id,
@@ -253,14 +247,13 @@ class ClassScheduleService:
                 'class_id': schedule.class_id,
                 'schedule_date': schedule.schedule_date.isoformat() if schedule.schedule_date else None,
                 'day_of_week': schedule.day_of_week,
-                'time_slot_id': schedule.time_slot_id,
                 'time_slot_code': schedule.time_slot_code,
                 'time_slots_json': schedule.time_slots_json,
                 'start_time': schedule.start_time.isoformat() if schedule.start_time else None,
                 'end_time': schedule.end_time.isoformat() if schedule.end_time else None,
                 'duration_minutes': schedule.duration_minutes,
-                'schedule_type': schedule.schedule_type.value if schedule.schedule_type else None,
-                'schedule_status': schedule.schedule_status.value if schedule.schedule_status else None,
+                'schedule_type': schedule.schedule_type,
+                'schedule_status': schedule.schedule_status,
                 'coach_id': schedule.coach_id,
                 'coach_confirmed': schedule.coach_confirmed,
                 'coach_confirm_at': schedule.coach_confirm_at.isoformat() if schedule.coach_confirm_at else None,
@@ -280,18 +273,21 @@ class ClassScheduleService:
                 'created_time': schedule.created_time.isoformat() if schedule.created_time else None,
                 'updated_time': schedule.updated_time.isoformat() if schedule.updated_time else None,
                 'student_count': student_count,
-                # 关联对象
+                # 关联对象（使用视图字段）
                 'class': {
-                    'id': schedule.class_ref.id,
-                    'name': schedule.class_ref.name,
-                    'semester_id': schedule.class_ref.semester_id
-                } if schedule.class_ref else None,
+                    'id': schedule.class_ref_id,
+                    'name': schedule.class_ref_name,
+                    'semester_id': schedule.class_ref_semester_id
+                } if schedule.class_ref_id else None,
                 'coach': {
-                    'id': schedule.coach_user.id,
-                    'name': schedule.coach_user.name
-                } if schedule.coach_user else None,
+                    'id': schedule.coach_user_id,
+                    'name': schedule.coach_user_name
+                } if schedule.coach_user_id else None,
             }
             items.append(item)
+
+        total_end = time_module.time()
+        logger.info(f"排课记录列表查询总耗时: {total_end - total_start:.3f}秒")
 
         return {
             "total": result["total"],
@@ -313,26 +309,57 @@ class ClassScheduleService:
         if "schedule_date" in data_dict and isinstance(data_dict["schedule_date"], str):
             from datetime import datetime
             data_dict["schedule_date"] = datetime.strptime(data_dict["schedule_date"], "%Y-%m-%d").date()
-        
-        # 如果提供了 time_slot_id，填充时间字段
-        if "time_slot_id" in data_dict and data_dict["time_slot_id"]:
+
+        # 保存时间段字典数据（用于后续创建考勤记录时传递，避免重复查询Redis）
+        cached_time_slot_data = None
+
+        # 如果提供了 time_slots_json，填充时间字段
+        if "time_slots_json" in data_dict and data_dict["time_slots_json"]:
             # 从Redis获取羽毛球时间段字典
-            time_slot_data = await DictDataService.get_init_dict_service(
+            cached_time_slot_data = await DictDataService.get_init_dict_service(
                 redis=redis,
                 dict_type='badminton_time_slot'
             )
-            
-            # 使用统一的时间段解析函数
-            time_slot_info = get_time_slot_info_by_dict(data_dict["time_slot_id"], time_slot_data)
-            
-            # 填充时间字段
-            if "start_time" not in data_dict or data_dict["start_time"] is None:
-                data_dict["start_time"] = datetime.strptime(time_slot_info['start_time_str'], '%H:%M').time()
-            if "end_time" not in data_dict or data_dict["end_time"] is None:
-                data_dict["end_time"] = datetime.strptime(time_slot_info['end_time_str'], '%H:%M').time()
-            if "duration_minutes" not in data_dict or data_dict["duration_minutes"] is None:
-                data_dict["duration_minutes"] = time_slot_info['duration_minutes']
-        
+
+            # 解析 time_slots_json
+            try:
+                time_slots = json.loads(data_dict["time_slots_json"])
+            except json.JSONDecodeError:
+                logger.warning(f"时间段配置格式错误: {data_dict['time_slots_json']}")
+                time_slots = {}
+
+            # 获取第一个时间段（排课记录只包含一个时间段）
+            if time_slots:
+                day_name, slot_codes = list(time_slots.items())[0]
+                slot_code = slot_codes[0] if slot_codes else ''
+
+                if slot_code:
+                    # 从字典中查找时间段信息
+                    time_slot_info = None
+                    for slot in cached_time_slot_data:
+                        if slot.get('dict_value') == slot_code:
+                            time_slot_info = slot
+                            break
+
+                    if time_slot_info:
+                        # 解析时间范围
+                        dict_label = time_slot_info.get('dict_label', '')
+                        if '-' in dict_label:
+                            time_parts = dict_label.split('-')
+                            start_time_str = time_parts[0].strip()
+                            end_time_str = time_parts[1].strip()
+                        else:
+                            start_time_str = '08:00'
+                            end_time_str = '09:30'
+
+                        # 填充时间字段
+                        if "start_time" not in data_dict or data_dict["start_time"] is None:
+                            data_dict["start_time"] = datetime.strptime(start_time_str, '%H:%M').time()
+                        if "end_time" not in data_dict or data_dict["end_time"] is None:
+                            data_dict["end_time"] = datetime.strptime(end_time_str, '%H:%M').time()
+                        if "duration_minutes" not in data_dict or data_dict["duration_minutes"] is None:
+                            data_dict["duration_minutes"] = 90
+
         # 提取学员列表（如果有值则更新）
         student_ids = data_dict.pop("student_ids", None)
         logger.info(f"更新排课记录 ID={schedule_id}, 学员IDs: {student_ids}")
@@ -345,13 +372,20 @@ class ClassScheduleService:
         # 如果提供了学员列表，则更新考勤记录
         if student_ids is not None:
             try:
-                # 1. 删除旧的考勤记录
-                from app.plugin.module_badminton.attendance import ClassAttendanceCRUD
-                old_attendance = await ClassAttendanceCRUD(auth).list(search={"schedule_id": schedule_id})
-                if old_attendance:
-                    old_attendance_ids = [att.id for att in old_attendance]
-                    await ClassAttendanceCRUD(auth).delete_crud(ids=old_attendance_ids)
-                    logger.info(f"排课ID={schedule_id}：删除旧考勤记录 {len(old_attendance_ids)} 条")
+                # 直接删除旧的考勤记录（使用原生SQL，提高性能）
+                from app.plugin.module_badminton.attendance.model import ClassAttendanceModel
+                from sqlalchemy import delete as sql_delete
+                
+                # 记录开始时间
+                delete_start = time_module.time()
+                
+                # 直接执行DELETE语句
+                delete_stmt = sql_delete(ClassAttendanceModel).where(ClassAttendanceModel.schedule_id == schedule_id)
+                await auth.db.execute(delete_stmt)
+                await auth.db.flush()
+                
+                delete_end = time_module.time()
+                logger.info(f"排课ID={schedule_id}：删除旧考勤记录完成，耗时: {delete_end - delete_start:.3f}秒")
                 
                 # 2. 为新的学员列表创建考勤记录
                 if student_ids and len(student_ids) > 0:
@@ -359,7 +393,8 @@ class ClassScheduleService:
                         auth=auth,
                         redis=redis,
                         schedule_id=schedule_id,
-                        student_ids=student_ids
+                        student_ids=student_ids,
+                        time_slot_data=cached_time_slot_data  # 传递缓存的时间段字典
                     )
                     logger.info(f"排课ID={schedule_id}：创建新考勤记录 {created_count}/{len(student_ids)}")
             except Exception as e:
@@ -407,10 +442,10 @@ class ClassScheduleService:
             original_date = original_schedule.schedule_date
             next_week_date = original_date + timedelta(days=7)
 
-            # 准备时间段ID列表
-            time_slot_ids = []
-            if original_schedule.time_slot_id:
-                time_slot_ids = [original_schedule.time_slot_id]
+            # 准备时间段配置（使用 time_slots_json）
+            time_slots = {}
+            if original_schedule.time_slots_json:
+                time_slots = json.loads(original_schedule.time_slots_json)
 
             # 创建新的排课记录（补课）
             new_schedule_data = ClassScheduleCreateV2Schema(
@@ -418,7 +453,7 @@ class ClassScheduleService:
                 schedule_date=next_week_date,
                 class_ids=[original_schedule.class_id],
                 coach_id=original_schedule.coach_id,
-                time_slot_ids=time_slot_ids,
+                time_slots=time_slots,
                 schedule_status=ScheduleStatusEnum.SCHEDULED,
                 schedule_type=ScheduleTypeEnum.MAKEUP,
                 student_ids=[student_id],
@@ -596,35 +631,32 @@ class ClassScheduleService:
         return available_students
 
     @classmethod
-    async def auto_create_attendance_service(cls, auth: AuthSchema, schedule_id: int, 
-                                           student_ids: list[int]) -> int:
+    async def auto_create_attendance_service(cls, auth: AuthSchema, redis: Redis, schedule_id: int,
+                                           student_ids: list[int], time_slot_data: list[dict] | None = None) -> int:
         """
         为排课记录自动创建考勤记录
 
         逻辑：
         1. 获取排课记录信息
-        2. 获取班级的时间段配置
-        3. 根据 time_slot_id 获取时间段信息
-        4. 为每个学员查找对应的购买记录
-        5. 创建考勤记录（默认状态：PRESENT）
-        6. 自动扣减课时
+        2. 从 time_slots_json 解析时间段信息
+        3. 为每个学员查找对应的购买记录
+        4. 创建考勤记录（默认状态：PRESENT）
+        5. 自动扣减课时
 
          Args:
              auth: 认证信息
              redis: Redis客户端
              schedule_id: 排课记录ID
              student_ids: 学员ID列表
+             time_slot_data: 可选的时间段字典数据（避免重复查询Redis）
 
         Returns:
             int: 创建的考勤记录数量
-        """
+         """
         import json
         from datetime import time
-        from app.plugin.module_badminton.attendance import ClassAttendanceCRUD
-        from app.plugin.module_badminton.attendance.model import AttendanceStatusEnum
-        from app.plugin.module_badminton.purchase.crud import PurchaseCRUD
-        from app.plugin.module_badminton.schedule.model import ClassScheduleModel
-
+        from sqlalchemy import select, and_
+        
         # 1. 获取排课记录
         schedule = await ClassScheduleCRUD(auth).get_by_id_crud(
             id=schedule_id,
@@ -633,90 +665,179 @@ class ClassScheduleService:
         if not schedule:
             raise CustomException(msg="排课记录不存在")
 
-        # 2. 获取班级的时间段配置
-        class_obj = schedule.class_ref
-        if not class_obj or not class_obj.time_slots_json:
-            raise CustomException(msg="班级时间段配置不存在")
-        
-        # 3. 根据 time_slot_id 从字典获取时间段信息（V2版本）
-        if schedule.time_slot_id is None:
-            raise CustomException(msg=f"排课记录缺少时间段ID（V2版本必须设置time_slot_id）")
-        
-        # 从Redis获取羽毛球时间段字典
-        time_slot_data = await DictDataService.get_init_dict_service(
-            redis=redis,
-            dict_type='badminton_time_slot'
-        )
-        
-        # 使用统一的时间段解析函数
-        time_slot_info = get_time_slot_info_by_dict(schedule.time_slot_id, time_slot_data)
-        
-        start_time_str = time_slot_info['start_time_str']
-        end_time_str = time_slot_info['end_time_str']
-        duration_minutes = time_slot_info['duration_minutes']
-        
-        # 转换为time对象
-        start_time = datetime.strptime(start_time_str, '%H:%M').time()
-        end_time = datetime.strptime(end_time_str, '%H:%M').time()
+        # 2. 检查 schedule.start_time, end_time, duration_minutes 是否已经设置
+        if schedule.start_time and schedule.end_time and schedule.duration_minutes:
+            start_time = schedule.start_time
+            end_time = schedule.end_time
+            duration_minutes = schedule.duration_minutes
+        else:
+            # 从 time_slots_json 解析时间段信息
+            if not schedule.time_slots_json:
+                raise CustomException(msg="排课记录缺少时间段配置")
+            
+            try:
+                time_slots = json.loads(schedule.time_slots_json)
+            except json.JSONDecodeError:
+                raise CustomException(msg="时间段配置格式错误")
+            
+            # 获取第一个时间段（排课记录只包含一个时间段）
+            if not time_slots:
+                raise CustomException(msg="时间段配置为空")
+            
+            # 获取第一个星期和时间段代码
+            day_name, slot_codes = list(time_slots.items())[0]
+            slot_code = slot_codes[0] if slot_codes else ''
+            
+            if not slot_code:
+                raise CustomException(msg="时间段配置无效")
+
+            # 优先使用传入的时间段字典，避免重复查询Redis
+            if time_slot_data is None:
+                time_slot_data = await DictDataService.get_init_dict_service(
+                    redis=redis,
+                    dict_type='badminton_time_slot'
+                )
+
+            # 从字典中查找时间段信息
+            time_slot_info = None
+            for slot in time_slot_data:
+                if slot.get('dict_value') == slot_code:
+                    time_slot_info = slot
+                    break
+
+            if not time_slot_info:
+                raise CustomException(msg=f"时间段代码 {slot_code} 在字典中不存在")
+
+            # 解析时间范围
+            dict_label = time_slot_info.get('dict_label', '')
+            if '-' in dict_label:
+                time_parts = dict_label.split('-')
+                start_time_str = time_parts[0].strip()
+                end_time_str = time_parts[1].strip()
+            else:
+                start_time_str = '08:00'
+                end_time_str = '09:30'
+
+            # 转换为time对象
+            start_time = datetime.strptime(start_time_str, '%H:%M').time()
+            end_time = datetime.strptime(end_time_str, '%H:%M').time()
+            duration_minutes = 90
         
         created_count = 0
 
-        # 4. 为每个学员创建考勤记录
-        for student_id in student_ids:
-            # 查找学员的购买记录
-            purchases = await PurchaseCRUD(auth).list(
-                search={
-                    "student_id": ("eq", student_id),
-                    "class_id": ("eq", schedule.class_id)
-                }
+        # 3. 批量查询所有学员的购买记录（减少数据库查询次数）
+        from app.plugin.module_badminton.purchase.model import PurchaseModel
+        from sqlalchemy import select, and_
+        
+        purchase_start = time_module.time()
+        
+        # 一次性查询所有学员的购买记录
+        purchase_query = select(PurchaseModel).where(
+            and_(
+                PurchaseModel.student_id.in_(student_ids),
+                PurchaseModel.class_id == schedule.class_id,
+                PurchaseModel.remaining_sessions > 0
             )
+        ).order_by(PurchaseModel.created_time.desc())
+        
+        purchase_result = await auth.db.execute(purchase_query)
+        all_purchases = purchase_result.scalars().all()
+        
+        purchase_end = time_module.time()
+        logger.info(f"批量查询购买记录完成：学员数={len(student_ids)}, 查到购买记录数={len(all_purchases)}, 耗时: {purchase_end - purchase_start:.3f}秒")
+        
+        # 按学员ID分组购买记录
+        student_purchases = {}
+        for purchase in all_purchases:
+            if purchase.student_id not in student_purchases:
+                student_purchases[purchase.student_id] = []
+            student_purchases[purchase.student_id].append(purchase)
+        
+        # 准备批量创建考勤记录和批量扣减课时
+        attendance_records = []
+        purchase_updates = {}
+        
+        for student_id in student_ids:
+            # 获取该学员的购买记录
+            purchases = student_purchases.get(student_id, [])
             
             if not purchases:
                 logger.warning(f"学员{student_id}没有购买班级{schedule.class_id}的课时包")
                 continue
-
+            
             # 使用最近购买的课时包
             purchase = purchases[0]
-
+            
             # 检查是否有剩余课时
             if purchase.remaining_sessions <= 0:
                 logger.warning(f"学员{student_id}的课时包{purchase.id}没有剩余课时")
                 continue
-
-            # 5. 创建考勤记录
-            attendance = await ClassAttendanceCRUD(auth).create_crud(
-                data={
-                    "student_id": student_id,
-                    "class_id": schedule.class_id,
-                    "schedule_id": schedule_id,
-                    "purchase_id": purchase.id,
-                    "attendance_date": schedule.schedule_date,  # 直接传递 date 对象
-                    "start_time": start_time,  # 直接传递 time 对象
-                    "end_time": end_time,  # 直接传递 time 对象
-                    "duration_minutes": duration_minutes,
-                    "attendance_status": AttendanceStatusEnum.PRESENT,
-                    "session_deducted": 1,
-                    "is_auto_deduct": True,
-                    "coach_id": schedule.coach_id
+            
+            # 准备考勤记录数据
+            attendance_records.append({
+                "student_id": student_id,
+                "class_id": schedule.class_id,
+                "schedule_id": schedule_id,
+                "purchase_id": purchase.id,
+                "attendance_date": schedule.schedule_date,
+                "start_time": start_time,
+                "end_time": end_time,
+                "duration_minutes": duration_minutes,
+                "attendance_status": AttendanceStatusEnum.PRESENT,
+                "session_deducted": 1,
+                "is_auto_deduct": True,
+                "coach_id": schedule.coach_id
+            })
+            
+            # 准备课时扣减
+            if purchase.id not in purchase_updates:
+                purchase_updates[purchase.id] = {
+                    "used_sessions": purchase.used_sessions + 1,
+                    "remaining_sessions": purchase.remaining_sessions - 1
                 }
-            )
-            if attendance:
-                created_count += 1
-
-            attendance = await ClassAttendanceCRUD(auth).create_crud(data=attendance_data)
-            if attendance:
-                created_count += 1
+        
+        # 批量创建考勤记录 - 使用原生SQL批量插入
+        create_start = time_module.time()
+        if attendance_records:
+            from sqlalchemy import insert as sql_insert
+            from app.plugin.module_badminton.attendance.model import ClassAttendanceModel
+            
+            try:
+                # 使用批量插入
+                insert_stmt = sql_insert(ClassAttendanceModel).values(attendance_records)
+                result = await db.execute(insert_stmt)
+                await db.flush()
                 
-                # 6. 自动扣减课时
-                await PurchaseCRUD(auth).update_crud(
-                    id=purchase.id,
-                    data={
-                        "used_sessions": purchase.used_sessions + 1,
-                        "remaining_sessions": purchase.remaining_sessions - 1
-                    }
-                )
-                
-                logger.info(f"为学员{student_id}创建考勤记录成功，已扣减1课时")
+                created_count = result.rowcount
+                logger.info(f"批量创建考勤记录成功：准备={len(attendance_records)}, 成功={created_count}, 耗时: {create_end - create_start:.3f}秒")
+            except Exception as e:
+                logger.error(f"批量创建考勤记录失败：{e}")
+                # 如果批量插入失败，降级为逐个插入
+                for attendance_data in attendance_records:
+                    try:
+                        attendance = await ClassAttendanceCRUD(auth).create_crud(data=attendance_data)
+                        if attendance:
+                            created_count += 1
+                    except Exception as err:
+                        logger.error(f"创建考勤记录失败（降级模式）：{err}")
+        
+        create_end = time_module.time()
+        logger.info(f"批量创建考勤记录完成：准备={len(attendance_records)}, 成功={created_count}, 耗时: {create_end - create_start:.3f}秒")
+        
+        # 批量扣减课时 - 使用原生SQL批量更新
+        update_start = time_module.time()
+        if purchase_updates:
+            for purchase_id, update_data in purchase_updates.items():
+                update_stmt = sql_update(PurchaseModel).where(PurchaseModel.id == purchase_id).values(**update_data)
+                await db.execute(update_stmt)
+            
+            await db.flush()
+            
+            for purchase_id in purchase_updates.keys():
+                logger.info(f"扣减课时成功：购买记录ID={purchase_id}")
+        
+        update_end = time_module.time()
+        logger.info(f"批量扣减课时完成：数量={len(purchase_updates)}, 耗时: {update_end - update_start:.3f}秒")
 
         logger.info(f"自动创建考勤记录完成：排课ID={schedule_id}, 学员数={len(student_ids)}, 成功={created_count}")
 
@@ -834,17 +955,11 @@ class ClassScheduleService:
                     # 构建 time_slots_json (JSON 格式：{"周一": ["A", "B"]})
                     time_slots_json = json.dumps({target_day: [slot_code]}, ensure_ascii=False)
                     
-                    # 生成 time_slot_id (保留用于兼容)：day_index*10+slot_code_idx
-                    day_idx_lookup = day_names.index(target_day)
-                    slot_code_idx_lookup = ord(slot_code) - ord('A') + 1
-                    time_slot_id = day_idx_lookup * 10 + slot_code_idx_lookup
-                    
                     # 准备排课数据
                     schedule_data = {
                         "class_id": class_id,
                         "schedule_date": data.schedule_date,
                         "day_of_week": day_of_week,
-                        "time_slot_id": time_slot_id,
                         "time_slot_code": slot_code,
                         "time_slots_json": time_slots_json,
                         "start_time": start_time_obj,
@@ -888,7 +1003,6 @@ class ClassScheduleService:
                         "schedule_date": schedule.schedule_date.isoformat(),
                         "class_id": schedule.class_id,
                         "coach_id": schedule.coach_id,
-                        "time_slot_id": schedule.time_slot_id,
                         "time_slot_code": schedule.time_slot_code,
                         "time_slots_json": schedule.time_slots_json,
                         "schedule_status": schedule.schedule_status.value,

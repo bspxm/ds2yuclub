@@ -9,6 +9,7 @@ from app.core.base_crud import CRUDBase
 from app.core.database import SessionDep
 
 from .model import *
+from .view_model import ClassScheduleListView
 from ..class_.schema import ClassScheduleCreateV2Schema
 
 # ============================================================================
@@ -43,4 +44,15 @@ class ClassScheduleCRUD(CRUDBase[ClassScheduleModel, ClassScheduleCreateV2Schema
 
     async def page_crud(self, offset: int, limit: int, order_by: list[dict[str, str]], search: dict, out_schema: type, preload: list[str] | None = None) -> dict:
         """排课记录分页查询"""
+        return await self.page(offset=offset, limit=limit, order_by=order_by, search=search, out_schema=out_schema, preload=preload)
+
+
+class ClassScheduleListCRUD(CRUDBase[ClassScheduleListView, None, None]):
+    """排课记录列表查询（使用视图模型，优化性能）"""
+
+    def __init__(self, auth: AuthSchema) -> None:
+        super().__init__(model=ClassScheduleListView, auth=auth)
+
+    async def page_crud(self, offset: int, limit: int, order_by: list[dict[str, str]], search: dict, out_schema: type = None, preload: list[str] | None = None) -> dict:
+        """排课记录分页查询（使用视图）"""
         return await self.page(offset=offset, limit=limit, order_by=order_by, search=search, out_schema=out_schema, preload=preload)
