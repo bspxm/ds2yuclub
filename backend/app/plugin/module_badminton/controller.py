@@ -655,20 +655,27 @@ async def class_delete(
 @BadmintonRouter.get("/classes/{class_id}/available-time-slots", summary="班级可用时间段", description="获取班级的可用时间段，根据班级类型返回不同选择逻辑")
 async def get_available_time_slots(
     class_id: int,
+    redis: Redis = Depends(redis_getter),
     day_of_week: Optional[int] = Query(None, description="星期几（0=周日，1=周一，...，6=周六）"),
     auth: AuthSchema = Depends(AuthPermission(["module_badminton:class:list"]))
 ) -> JSONResponse:
     """获取班级可用时间段"""
-    result = await ClassService.get_available_time_slots(auth, class_id, day_of_week)
+    result = await ClassService.get_available_time_slots(
+        auth=auth,
+        redis=redis,
+        class_id=class_id,
+        day_of_week=day_of_week
+    )
     return SuccessResponse(data=result, msg="班级可用时间段获取成功")
 
 @BadmintonRouter.post("/purchases", summary="创建购买记录", description="创建新购买记录")
 async def purchase_create(
     data: PurchaseCreateSchema,
-    auth: AuthSchema = Depends(AuthPermission(["module_badminton:purchase:create"]))
+    auth: AuthSchema = Depends(AuthPermission(["module_badminton:purchase:create"])),
+    redis: Redis = Depends(redis_getter)
 ) -> JSONResponse:
     """创建购买记录"""
-    result = await PurchaseService.create_service(auth, data)
+    result = await PurchaseService.create_service(auth=auth, redis=redis, data=data)
     return SuccessResponse(data=result, msg="购买记录创建成功")
 
 @BadmintonRouter.get("/purchases", summary="购买记录列表", description="获取购买记录列表（支持分页和查询）")
@@ -710,10 +717,11 @@ async def purchase_detail(
 async def purchase_update(
     id: int,
     data: PurchaseUpdateSchema,
-    auth: AuthSchema = Depends(AuthPermission(["module_badminton:purchase:update"]))
+    auth: AuthSchema = Depends(AuthPermission(["module_badminton:purchase:update"])),
+    redis: Redis = Depends(redis_getter)
 ) -> JSONResponse:
     """更新购买记录"""
-    result = await PurchaseService.update_service(auth, id, data)
+    result = await PurchaseService.update_service(auth=auth, redis=redis, purchase_id=id, data=data)
     return SuccessResponse(data=result, msg="购买记录更新成功")
 
 @BadmintonRouter.delete("/purchases", summary="删除购买记录", description="批量删除购买记录")
@@ -837,7 +845,8 @@ async def class_schedules_available_students(
     schedule_date: str = Query(..., description="排课日期（YYYY-MM-DD格式）"),
     time_slots: str = Query(..., description="时间段JSON配置（JSON字符串格式）"),
     class_ids: Optional[str] = Query(None, description="班级ID列表（逗号分隔，可选，如果未提供则查询该学期下所有班级）"),
-    auth: AuthSchema = Depends(AuthPermission(["module_badminton:class_schedule:list"]))
+    auth: AuthSchema = Depends(AuthPermission(["module_badminton:class_schedule:list"])),
+    redis: Redis = Depends(redis_getter)
 ) -> JSONResponse:
     """
     获取可用学员列表
@@ -876,6 +885,7 @@ async def class_schedules_available_students(
 
     result = await ClassScheduleService.get_available_students_service(
         auth=auth,
+        redis=redis,
         semester_id=semester_id,
         schedule_date=parsed_date,
         time_slots=time_slots_dict,

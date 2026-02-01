@@ -230,14 +230,6 @@
       width="1400px"
       @close="handleCloseDialog"
     >
-      <!-- 编辑模式的全屏 loading 覆盖层 -->
-      <div v-if="dialogLoading" class="dialog-loading-overlay">
-        <el-icon class="is-loading" :size="48">
-          <Loading />
-        </el-icon>
-        <p class="loading-text">数据加载中，请稍候...</p>
-      </div>
-
       <!-- 详情 -->
       <template v-if="dialogVisible.type === 'detail'">
         <el-descriptions :column="2" border>
@@ -394,8 +386,16 @@
             </el-col>
 
             <!-- 右侧：排课表单 -->
-            <el-col :span="14">
-                <el-row :gutter="20">
+            <el-col :span="14" class="right-form-container">
+              <!-- 右侧表单的 loading 覆盖层 -->
+              <div v-if="dialogLoading" class="form-loading-overlay">
+                <el-icon class="is-loading" :size="36">
+                  <Loading />
+                </el-icon>
+                <p class="loading-text">数据加载中...</p>
+              </div>
+
+              <el-row :gutter="20">
                   <el-col :span="12">
                     <el-form-item label="学期" prop="semester_id">
                       <el-select
@@ -1646,8 +1646,14 @@ onMounted(() => {
   font-size: 13px;
 }
 
-/* 对话框全屏 loading 覆盖层 */
-.dialog-loading-overlay {
+/* 右侧表单容器 - 相对定位 */
+.right-form-container {
+  position: relative;
+  min-height: 400px;
+}
+
+/* 右侧表单的 loading 覆盖层 */
+.form-loading-overlay {
   position: absolute;
   top: 0;
   left: 0;
@@ -1658,12 +1664,13 @@ onMounted(() => {
   justify-content: center;
   align-items: center;
   background-color: rgba(255, 255, 255, 0.9);
-  z-index: 9999;
+  z-index: 100;
+  border-radius: 4px;
 }
 
-.dialog-loading-overlay .loading-text {
-  margin-top: 20px;
-  font-size: 16px;
+.form-loading-overlay .loading-text {
+  margin-top: 15px;
+  font-size: 14px;
   color: #606266;
 }
 </style>

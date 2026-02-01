@@ -4,6 +4,7 @@ class_模块 - Service服务层
 
 from datetime import date, datetime, timedelta
 from typing import Optional, List, Dict, Any
+from redis.asyncio.client import Redis
 
 from sqlalchemy.orm import Session
 
@@ -20,6 +21,7 @@ from app.common.response import PaginatedResponse
 from ..response import SimpleResponse
 
 from app.api.v1.module_system.auth.schema import AuthSchema
+from ..cache_utils import BadmintonCache, BadmintonCacheKeys, CacheExpireTime
 
 # ============================================================================
 # 班级管理服务
@@ -168,25 +170,44 @@ class ClassService:
         return [ClassOutSchema.model_validate(class_obj).model_dump() for class_obj in classes]
 
     @classmethod
-    async def get_available_time_slots(cls, auth: AuthSchema, class_id: int, day_of_week: int | None = None) -> dict:
+    async def get_available_time_slots(cls, auth: AuthSchema, redis: Redis, class_id: int, day_of_week: int | None = None) -> dict:
         """
-        获取班级可用时间段
+        获取班级可用时间段（带Redis缓存）
 
         根据班级类型返回不同的时间段：
         - 固定班（FIXED）：返回该班级每周固定的上课时间段，这些时间段会重复total_sessions次
         - 自选天（FLEXIBLE）：返回该班级所有可选时间段，学员需要从中选择每周课次数量（不是总课时数）
-        
+
         如果指定了 day_of_week（星期几，0=周日，1=周一，...，6=周六），则只返回该星期的可用时间段
 
         Args:
             auth: 认证信息
+            redis: Redis客户端
             class_id: 班级ID
             day_of_week: 星期几（可选，0=周日，1=周一，...，6=周六）
 
         Returns:
             dict: 包含班级信息、类型和可用时间段的字典
         """
-        logger.info(f"Service接收参数: class_id={class_id}, day_of_week={day_of_week}")
+        logger.info(f"Service接收参数: class_id={class_id}, day_of_week={day_of_week}, redis_type={type(redis).__name__}")
+
+        # 尝试从Redis缓存获取
+        cache_key = f"{BadmintonCacheKeys.CLASS_TIME_SLOTS}:{class_id}"
+        if day_of_week is not None:
+            cache_key += f":{day_of_week}"
+
+        try:
+            cached_result = await BadmintonCache.get_json(redis, cache_key)
+            if cached_result is not None:
+                logger.info(f"从缓存获取班级可用时间段: class_id={class_id}, day_of_week={day_of_week}, result_type={type(cached_result)}")
+                # 确保返回的是字典类型
+                if isinstance(cached_result, dict):
+                    return cached_result
+                else:
+                    logger.warning(f"缓存数据类型不正确，期望dict，实际为{type(cached_result)}，将重新查询")
+        except Exception as e:
+            logger.error(f"获取缓存异常: class_id={class_id}, error={e}")
+
         # 获取班级信息
         class_obj = await ClassCRUD(auth).get_by_id_crud(
             id=class_id,
@@ -281,5 +302,9 @@ class ClassService:
         }
 
         logger.info(f"获取班级可用时间段成功：班级ID={class_id}, 星期几={day_of_week}, 时间段数={len(time_slots)}")
+
+        # 存入Redis缓存
+        await BadmintonCache.set_json(redis, cache_key, result, CacheExpireTime.CLASS_TIME_SLOTS)
+        logger.info(f"班级可用时间段已缓存: class_id={class_id}, day_of_week={day_of_week}")
 
         return result

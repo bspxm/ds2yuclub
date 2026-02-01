@@ -56,15 +56,21 @@ async def get_available_students(
     schedule_date: date = Query(..., description="排课日期"),
     time_slot_ids: str = Query(..., description="时间段ID列表（逗号分隔）"),
     class_ids: Optional[str] = Query(None, description="班级ID列表（逗号分隔）"),
-    auth: AuthSchema = Depends(AuthPermission(["module_badminton:class-schedule:list"]))
+    auth: AuthSchema = Depends(AuthPermission(["module_badminton:class-schedule:list"])),
+    redis: Redis = Depends(redis_getter)
 ) -> JSONResponse:
     """获取可用学员列表"""
     # 解析逗号分隔的参数
     time_slot_id_list = [int(x) for x in time_slot_ids.split(',')]
     class_id_list = [int(x) for x in class_ids.split(',')] if class_ids else None
-    
+
     result = await ClassScheduleService.get_available_students_service(
-        auth, semester_id, schedule_date, time_slot_id_list, class_id_list
+        auth=auth,
+        redis=redis,
+        semester_id=semester_id,
+        schedule_date=schedule_date,
+        time_slot_ids=time_slot_id_list,
+        class_ids=class_id_list
     )
     return SuccessResponse(data=result, msg="可用学员列表获取成功")
 

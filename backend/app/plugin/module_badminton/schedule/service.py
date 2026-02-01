@@ -27,6 +27,7 @@ from app.common.response import PaginatedResponse
 from ..response import SimpleResponse
 from app.api.v1.module_system.auth.schema import AuthSchema
 from app.api.v1.module_system.dict.service import DictDataService
+from ..cache_utils import get_time_slot_dict_with_cache, BadmintonCache, BadmintonCacheKeys, CacheExpireTime
 
 # ============================================================================
 # 羽毛球时间段代码映射（支持扩展到J，无数量限制）
@@ -352,7 +353,7 @@ class ClassScheduleService:
             raise CustomException(msg="原排课记录缺少日期或时间信息")
 
     @classmethod
-    async def get_available_students_service(cls, auth: AuthSchema, semester_id: int,
+    async def get_available_students_service(cls, auth: AuthSchema, redis: Redis, semester_id: int,
                                            schedule_date: date, time_slots: dict[str, list[str]], 
                                            class_ids: list[int] | None = None) -> list[dict]:
         """
@@ -379,6 +380,19 @@ class ClassScheduleService:
         import json
         from app.plugin.module_badminton.class_.crud import ClassCRUD
         from app.plugin.module_badminton.purchase.crud import PurchaseCRUD
+
+        # 尝试从Redis缓存获取
+        time_slots_hash = BadmintonCache.hash_dict(time_slots)
+        class_ids_str = ",".join(map(str, sorted(class_ids))) if class_ids else "all"
+        cache_key = f"{BadmintonCacheKeys.AVAILABLE_STUDENTS}:{semester_id}:{schedule_date}:{time_slots_hash}:{class_ids_str}"
+
+        try:
+            cached_result = await BadmintonCache.get_json(redis, cache_key)
+            if cached_result is not None:
+                logger.info(f"从缓存获取可用学员列表: semester_id={semester_id}, date={schedule_date}")
+                return cached_result
+        except Exception as e:
+            logger.warning(f"获取缓存失败，将继续查询数据库: key={cache_key}, error={e}")
 
         # 1. 查询班级（如果未提供class_ids则查询该学期下所有班级）
         if class_ids and len(class_ids) > 0:
@@ -472,6 +486,13 @@ class ClassScheduleService:
             ).model_dump())
 
         logger.info(f"获取可用学员列表：学期ID={semester_id}, 日期={schedule_date}, 时间段={time_slots}, 班级ID={class_ids if class_ids else '全部'}, 学员数={len(available_students)}")
+
+        # 存入Redis缓存
+        try:
+            await BadmintonCache.set_json(redis, cache_key, available_students, CacheExpireTime.AVAILABLE_STUDENTS)
+            logger.info(f"可用学员列表已缓存: semester_id={semester_id}, date={schedule_date}")
+        except Exception as e:
+            logger.warning(f"缓存设置失败: key={cache_key}, error={e}")
 
         return available_students
 

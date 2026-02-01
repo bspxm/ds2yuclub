@@ -3,13 +3,15 @@ purchase模块 - 控制器
 """
 
 from typing import Optional
+from datetime import date
+from redis.asyncio.client import Redis
 
 from fastapi import APIRouter, Depends, Query, UploadFile, File
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from app.api.v1.module_system.auth.schema import AuthSchema
 from app.common.response import SuccessResponse
-from app.core.dependencies import AuthPermission
+from app.core.dependencies import AuthPermission, redis_getter
 from app.core.exceptions import CustomException
 from app.core.router_class import OperationLogRoute
 
@@ -36,10 +38,15 @@ async def purchases_by_student(
 @PurchaseRouter.post("/batch", summary="批量创建购买记录", description="为多个学员批量创建购买记录")
 async def batch_create_purchases(
     data: BatchPurchaseCreateSchema,
-    auth: AuthSchema = Depends(AuthPermission(["module_badminton:purchase:create"]))
+    auth: AuthSchema = Depends(AuthPermission(["module_badminton:purchase:create"])),
+    redis: Redis = Depends(redis_getter)
 ) -> JSONResponse:
     """批量创建购买记录"""
-    result = await PurchaseService.batch_create_service(auth, data)
+    result = await PurchaseService.batch_create_service(
+        auth=auth,
+        redis=redis,
+        data=data
+    )
     return SuccessResponse(data=result, msg=result.get("message", "批量创建完成"))
 
 

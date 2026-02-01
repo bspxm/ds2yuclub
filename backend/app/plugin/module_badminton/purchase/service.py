@@ -4,6 +4,7 @@ purchase模块 - Service服务层
 
 from datetime import date, datetime, timedelta
 from typing import Optional, List, Dict, Any
+from redis.asyncio.client import Redis
 
 from sqlalchemy.orm import Session
 
@@ -20,6 +21,7 @@ from app.common.response import PaginatedResponse
 from ..response import SimpleResponse
 
 from app.api.v1.module_system.auth.schema import AuthSchema
+from ..cache_utils import BadmintonCache, BadmintonCacheKeys, CacheExpireTime
 
 # ============================================================================
 # 购买记录管理服务
@@ -27,6 +29,45 @@ from app.api.v1.module_system.auth.schema import AuthSchema
 
 class PurchaseService:
     """购买记录管理服务层"""
+
+    @classmethod
+    async def get_remaining_sessions_cached(cls, auth: AuthSchema, redis: Redis, student_id: int, class_id: int) -> int:
+        """
+        获取学员剩余课时（带Redis缓存）
+
+        Args:
+            auth: 认证信息
+            redis: Redis客户端
+            student_id: 学员ID
+            class_id: 班级ID
+
+        Returns:
+            int: 剩余课时数
+        """
+        cache_key = f"{BadmintonCacheKeys.STUDENT_SESSIONS}:{student_id}:{class_id}"
+
+        # 尝试从Redis缓存获取
+        cached_sessions = await BadmintonCache.get_json(redis, cache_key)
+        if cached_sessions is not None:
+            return int(cached_sessions)
+
+        # 从数据库查询
+        purchases = await PurchaseCRUD(auth).list(
+            search={
+                "student_id": ("eq", student_id),
+                "class_id": ("eq", class_id)
+            }
+        )
+
+        # 获取最新购买记录的剩余课时
+        remaining_sessions = 0
+        if purchases:
+            remaining_sessions = purchases[0].remaining_sessions
+
+        # 存入Redis缓存
+        await BadmintonCache.set_json(redis, cache_key, remaining_sessions, CacheExpireTime.STUDENT_SESSIONS)
+
+        return remaining_sessions
 
     @classmethod
     async def detail_service(cls, auth: AuthSchema, purchase_id: int) -> dict:
@@ -132,8 +173,8 @@ class PurchaseService:
         }
 
     @classmethod
-    async def create_service(cls, auth: AuthSchema, data: PurchaseCreateSchema) -> dict:
-        """创建购买记录"""
+    async def create_service(cls, auth: AuthSchema, redis: Redis, data: PurchaseCreateSchema) -> dict:
+        """创建购买记录（带缓存失效）"""
         # 检查学员是否已购买该班级（同一学期内）
         # TODO: 实现重复购买检查
 
@@ -201,7 +242,7 @@ class PurchaseService:
                 )
         
         response_data = PurchaseOutSchema.model_validate(purchase).model_dump()
-        
+
         # 添加结转信息到响应
         if carry_over_sessions > 0:
             response_data["carry_over_info"] = {
@@ -210,7 +251,11 @@ class PurchaseService:
                 "new_total_sessions": purchase.total_sessions,
                 "carry_over_details": carry_over_details
             }
-        
+
+        # 失效学员课时缓存
+        cache_key = f"{BadmintonCacheKeys.STUDENT_SESSIONS}:{data.student_id}:{data.class_id}"
+        await BadmintonCache.delete_pattern(redis, cache_key)
+
         return SimpleResponse(
             success=True,
             message=f"购买记录创建成功{'（已应用结转课时）' if carry_over_sessions > 0 else ''}",
@@ -218,7 +263,7 @@ class PurchaseService:
         ).model_dump()
 
     @classmethod
-    async def batch_create_service(cls, auth: AuthSchema, data: BatchPurchaseCreateSchema) -> dict:
+    async def batch_create_service(cls, auth: AuthSchema, redis: Redis, data: BatchPurchaseCreateSchema) -> dict:
         """批量创建购买记录"""
         results = []
         success_count = 0
@@ -251,7 +296,7 @@ class PurchaseService:
                 purchase_schema = PurchaseCreateSchema(**purchase_data)
                 
                 # 调用单个创建服务
-                result = await cls.create_service(auth, purchase_schema)
+                result = await cls.create_service(auth, redis, purchase_schema)
                 
                 # 只取 data 部分，不嵌套整个 SimpleResponse
                 purchase_data_result = result.get("data", result)
@@ -284,8 +329,8 @@ class PurchaseService:
         ).model_dump()
 
     @classmethod
-    async def update_service(cls, auth: AuthSchema, purchase_id: int, data: PurchaseUpdateSchema) -> dict:
-        """更新购买记录"""
+    async def update_service(cls, auth: AuthSchema, redis: Redis, purchase_id: int, data: PurchaseUpdateSchema) -> dict:
+        """更新购买记录（带缓存失效）"""
         # 转换 selected_time_slots 为 JSON 字符串存储
         import json
         update_data = data.model_dump(exclude_none=True)
@@ -305,6 +350,11 @@ class PurchaseService:
         purchase = await PurchaseCRUD(auth).update_crud(id=purchase_id, data=update_data)
         if not purchase:
             raise CustomException(msg="购买记录不存在或更新失败")
+
+        # 失效学员课时缓存
+        cache_key = f"{BadmintonCacheKeys.STUDENT_SESSIONS}:{original_purchase.student_id}:{original_purchase.class_id}"
+        await BadmintonCache.delete_pattern(redis, cache_key)
+
         return SimpleResponse(
             success=True,
             message="购买记录更新成功",

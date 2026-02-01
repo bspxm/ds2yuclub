@@ -13,6 +13,10 @@ class RedisCURD:
 
     def __init__(self, redis: Redis) -> None:
         """初始化"""
+        if redis is None:
+            raise ValueError("Redis 实例不能为 None")
+        if not isinstance(redis, Redis):
+            raise ValueError(f"期望 Redis 实例，实际传入: {type(redis).__name__}")
         self.redis = redis
 
     async def mget(self, keys: list) -> list:
