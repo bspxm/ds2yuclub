@@ -50,30 +50,6 @@ async def list_schedule(
     result = await ClassScheduleService.page_service(auth, page_no, page_size, search)
     return SuccessResponse(data=result, msg="排课记录列表获取成功")
 
-@ClassScheduleRouter.get("/available-students", summary="获取可用学员列表", description="根据学期、日期、时间段获取可用学员")
-async def get_available_students(
-    semester_id: int = Query(..., description="学期ID"),
-    schedule_date: date = Query(..., description="排课日期"),
-    time_slot_ids: str = Query(..., description="时间段ID列表（逗号分隔）"),
-    class_ids: Optional[str] = Query(None, description="班级ID列表（逗号分隔）"),
-    auth: AuthSchema = Depends(AuthPermission(["module_badminton:class-schedule:list"])),
-    redis: Redis = Depends(redis_getter)
-) -> JSONResponse:
-    """获取可用学员列表"""
-    # 解析逗号分隔的参数
-    time_slot_id_list = [int(x) for x in time_slot_ids.split(',')]
-    class_id_list = [int(x) for x in class_ids.split(',')] if class_ids else None
-
-    result = await ClassScheduleService.get_available_students_service(
-        auth=auth,
-        redis=redis,
-        semester_id=semester_id,
-        schedule_date=schedule_date,
-        time_slot_ids=time_slot_id_list,
-        class_ids=class_id_list
-    )
-    return SuccessResponse(data=result, msg="可用学员列表获取成功")
-
 @ClassScheduleRouter.post("/v2", summary="创建排课记录(V2)", description="创建排课记录，支持学员选择和自动创建考勤")
 async def create_schedule_v2(
     data: ClassScheduleCreateV2Schema,
@@ -87,10 +63,11 @@ async def create_schedule_v2(
 @ClassScheduleRouter.get("/{id}", summary="排课记录详情", description="获取排课记录详情")
 async def get_schedule(
     id: int,
-    auth: AuthSchema = Depends(AuthPermission(["module_badminton:class-schedule:list"]))
+    auth: AuthSchema = Depends(AuthPermission(["module_badminton:class-schedule:list"])),
+    redis: Redis = Depends(redis_getter)
 ) -> JSONResponse:
     """排课记录详情"""
-    result = await ClassScheduleService.detail_service(auth, id)
+    result = await ClassScheduleService.detail_service(auth, redis, id)
     return SuccessResponse(data=result, msg="排课记录详情获取成功")
 
 @ClassScheduleRouter.put("/{id}", summary="更新排课记录", description="更新排课记录")

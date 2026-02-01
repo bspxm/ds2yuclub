@@ -50,7 +50,6 @@ from .schema import (
     ClassScheduleCreateV2Schema,
     AvailableStudentSchema
 )
-from .class_.schema import AvailableStudentsRequestSchema
 from .service import (
     StudentService,
     ParentStudentService,
@@ -901,20 +900,22 @@ async def class_schedules_available_students(
 @BadmintonRouter.get("/class-schedules/{id}", summary="排课记录详情", description="获取排课记录详细信息")
 async def class_schedule_detail(
     id: int,
-    auth: AuthSchema = Depends(AuthPermission(["module_badminton:class_schedule:detail"]))
+    auth: AuthSchema = Depends(AuthPermission(["module_badminton:class_schedule:detail"])),
+    redis: Redis = Depends(redis_getter)
 ) -> JSONResponse:
     """排课记录详情"""
-    result = await ClassScheduleService.detail_service(auth, id)
+    result = await ClassScheduleService.detail_service(auth, redis, id)
     return SuccessResponse(data=result, msg="排课记录详情获取成功")
 
 @BadmintonRouter.put("/class-schedules/{id}", summary="更新排课记录", description="更新排课记录信息")
 async def class_schedule_update(
     id: int,
     data: ClassScheduleCreateV2Schema,
-    auth: AuthSchema = Depends(AuthPermission(["module_badminton:class_schedule:update"]))
+    auth: AuthSchema = Depends(AuthPermission(["module_badminton:class_schedule:update"])),
+    redis: Redis = Depends(redis_getter)
 ) -> JSONResponse:
     """更新排课记录"""
-    result = await ClassScheduleService.update_service(auth, id, data)
+    result = await ClassScheduleService.update_service(auth, redis, id, data)
     return SuccessResponse(data=result, msg="排课记录更新成功")
 
 @BadmintonRouter.delete("/class-schedules", summary="删除排课记录", description="批量删除排课记录")

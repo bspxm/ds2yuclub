@@ -33,6 +33,7 @@ class BadmintonCacheKeys:
     
     # 排课记录缓存
     SCHEDULES = "badminton:schedules"
+    CLASS_SCHEDULE_DETAIL = "badminton:class_schedule_detail"
     
     # 学期班级列表缓存
     SEMESTER_CLASSES = "badminton:semester_classes"

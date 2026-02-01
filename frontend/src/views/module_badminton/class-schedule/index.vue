@@ -550,8 +550,10 @@
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="handleCloseDialog">取消</el-button>
-          <el-button v-if="dialogVisible.type !== 'detail'" type="primary" @click="handleSubmit">
-            确定
+          <el-button v-if="dialogVisible.type !== 'detail'" type="primary" :loading="submitLoading" @click="handleSubmit">
+            <template v-if="!submitLoading">
+              确定
+            </template>
           </el-button>
           <el-button v-else type="primary" @click="handleCloseDialog">确定</el-button>
         </div>
@@ -701,6 +703,9 @@ const loadingStudents = ref(false);
 
 // 对话框加载状态（用于编辑模式的loading覆盖层）
 const dialogLoading = ref(false);
+
+// 提交按钮loading状态
+const submitLoading = ref(false);
 
 // 已选中学员ID列表
 const selectedStudentIds = ref<number[]>([]);
@@ -1484,6 +1489,8 @@ async function handleSubmit() {
     if (!valid) return;
     
     try {
+      submitLoading.value = true;
+      
       if (dialogVisible.type === "create") {
         // 使用V2版本创建
         await handleSubmitV2();
@@ -1496,6 +1503,8 @@ async function handleSubmit() {
       }
     } catch (error: any) {
       console.error(error);
+    } finally {
+      submitLoading.value = false;
     }
   });
 }

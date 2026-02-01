@@ -2,6 +2,7 @@
 class_模块 - Service服务层
 """
 
+import json
 import time as time_module
 from datetime import date, datetime, timedelta
 from typing import Optional, List, Dict, Any
@@ -208,9 +209,9 @@ class ClassService:
             logger.info(f"Redis缓存查询耗时: {cache_end - cache_start:.3f}秒")
 
             if cached_result is not None:
-                logger.info(f"从缓存获取班级可用时间段: class_id={class_id}, result_type={type(cached_result)}")
-                # 确保返回的是字典类型
-                if isinstance(cached_result, dict) and "time_slots" in cached_result:
+                logger.info(f"从缓存获取班级可用时间段: class_id={class_id}, result_type={type(cached_result)}, time_slots数量: {len(cached_result.get('time_slots', []))}")
+                # 确保返回的是字典类型且时间段不为空
+                if isinstance(cached_result, dict) and "time_slots" in cached_result and len(cached_result["time_slots"]) > 0:
                     # 如果指定了 day_of_week，则过滤结果
                     if day_of_week is not None:
                         filtered_slots = [slot for slot in cached_result["time_slots"] if slot.get("day_index") == day_of_week]
@@ -218,10 +219,12 @@ class ClassService:
                             **cached_result,
                             "time_slots": filtered_slots
                         }
+                        logger.info(f"从缓存过滤后返回，时间段数: {len(filtered_slots)}")
                         return result
+                    logger.info(f"从缓存返回，时间段数: {len(cached_result['time_slots'])}")
                     return cached_result
                 else:
-                    logger.warning(f"缓存数据类型不正确，期望dict，实际为{type(cached_result)}，将重新查询")
+                    logger.warning(f"缓存数据无效（时间段为空或类型不正确），将重新查询")
         except Exception as e:
             cache_end = time_module.time()
             logger.error(f"获取缓存异常: class_id={class_id}, error={e}, 耗时: {cache_end - cache_start:.3f}秒")
@@ -253,67 +256,54 @@ class ClassService:
                 logger.warning(f"JSON解析失败: 耗时 {json_end - json_start:.3f}秒")
                 time_slots_config = {}
 
-                # 定义星期映射
-                day_names = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+        # 定义星期映射
+        day_names = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
 
-                # 定义时间段映射
-                time_slot_names = {
-                    'A': '08:00-09:30',
-                    'B': '09:30-11:00',
-                    'C': '14:00-15:30',
-                    'D': '15:30-17:00',
-                    'E': '18:00-19:30'
-                }
+        # 定义时间段映射
+        time_slot_names = {
+            'A': '08:00-09:30',
+            'B': '09:30-11:00',
+            'C': '14:00-15:30',
+            'D': '15:30-17:00',
+            'E': '18:00-19:30'
+        }
 
-                # 定义时间段ID映射
-                time_slot_ids = {
-                    'A': 1,
-                    'B': 2,
-                    'C': 3,
-                    'D': 4,
-                    'E': 5
-                }
+        logger.info(f"筛选时间段 - day_of_week={day_of_week}, time_slots_config={time_slots_config}")
 
-                logger.info(f"筛选时间段 - day_of_week={day_of_week}, time_slots_config={time_slots_config}")
+        # 遍历每一天的时间段配置
+        for day, slots in time_slots_config.items():
+            # 如果指定了 day_of_week，只处理该星期
+            if day_of_week is not None:
+                day_index = day_names.index(day) if day in day_names else 0
+                logger.info(f"检查星期: day={day}, day_index={day_index}, day_of_week={day_of_week}, 匹配: {day_index == day_of_week}")
+                if day_index != day_of_week:
+                    logger.info(f"跳过: day_index({day_index}) != day_of_week({day_of_week})")
+                    continue
+                else:
+                    logger.info(f"匹配成功: day={day}, day_index={day_index}")
 
-                # 遍历每一天的时间段配置
-                for day, slots in time_slots_config.items():
-                    # 如果指定了 day_of_week，只处理该星期
-                    if day_of_week is not None:
+            if slots:  # 如果该天有可选时间段
+                for slot_code in slots:
+                    if slot_code in time_slot_names:
+                        time_range = time_slot_names[slot_code]
+                        start_time, end_time = time_range.split('-')
                         day_index = day_names.index(day) if day in day_names else 0
-                        logger.info(f"检查星期: day={day}, day_index={day_index}, day_of_week={day_of_week}, 匹配: {day_index == day_of_week}")
-                        if day_index != day_of_week:
-                            logger.info(f"跳过: day_index({day_index}) != day_of_week({day_of_week})")
-                            continue
-                        else:
-                            logger.info(f"匹配成功: day={day}, day_index={day_index}")
+                        # 生成唯一ID：使用 day_index + slot_code 的方式
+                        # 例如：周六A = "6A", 周日A = "0A"
+                        slot_id = f"{day_index}{slot_code}"
 
-                    if slots:  # 如果该天有可选时间段
-                        for slot_code in slots:
-                            if slot_code in time_slot_names:
-                                time_range = time_slot_names[slot_code]
-                                start_time, end_time = time_range.split('-')
-                                day_index = day_names.index(day) if day in day_names else 0
-                                # 生成唯一ID：使用 day_index * 10 + slot_id 的方式
-                                # 例如：周六A = 6*10 + 1 = 61, 周日A = 0*10 + 1 = 1
-                                slot_id = day_index * 10 + time_slot_ids[slot_code]
-
-                                time_slots.append({
-                                    "id": slot_id,
-                                    "day_of_week": day,
-                                    "day": day,
-                                    "day_index": day_index,
-                                    "slot_code": slot_code,
-                                    "start_time": start_time,
-                                    "end_time": end_time,
-                                    "duration_minutes": 90,
-                                    "location": class_obj.location,
-                                    "display_text": f"{day} {time_range}"
-                                })
-                                
-            except json.JSONDecodeError:
-                # 如果JSON解析失败，返回空列表
-                pass
+                        time_slots.append({
+                            "id": slot_id,
+                            "day_of_week": day,
+                            "day": day,
+                            "day_index": day_index,
+                            "slot_code": slot_code,
+                            "start_time": start_time,
+                            "end_time": end_time,
+                            "duration_minutes": 90,
+                            "location": class_obj.location,
+                            "display_text": f"{day} {time_range}"
+                        })
 
         # 使用数据库字段中的每周课次
         sessions_per_week = class_obj.sessions_per_week or 0

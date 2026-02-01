@@ -193,7 +193,6 @@ class ClassScheduleOutSchema(BaseSchema, UserBySchema):
     day_of_week: int = Field(..., description='星期几（0-6，0=周日）')
     
     # 时间信息
-    time_slot_id: Optional[int] = Field(None, description='时间段ID（保留用于兼容）')
     time_slot_code: Optional[str] = Field(None, description='时间段代码（A-E）')
     time_slots_json: Optional[str] = Field(None, description='时间段JSON配置（星期+代码格式）')
     start_time: Optional[TimeStr] = Field(None, description='开始时间')
