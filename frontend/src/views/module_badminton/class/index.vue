@@ -182,149 +182,153 @@
           stripe
           @selection-change="handleSelectionChange"
         >
-        <template #empty>
-          <el-empty :image-size="80" description="暂无数据" />
-        </template>
-        <el-table-column
-          v-if="isColumnShow('selection')"
-          type="selection"
-          min-width="55"
-          align="center"
-        />
-        <el-table-column
-          v-if="isColumnShow('index')"
-          fixed
-          label="序号"
-          min-width="60"
-        >
-          <template #default="scope">
-            {{ (queryFormData.page_no - 1) * queryFormData.page_size + scope.$index + 1 }}
+          <template #empty>
+            <el-empty :image-size="80" description="暂无数据" />
           </template>
-        </el-table-column>
-        <el-table-column
-          v-if="isColumnShow('name')"
-          label="班级名称"
-          prop="name"
-          min-width="120"
-        />
-         <el-table-column
-           v-if="isColumnShow('class_type')"
-           label="班级类型"
-           prop="class_type"
-           min-width="90"
-         >
-           <template #default="scope">
-             <el-tag :type="scope.row.class_type === 'fixed' ? 'primary' : 'success'">
-               {{ scope.row.class_type === 'fixed' ? '固定天' : '自选天' }}
-             </el-tag>
-           </template>
-         </el-table-column>
-        <el-table-column
-          v-if="isColumnShow('semester')"
-          label="所属学期"
-          prop="semester.name"
-          min-width="120"
-        />
-        <el-table-column
-          v-if="isColumnShow('coach')"
-          label="教练"
-          prop="coach_user.name"
-          min-width="100"
-        />
-        <el-table-column
-          v-if="isColumnShow('current_students')"
-          label="当前学员"
-          prop="current_students"
-          min-width="90"
-        >
-          <template #default="scope">
-            <el-tag :type="(scope.row.current_students || 0) >= scope.row.max_students ? 'danger' : 'success'">
-              {{ scope.row.current_students || 0 }}/{{ scope.row.max_students }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column
-          v-if="isColumnShow('class_time')"
-          label="上课时间"
-          min-width="300"
-        >
-          <template #default="scope">
-            <div v-if="scope.row.time_slots_json" class="time-slots-container">
-              <div v-for="(dayGroup, index) in formatTimeSlots(scope.row.time_slots_json)" :key="index" class="day-group">
-                <span class="day-label">{{ dayGroup.day }}:</span>
-                <span class="time-labels">{{ dayGroup.slots.join(', ') }}</span>
+          <el-table-column
+            v-if="isColumnShow('selection')"
+            type="selection"
+            min-width="55"
+            align="center"
+          />
+          <el-table-column v-if="isColumnShow('index')" fixed label="序号" min-width="60">
+            <template #default="scope">
+              {{ (queryFormData.page_no - 1) * queryFormData.page_size + scope.$index + 1 }}
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="isColumnShow('name')"
+            label="班级名称"
+            prop="name"
+            min-width="120"
+          />
+          <el-table-column
+            v-if="isColumnShow('class_type')"
+            label="班级类型"
+            prop="class_type"
+            min-width="90"
+          >
+            <template #default="scope">
+              <el-tag :type="scope.row.class_type === 'fixed' ? 'primary' : 'success'">
+                {{ scope.row.class_type === "fixed" ? "固定天" : "自选天" }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="isColumnShow('semester')"
+            label="所属学期"
+            prop="semester.name"
+            min-width="120"
+          />
+          <el-table-column
+            v-if="isColumnShow('coach')"
+            label="教练"
+            prop="coach_user.name"
+            min-width="100"
+          />
+          <el-table-column
+            v-if="isColumnShow('current_students')"
+            label="当前学员"
+            prop="current_students"
+            min-width="90"
+          >
+            <template #default="scope">
+              <el-tag
+                :type="
+                  (scope.row.current_students || 0) >= scope.row.max_students ? 'danger' : 'success'
+                "
+              >
+                {{ scope.row.current_students || 0 }}/{{ scope.row.max_students }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column v-if="isColumnShow('class_time')" label="上课时间" min-width="300">
+            <template #default="scope">
+              <div v-if="scope.row.time_slots_json" class="time-slots-container">
+                <div
+                  v-for="(dayGroup, index) in formatTimeSlots(scope.row.time_slots_json)"
+                  :key="index"
+                  class="day-group"
+                >
+                  <span class="day-label">{{ dayGroup.day }}:</span>
+                  <span class="time-labels">{{ dayGroup.slots.join(", ") }}</span>
+                </div>
               </div>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column
-          v-if="isColumnShow('fee_per_session')"
-          label="总费用"
-          min-width="100"
-        >
-          <template #default="scope">
-            ¥{{ ((scope.row.fee_per_session || 0) * (scope.row.total_sessions || 0)).toFixed(2) }}
-          </template>
-        </el-table-column>
-        <el-table-column
-          v-if="isColumnShow('status')"
-          label="状态"
-          prop="status"
-          min-width="90"
-        >
-          <template #default="scope">
-            <el-tag :type="scope.row.class_status === 'active' ? 'success' : scope.row.class_status === 'pending' ? 'info' : 'warning'">
-              {{ scope.row.class_status === 'active' ? '进行中' : scope.row.class_status === 'pending' ? '未开始' : '已结束' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column
-          v-if="isColumnShow('created_time')"
-          label="创建时间"
-          prop="created_time"
-          min-width="180"
-        />
-        <el-table-column
-          v-if="isColumnShow('operation')"
-          fixed="right"
-          label="操作"
-          align="center"
-          min-width="180"
-        >
-          <template #default="scope">
-            <el-button
-              v-hasPerm="['module_badminton:class:detail']"
-              type="info"
-              size="small"
-              link
-              icon="document"
-              @click="handleOpenDialog('detail', scope.row.id)"
-            >
-              详情
-            </el-button>
-            <el-button
-              v-hasPerm="['module_badminton:class:update']"
-              type="primary"
-              size="small"
-              link
-              icon="edit"
-              @click="handleOpenDialog('update', scope.row.id)"
-            >
-              编辑
-            </el-button>
-            <el-button
-              v-hasPerm="['module_badminton:class:delete']"
-              type="danger"
-              size="small"
-              link
-              icon="delete"
-              @click="handleDelete([scope.row.id])"
-            >
-              删除
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+            </template>
+          </el-table-column>
+          <el-table-column v-if="isColumnShow('fee_per_session')" label="总费用" min-width="100">
+            <template #default="scope">
+              ¥{{ ((scope.row.fee_per_session || 0) * (scope.row.total_sessions || 0)).toFixed(2) }}
+            </template>
+          </el-table-column>
+          <el-table-column v-if="isColumnShow('status')" label="状态" prop="status" min-width="90">
+            <template #default="scope">
+              <el-tag
+                :type="
+                  scope.row.class_status === 'active'
+                    ? 'success'
+                    : scope.row.class_status === 'pending'
+                      ? 'info'
+                      : 'warning'
+                "
+              >
+                {{
+                  scope.row.class_status === "active"
+                    ? "进行中"
+                    : scope.row.class_status === "pending"
+                      ? "未开始"
+                      : "已结束"
+                }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="isColumnShow('created_time')"
+            label="创建时间"
+            prop="created_time"
+            min-width="180"
+          />
+          <el-table-column
+            v-if="isColumnShow('operation')"
+            fixed="right"
+            label="操作"
+            align="center"
+            min-width="180"
+          >
+            <template #default="scope">
+              <el-button
+                v-hasPerm="['module_badminton:class:detail']"
+                type="info"
+                size="small"
+                link
+                icon="document"
+                @click="handleOpenDialog('detail', scope.row.id)"
+              >
+                详情
+              </el-button>
+              <el-button
+                v-hasPerm="['module_badminton:class:update']"
+                type="primary"
+                size="small"
+                link
+                icon="edit"
+                @click="handleOpenDialog('update', scope.row.id)"
+              >
+                编辑
+              </el-button>
+              <el-button
+                v-hasPerm="['module_badminton:class:delete']"
+                type="danger"
+                size="small"
+                link
+                icon="delete"
+                @click="handleDelete([scope.row.id])"
+              >
+                删除
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
       </div>
 
       <!-- 分页区域 -->
@@ -353,15 +357,29 @@
           </el-descriptions-item>
           <el-descriptions-item label="班级类型">
             <el-tag :type="detailFormData.class_type === 'fixed' ? 'primary' : 'success'">
-              {{ detailFormData.class_type === 'fixed' ? '固定天' : '自选天' }}
+              {{ detailFormData.class_type === "fixed" ? "固定天" : "自选天" }}
             </el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="所属学期">
-            {{ detailFormData.semester?.name || '未指定' }}
+            {{ detailFormData.semester?.name || "未指定" }}
           </el-descriptions-item>
           <el-descriptions-item label="班级状态">
-            <el-tag :type="detailFormData.class_status === 'active' ? 'success' : detailFormData.class_status === 'pending' ? 'info' : 'warning'">
-              {{ detailFormData.class_status === 'active' ? '进行中' : detailFormData.class_status === 'pending' ? '未开始' : '已结束' }}
+            <el-tag
+              :type="
+                detailFormData.class_status === 'active'
+                  ? 'success'
+                  : detailFormData.class_status === 'pending'
+                    ? 'info'
+                    : 'warning'
+              "
+            >
+              {{
+                detailFormData.class_status === "active"
+                  ? "进行中"
+                  : detailFormData.class_status === "pending"
+                    ? "未开始"
+                    : "已结束"
+              }}
             </el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="最大学员数">
@@ -372,15 +390,18 @@
           </el-descriptions-item>
           <el-descriptions-item label="每周排班" :span="2">
             <div v-if="detailFormData.weekly_schedule">{{ detailFormData.weekly_schedule }}</div>
-            <div v-if="detailFormData.time_slots_json" style="white-space: pre-wrap; line-height: 1.6; margin-top: 8px;">
+            <div
+              v-if="detailFormData.time_slots_json"
+              style="white-space: pre-wrap; line-height: 1.6; margin-top: 8px"
+            >
               {{ formatTimeSlots(detailFormData.time_slots_json) }}
             </div>
           </el-descriptions-item>
           <el-descriptions-item label="上课地点">
-            {{ detailFormData.location || '未设置' }}
+            {{ detailFormData.location || "未设置" }}
           </el-descriptions-item>
           <el-descriptions-item label="教练">
-            {{ detailFormData.coach_user?.name || '未指定' }}
+            {{ detailFormData.coach_user?.name || "未指定" }}
           </el-descriptions-item>
           <el-descriptions-item label="每节课费用">
             ¥{{ detailFormData.fee_per_session || 0 }}
@@ -392,13 +413,17 @@
             {{ detailFormData.total_sessions || 0 }}
           </el-descriptions-item>
           <el-descriptions-item label="总费用" :span="2">
-            ¥{{ ((detailFormData.fee_per_session || 0) * (detailFormData.total_sessions || 0)).toFixed(2) }}
+            ¥{{
+              (
+                (detailFormData.fee_per_session || 0) * (detailFormData.total_sessions || 0)
+              ).toFixed(2)
+            }}
           </el-descriptions-item>
           <el-descriptions-item label="创建人">
-            {{ detailFormData.created_by?.name || '系统' }}
+            {{ detailFormData.created_by?.name || "系统" }}
           </el-descriptions-item>
           <el-descriptions-item label="更新人">
-            {{ detailFormData.updated_by?.name || '系统' }}
+            {{ detailFormData.updated_by?.name || "系统" }}
           </el-descriptions-item>
           <el-descriptions-item label="创建时间">
             {{ detailFormData.created_time }}
@@ -407,7 +432,7 @@
             {{ detailFormData.updated_time }}
           </el-descriptions-item>
           <el-descriptions-item label="备注" :span="2">
-            {{ detailFormData.description || '无' }}
+            {{ detailFormData.description || "无" }}
           </el-descriptions-item>
         </el-descriptions>
       </template>
@@ -430,19 +455,23 @@
             </el-col>
             <el-col :span="12">
               <el-form-item label="班级类型" prop="class_type">
-                <el-select v-model="formData.class_type" placeholder="请选择班级类型" style="width: 100%">
+                <el-select
+                  v-model="formData.class_type"
+                  placeholder="请选择班级类型"
+                  style="width: 100%"
+                >
                   <el-option value="fixed" label="固定天" />
                   <el-option value="flexible" label="自选天" />
                 </el-select>
               </el-form-item>
             </el-col>
-            
+
             <!-- 第二行：所属学期、最大学员数 -->
             <el-col :span="12">
               <el-form-item label="所属学期" prop="semester_id">
-                <el-select 
-                  v-model="formData.semester_id" 
-                  placeholder="请选择学期" 
+                <el-select
+                  v-model="formData.semester_id"
+                  placeholder="请选择学期"
                   style="width: 100%"
                   filterable
                 >
@@ -457,10 +486,16 @@
             </el-col>
             <el-col :span="12">
               <el-form-item label="最大学员数" prop="max_students">
-                <el-input-number v-model="formData.max_students" :min="1" :max="100" placeholder="最大学员数" style="width: 100%" />
+                <el-input-number
+                  v-model="formData.max_students"
+                  :min="1"
+                  :max="100"
+                  placeholder="最大学员数"
+                  style="width: 100%"
+                />
               </el-form-item>
             </el-col>
-            
+
             <!-- 第三行：每周排班（占满一整行） -->
             <el-col :span="24">
               <el-form-item label="每周排班" prop="weekly_schedule_days">
@@ -479,7 +514,7 @@
             <!-- 第四行：时间段选择 -->
             <el-col :span="24">
               <el-form-item label="时间段选择">
-                <div style="display: flex; flex-wrap: wrap; gap: 20px;">
+                <div style="display: flex; flex-wrap: wrap; gap: 20px">
                   <div
                     v-for="day in sortedWeeklyScheduleDays"
                     :key="day"
@@ -488,12 +523,20 @@
                       minWidth: '200px',
                       padding: '16px',
                       borderRadius: '8px',
-                      border: timeSlotsValidationError[day] ? '2px solid var(--el-color-error)' : '1px solid var(--el-border-color)',
-                      backgroundColor: timeSlotsValidationError[day] ? 'var(--el-color-error-light-9)' : 'var(--el-bg-color)',
-                      transition: 'all 0.3s'
+                      border: timeSlotsValidationError[day]
+                        ? '2px solid var(--el-color-error)'
+                        : '1px solid var(--el-border-color)',
+                      backgroundColor: timeSlotsValidationError[day]
+                        ? 'var(--el-color-error-light-9)'
+                        : 'var(--el-bg-color)',
+                      transition: 'all 0.3s',
                     }"
                   >
-                    <div style="margin-bottom: 8px; font-weight: bold; color: timeSlotsValidationError[day] ? 'var(--el-color-error)' : 'inherit';">{{ day }}</div>
+                    <div
+                      style="margin-bottom: 8px; font-weight: bold; color: timeSlotsValidationError[day] ? 'var(--el-color-error)' : 'inherit';"
+                    >
+                      {{ day }}
+                    </div>
                     <el-checkbox-group v-model="formData.time_slots[day]">
                       <el-checkbox label="A" value="A">09:00-10:30</el-checkbox>
                       <el-checkbox label="B" value="B">10:30-12:00</el-checkbox>
@@ -505,11 +548,17 @@
                 </div>
               </el-form-item>
             </el-col>
-            
+
             <!-- 第五行：主管教练、每节课费用 -->
             <el-col :span="12">
               <el-form-item label="主管教练" prop="coach_id">
-                <el-select v-model="formData.coach_id" placeholder="请选择主管教练" style="width: 100%" clearable filterable>
+                <el-select
+                  v-model="formData.coach_id"
+                  placeholder="请选择主管教练"
+                  style="width: 100%"
+                  clearable
+                  filterable
+                >
                   <el-option
                     v-for="coach in coachOptions"
                     :key="coach.id"
@@ -521,26 +570,48 @@
             </el-col>
             <el-col :span="12">
               <el-form-item label="每节课费用">
-                <el-input-number v-model="formData.fee_per_session" :min="0" :step="10" placeholder="每节课费用" style="width: 100%" />
+                <el-input-number
+                  v-model="formData.fee_per_session"
+                  :min="0"
+                  :step="10"
+                  placeholder="每节课费用"
+                  style="width: 100%"
+                />
               </el-form-item>
             </el-col>
-            
+
             <!-- 第六行：每周课次、总课次 -->
             <el-col :span="12">
               <el-form-item label="每周课次">
-                <el-input-number v-model="formData.sessions_per_week" :min="1" :max="7" placeholder="每周课次" style="width: 100%" />
+                <el-input-number
+                  v-model="formData.sessions_per_week"
+                  :min="1"
+                  :max="7"
+                  placeholder="每周课次"
+                  style="width: 100%"
+                />
               </el-form-item>
             </el-col>
             <el-col :span="12">
               <el-form-item label="总课次">
-                <el-input-number v-model="formData.total_sessions" :min="1" :max="100" placeholder="总课次" style="width: 100%" />
+                <el-input-number
+                  v-model="formData.total_sessions"
+                  :min="1"
+                  :max="100"
+                  placeholder="总课次"
+                  style="width: 100%"
+                />
               </el-form-item>
             </el-col>
-            
+
             <!-- 第七行：班级状态、上课地点 -->
             <el-col :span="12">
               <el-form-item label="班级状态" prop="class_status">
-                <el-select v-model="formData.class_status" placeholder="请选择班级状态" style="width: 100%">
+                <el-select
+                  v-model="formData.class_status"
+                  placeholder="请选择班级状态"
+                  style="width: 100%"
+                >
                   <el-option value="pending" label="未开始" />
                   <el-option value="active" label="进行中" />
                   <el-option value="ended" label="已结束" />
@@ -549,10 +620,14 @@
             </el-col>
             <el-col :span="12">
               <el-form-item label="上课地点">
-                <el-input v-model="formData.location" placeholder="请输入上课地点" :maxlength="128" />
+                <el-input
+                  v-model="formData.location"
+                  placeholder="请输入上课地点"
+                  :maxlength="128"
+                />
               </el-form-item>
             </el-col>
-            
+
             <!-- 第八行：备注（跨两列） -->
             <el-col :span="24">
               <el-form-item label="备注">
@@ -655,7 +730,7 @@ const queryFormData = reactive<ClassPageQuery>({
   class_type: undefined,
   semester_id: undefined,
   status: undefined,
-      class_status: undefined,
+  class_status: undefined,
   coach_id: undefined,
 });
 
@@ -669,13 +744,13 @@ const initialFormData: ClassForm = {
   weekly_schedule: "",
   weekly_schedule_days: [],
   time_slots: {
-    "周一": [],
-    "周二": [],
-    "周三": [],
-    "周四": [],
-    "周五": [],
-    "周六": [],
-    "周日": []
+    周一: [],
+    周二: [],
+    周三: [],
+    周四: [],
+    周五: [],
+    周六: [],
+    周日: [],
   },
   location: "",
   coach_id: undefined,
@@ -692,9 +767,9 @@ const formData = reactive<ClassForm>(initialFormData);
 
 // 计算属性：按星期顺序排序的星期列表（周日在前，强制排序）
 const sortedWeeklyScheduleDays = computed(() => {
-  const dayOrder = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+  const dayOrder = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
   // 过滤出选中的星期
-  const selectedDays = formData.weekly_schedule_days.filter(day => dayOrder.includes(day));
+  const selectedDays = formData.weekly_schedule_days.filter((day) => dayOrder.includes(day));
   // 按固定顺序排序
   return selectedDays.sort((a, b) => dayOrder.indexOf(a) - dayOrder.indexOf(b));
 });
@@ -714,14 +789,14 @@ const timeSlotsValidationError = reactive<Record<string, boolean>>({
   周三: false,
   周四: false,
   周五: false,
-  周六: false
+  周六: false,
 });
 
 // 自定义验证器：确保每个选中的星期都有至少一个时间段
 const validateTimeSlots = (rule: any, value: any, callback: any) => {
   if (!formData.weekly_schedule_days || formData.weekly_schedule_days.length === 0) {
     // 没有选择星期，不验证时间段
-    Object.keys(timeSlotsValidationError).forEach(day => timeSlotsValidationError[day] = false);
+    Object.keys(timeSlotsValidationError).forEach((day) => (timeSlotsValidationError[day] = false));
     callback();
     return;
   }
@@ -738,7 +813,7 @@ const validateTimeSlots = (rule: any, value: any, callback: any) => {
   }
 
   if (emptyDays.length > 0) {
-    callback(new Error(`以下星期未选择时间段：${emptyDays.join('、')}`));
+    callback(new Error(`以下星期未选择时间段：${emptyDays.join("、")}`));
   } else {
     callback();
   }
@@ -754,7 +829,7 @@ const rules = reactive({
   class_status: [{ required: true, message: "请选择班级状态", trigger: "blur" }],
   weekly_schedule_days: [
     { required: true, message: "请选择每周排班", trigger: "change" },
-    { validator: validateTimeSlots, trigger: "change" }
+    { validator: validateTimeSlots, trigger: "change" },
   ],
 });
 
@@ -775,27 +850,31 @@ async function loadSemesterOptions() {
 async function loadCoachOptions() {
   try {
     const response = await UserAPI.listUser({ page_no: 1, page_size: 100 });
-    console.log('用户列表响应:', response.data.data);
-    
+    console.log("用户列表响应:", response.data.data);
+
     // 过滤出启用状态且岗位为教练的用户
-    coachOptions.value = response.data.data.items.filter((user: any) => {
-      const isEnabled = user.status === '0';
-      const hasPositions = user.positions && user.positions.length > 0;
-      const isCoach = hasPositions && user.positions.some((pos: any) => 
-        pos.name === '教练' || pos.name === '主管教练'
-      );
-      
-      console.log(`用户 ${user.name}: status=${user.status}, hasPositions=${hasPositions}, isCoach=${isCoach}`);
-      
-      return isEnabled && isCoach;
-    }).map((user: any) => ({
-      id: user.id,
-      name: user.name,
-    }));
-    
-    console.log('过滤后的教练列表:', coachOptions.value);
+    coachOptions.value = response.data.data.items
+      .filter((user: any) => {
+        const isEnabled = user.status === "0";
+        const hasPositions = user.positions && user.positions.length > 0;
+        const isCoach =
+          hasPositions &&
+          user.positions.some((pos: any) => pos.name === "教练" || pos.name === "主管教练");
+
+        console.log(
+          `用户 ${user.name}: status=${user.status}, hasPositions=${hasPositions}, isCoach=${isCoach}`
+        );
+
+        return isEnabled && isCoach;
+      })
+      .map((user: any) => ({
+        id: user.id,
+        name: user.name,
+      }));
+
+    console.log("过滤后的教练列表:", coachOptions.value);
   } catch (error: any) {
-    console.error('加载教练列表失败:', error);
+    console.error("加载教练列表失败:", error);
   }
 }
 
@@ -804,45 +883,45 @@ async function loadTimeSlotDict() {
   if (timeSlotList.value.length > 0) {
     return;
   }
-  
+
   try {
     const response = await request<ApiResponse<any[]>>({
       url: "/system/dict/data/info/badminton_time_slot",
       method: "get",
     });
     const dictData = response.data.data || [];
-    
+
     timeSlotList.value = dictData.map((item: any) => ({
       id: item.dict_sort,
       code: item.dict_value,
       name: item.dict_label,
-      start_time: item.dict_label.split('-')[0],
-      end_time: item.dict_label.split('-')[1],
+      start_time: item.dict_label.split("-")[0],
+      end_time: item.dict_label.split("-")[1],
     }));
   } catch (error: any) {
-    console.error('加载时间段字典失败:', error);
+    console.error("加载时间段字典失败:", error);
   }
 }
 
 // 格式化时间段显示
 function formatTimeSlots(timeSlotsJson: string): { day: string; slots: string[] }[] {
   if (!timeSlotsJson) return [];
-  
+
   try {
     const timeSlots = JSON.parse(timeSlotsJson);
     const result: { day: string; slots: string[] }[] = [];
-    
+
     // 按天排序（周日在前）
-    const dayOrder = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-    
+    const dayOrder = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+
     // 遍历每天的时段
-    dayOrder.forEach(day => {
+    dayOrder.forEach((day) => {
       const daySlots = timeSlots[day];
       if (daySlots && Array.isArray(daySlots) && daySlots.length > 0) {
         const slots: string[] = [];
         daySlots.forEach((slotCode: string) => {
           // 从时间段列表中查找对应的时间段
-          const slot = timeSlotList.value.find(s => s.code === slotCode);
+          const slot = timeSlotList.value.find((s) => s.code === slotCode);
           if (slot) {
             slots.push(`${slot.start_time}-${slot.end_time}`);
           }
@@ -852,10 +931,10 @@ function formatTimeSlots(timeSlotsJson: string): { day: string; slots: string[] 
         }
       }
     });
-    
+
     return result;
   } catch (e) {
-    console.error('解析时间段JSON失败:', e);
+    console.error("解析时间段JSON失败:", e);
     return [];
   }
 }
@@ -902,7 +981,7 @@ async function resetForm() {
   // 完全重置 formData 为初始状态
   Object.assign(formData, initialFormData);
   // 重置验证错误状态
-  Object.keys(timeSlotsValidationError).forEach(day => timeSlotsValidationError[day] = false);
+  Object.keys(timeSlotsValidationError).forEach((day) => (timeSlotsValidationError[day] = false));
 }
 
 // 监听时间段变化，清除对应星期的验证错误
@@ -923,10 +1002,10 @@ watch(
   () => formData.weekly_schedule_days,
   (newDays, oldDays = []) => {
     // 找出被移除的星期
-    const removedDays = oldDays.filter(day => !newDays.includes(day));
+    const removedDays = oldDays.filter((day) => !newDays.includes(day));
 
     // 清除被移除星期的时间段数据
-    removedDays.forEach(day => {
+    removedDays.forEach((day) => {
       if (formData.time_slots[day]) {
         formData.time_slots[day] = [];
       }
@@ -964,9 +1043,9 @@ async function handleOpenDialog(type: "create" | "update" | "detail", id?: numbe
       Object.assign(formData, response.data.data);
       // 将weekly_schedule字符串解析为数组，并按周日到周六排序
       if (formData.weekly_schedule) {
-        const dayOrder = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+        const dayOrder = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
         const days = formData.weekly_schedule.split("、");
-        formData.weekly_schedule_days = days.filter(day => dayOrder.includes(day));
+        formData.weekly_schedule_days = days.filter((day) => dayOrder.includes(day));
       }
       // 解析time_slots_json
       if (response.data.data.time_slots_json) {
@@ -993,8 +1072,8 @@ async function handleSubmit() {
   // 将time_slots对象转换为JSON字符串存储
   formData.time_slots_json = JSON.stringify(formData.time_slots || {});
   // 将选中的星期数组转换为逗号分隔的字符串（按固定顺序：周日、周一...周六）
-  const dayOrder = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-  const sortedDays = formData.weekly_schedule_days.filter(day => dayOrder.includes(day));
+  const dayOrder = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+  const sortedDays = formData.weekly_schedule_days.filter((day) => dayOrder.includes(day));
   formData.weekly_schedule = sortedDays.join("、") || "";
 
   // 保存表单数据副本
@@ -1067,7 +1146,7 @@ async function handleDelete(ids: number[]) {
       cancelButtonText: "取消",
       type: "warning",
     });
-    
+
     await ClassAPI.deleteClass(ids);
     ElMessage.success("删除成功");
     loadingData();

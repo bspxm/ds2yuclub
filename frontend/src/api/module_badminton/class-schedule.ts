@@ -43,7 +43,7 @@ const ClassScheduleAPI = {
     return request<ApiResponse>({
       url: `${API_PATH}`,
       method: "delete",
-      params: { ids: ids.join(',') },
+      params: { ids: ids.join(",") },
     });
   },
 
@@ -77,7 +77,7 @@ const ClassScheduleAPI = {
       params: {
         ...params,
         time_slots: JSON.stringify(params.time_slots),
-        class_ids: params.class_ids ? params.class_ids.join(',') : undefined,
+        class_ids: params.class_ids ? params.class_ids.join(",") : undefined,
       },
     });
   },

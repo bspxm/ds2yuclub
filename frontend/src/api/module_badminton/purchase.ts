@@ -52,7 +52,7 @@ const PurchaseAPI = {
     return request<ApiResponse>({
       url: `${API_PATH}`,
       method: "delete",
-      params: { ids: ids.join(',') },
+      params: { ids: ids.join(",") },
     });
   },
 

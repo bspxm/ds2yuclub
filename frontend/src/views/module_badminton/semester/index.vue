@@ -172,132 +172,132 @@
           stripe
           @selection-change="handleSelectionChange"
         >
-        <template #empty>
-          <el-empty :image-size="80" description="暂无数据" />
-        </template>
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'selection')?.show"
-          type="selection"
-          min-width="55"
-          align="center"
-        />
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'index')?.show"
-          fixed
-          label="序号"
-          min-width="60"
-        >
-          <template #default="scope">
-            {{ (queryFormData.page_no - 1) * queryFormData.page_size + scope.$index + 1 }}
+          <template #empty>
+            <el-empty :image-size="80" description="暂无数据" />
           </template>
-        </el-table-column>
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'name')?.show"
-          label="学期名称"
-          prop="name"
-          min-width="120"
-        />
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'semester_type')?.show"
-          label="学期类型"
-          prop="semester_type"
-          min-width="100"
-        >
-          <template #default="scope">
-            <el-tag :type="scope.row.semester_type === 'regular' ? 'primary' : 'warning'">
-              {{ scope.row.semester_type === 'regular' ? '常规学期' : '寒暑假' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'start_date')?.show"
-          label="开始日期"
-          prop="start_date"
-          min-width="180"
-        >
-          <template #default="scope">
-            {{ formatDateTime(scope.row.start_date) }}
-          </template>
-        </el-table-column>
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'end_date')?.show"
-          label="结束日期"
-          prop="end_date"
-          min-width="180"
-        >
-          <template #default="scope">
-            {{ formatDateTime(scope.row.end_date) }}
-          </template>
-        </el-table-column>
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'week_count')?.show"
-          label="总周数"
-          prop="week_count"
-          min-width="90"
-        />
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'status')?.show"
-          label="状态"
-          prop="status"
-          min-width="90"
-        >
-          <template #default="scope">
-            <el-tag :type="statusTypeMap[scope.row.status] || 'info'">
-              {{ statusMap[scope.row.status] || scope.row.status }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'created_time')?.show"
-          label="创建时间"
-          prop="created_time"
-          min-width="180"
-        >
-          <template #default="scope">
-            {{ formatDateTime(scope.row.created_time) }}
-          </template>
-        </el-table-column>
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'operation')?.show"
-          fixed="right"
-          label="操作"
-          align="center"
-          min-width="180"
-        >
-          <template #default="scope">
-            <el-button
-              v-hasPerm="['module_badminton:semester:detail']"
-              type="info"
-              size="small"
-              link
-              icon="document"
-              @click="handleOpenDialog('detail', scope.row.id)"
-            >
-              详情
-            </el-button>
-            <el-button
-              v-hasPerm="['module_badminton:semester:update']"
-              type="primary"
-              size="small"
-              link
-              icon="edit"
-              @click="handleOpenDialog('update', scope.row.id)"
-            >
-              编辑
-            </el-button>
-            <el-button
-              v-hasPerm="['module_badminton:semester:delete']"
-              type="danger"
-              size="small"
-              link
-              icon="delete"
-              @click="handleDelete([scope.row.id])"
-            >
-              删除
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'selection')?.show"
+            type="selection"
+            min-width="55"
+            align="center"
+          />
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'index')?.show"
+            fixed
+            label="序号"
+            min-width="60"
+          >
+            <template #default="scope">
+              {{ (queryFormData.page_no - 1) * queryFormData.page_size + scope.$index + 1 }}
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'name')?.show"
+            label="学期名称"
+            prop="name"
+            min-width="120"
+          />
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'semester_type')?.show"
+            label="学期类型"
+            prop="semester_type"
+            min-width="100"
+          >
+            <template #default="scope">
+              <el-tag :type="scope.row.semester_type === 'regular' ? 'primary' : 'warning'">
+                {{ scope.row.semester_type === "regular" ? "常规学期" : "寒暑假" }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'start_date')?.show"
+            label="开始日期"
+            prop="start_date"
+            min-width="180"
+          >
+            <template #default="scope">
+              {{ formatDateTime(scope.row.start_date) }}
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'end_date')?.show"
+            label="结束日期"
+            prop="end_date"
+            min-width="180"
+          >
+            <template #default="scope">
+              {{ formatDateTime(scope.row.end_date) }}
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'week_count')?.show"
+            label="总周数"
+            prop="week_count"
+            min-width="90"
+          />
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'status')?.show"
+            label="状态"
+            prop="status"
+            min-width="90"
+          >
+            <template #default="scope">
+              <el-tag :type="statusTypeMap[scope.row.status] || 'info'">
+                {{ statusMap[scope.row.status] || scope.row.status }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'created_time')?.show"
+            label="创建时间"
+            prop="created_time"
+            min-width="180"
+          >
+            <template #default="scope">
+              {{ formatDateTime(scope.row.created_time) }}
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'operation')?.show"
+            fixed="right"
+            label="操作"
+            align="center"
+            min-width="180"
+          >
+            <template #default="scope">
+              <el-button
+                v-hasPerm="['module_badminton:semester:detail']"
+                type="info"
+                size="small"
+                link
+                icon="document"
+                @click="handleOpenDialog('detail', scope.row.id)"
+              >
+                详情
+              </el-button>
+              <el-button
+                v-hasPerm="['module_badminton:semester:update']"
+                type="primary"
+                size="small"
+                link
+                icon="edit"
+                @click="handleOpenDialog('update', scope.row.id)"
+              >
+                编辑
+              </el-button>
+              <el-button
+                v-hasPerm="['module_badminton:semester:delete']"
+                type="danger"
+                size="small"
+                link
+                icon="delete"
+                @click="handleDelete([scope.row.id])"
+              >
+                删除
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
       </div>
 
       <!-- 分页区域 -->
@@ -326,7 +326,7 @@
           </el-descriptions-item>
           <el-descriptions-item label="学期类型">
             <el-tag :type="detailFormData.semester_type === 'regular' ? 'primary' : 'warning'">
-              {{ detailFormData.semester_type === 'regular' ? '常规学期' :  '寒暑假' }}
+              {{ detailFormData.semester_type === "regular" ? "常规学期" : "寒暑假" }}
             </el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="学期状态">
@@ -344,10 +344,10 @@
             {{ detailFormData.week_count || 0 }}
           </el-descriptions-item>
           <el-descriptions-item label="创建人">
-            {{ detailFormData.created_by?.name || '系统' }}
+            {{ detailFormData.created_by?.name || "系统" }}
           </el-descriptions-item>
           <el-descriptions-item label="更新人">
-            {{ detailFormData.updated_by?.name || '系统' }}
+            {{ detailFormData.updated_by?.name || "系统" }}
           </el-descriptions-item>
           <el-descriptions-item label="创建时间">
             {{ formatDateTime(detailFormData.created_time) }}
@@ -356,7 +356,7 @@
             {{ formatDateTime(detailFormData.updated_time) }}
           </el-descriptions-item>
           <el-descriptions-item label="备注" :span="2">
-            {{ detailFormData.description || '无' }}
+            {{ detailFormData.description || "无" }}
           </el-descriptions-item>
         </el-descriptions>
       </template>
@@ -379,13 +379,17 @@
             </el-col>
             <el-col :span="12">
               <el-form-item label="学期类型" prop="semester_type">
-                <el-select v-model="formData.semester_type" placeholder="请选择学期类型" style="width: 100%">
+                <el-select
+                  v-model="formData.semester_type"
+                  placeholder="请选择学期类型"
+                  style="width: 100%"
+                >
                   <el-option value="regular" label="常规学期" />
                   <el-option value="wintersummer" label="寒暑假" />
                 </el-select>
               </el-form-item>
             </el-col>
-            
+
             <!-- 第二行：开始日期、结束日期 -->
             <el-col :span="12">
               <el-form-item label="开始日期" prop="start_date">
@@ -409,16 +413,26 @@
                 />
               </el-form-item>
             </el-col>
-            
+
             <!-- 第三行：总周数、学期状态 -->
             <el-col :span="12">
               <el-form-item label="总周数">
-                <el-input-number v-model="formData.week_count" :min="1" :max="52" placeholder="总周数" style="width: 100%" />
+                <el-input-number
+                  v-model="formData.week_count"
+                  :min="1"
+                  :max="52"
+                  placeholder="总周数"
+                  style="width: 100%"
+                />
               </el-form-item>
             </el-col>
             <el-col :span="12">
               <el-form-item label="学期状态" prop="status">
-                <el-select v-model="formData.status" placeholder="请选择学期状态" style="width: 100%">
+                <el-select
+                  v-model="formData.status"
+                  placeholder="请选择学期状态"
+                  style="width: 100%"
+                >
                   <el-option value="planning" label="规划中" />
                   <el-option value="active" label="进行中" />
                   <el-option value="completed" label="已结束" />
@@ -427,7 +441,7 @@
                 </el-select>
               </el-form-item>
             </el-col>
-            
+
             <!-- 第四行：备注（跨两列） -->
             <el-col :span="24">
               <el-form-item label="备注">
@@ -471,55 +485,59 @@ import { formatToDateTime } from "@/utils/dateUtil";
 
 // 时间格式化函数（精确到秒）
 function formatDateTime(timestamp: any): string {
-  if (!timestamp) return '';
-  if (typeof timestamp === 'string') {
+  if (!timestamp) return "";
+  if (typeof timestamp === "string") {
     // 处理 ISO 8601 格式的时间字符串（如：2026-01-20T23:49:12.804965）
     // 去掉微秒部分（.后的内容）
-    const cleanTimestamp = timestamp.replace(/\.\d+$/, '');
+    const cleanTimestamp = timestamp.replace(/\.\d+$/, "");
     const date = new Date(cleanTimestamp);
     if (isNaN(date.getTime())) {
       return timestamp; // 如果解析失败，返回原字符串
     }
-    return date.toLocaleString('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
+    return date.toLocaleString("zh-CN", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
     });
   }
   const date = new Date(timestamp);
-  return date.toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false
+  return date.toLocaleString("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
   });
 }
 
 // 状态显示映射（与后端 SemesterStatusEnum 保持一致）
 const statusMap: Record<string, string> = {
-  planning: '规划中',
-  active: '进行中',
-  completed: '已结束',
-  settled: '已结算',
-  archived: '已归档'
+  planning: "规划中",
+  active: "进行中",
+  completed: "已结束",
+  settled: "已结算",
+  archived: "已归档",
 };
 
 const statusTypeMap: Record<string, string> = {
-  planning: 'info',
-  active: 'success',
-  completed: 'warning',
-  settled: 'info',
-  archived: 'info'
+  planning: "info",
+  active: "success",
+  completed: "warning",
+  settled: "info",
+  archived: "info",
 };
 import DatePicker from "@/components/DatePicker/index.vue";
-import SemesterAPI, { SemesterTable, SemesterForm, SemesterPageQuery } from "@/api/module_badminton/semester";
+import SemesterAPI, {
+  SemesterTable,
+  SemesterForm,
+  SemesterPageQuery,
+} from "@/api/module_badminton/semester";
 
 const visible = ref(true);
 const queryFormRef = ref();
@@ -766,7 +784,7 @@ async function handleDelete(ids: number[]) {
       cancelButtonText: "取消",
       type: "warning",
     });
-    
+
     await SemesterAPI.deleteSemester(ids);
     ElMessage.success("删除成功");
     loadingData();

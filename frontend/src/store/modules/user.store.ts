@@ -119,7 +119,7 @@ export const useUserStore = defineStore("user", {
       // 这里暂时直接使用用户信息进行登录，实际需要调用后端接口
       const response = await AuthAPI.wechatCallback({
         code: wechatLoginData.code || "",
-        state: wechatLoginData.state || ""
+        state: wechatLoginData.state || "",
       });
 
       if (response.data.code === ResultEnum.SUCCESS) {

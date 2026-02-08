@@ -1,5 +1,5 @@
 import request from "@/utils/request";
-import type { StudentTable } from './student';
+import type { StudentTable } from "./student";
 
 const API_PATH = "/badminton/parent-student";
 

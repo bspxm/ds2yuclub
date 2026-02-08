@@ -11,10 +11,22 @@
         @submit.prevent="handleQuery"
       >
         <el-form-item prop="student_id" label="学员ID">
-          <el-input-number v-model="queryFormData.student_id" placeholder="学员ID" :min="1" clearable style="width: 120px" />
+          <el-input-number
+            v-model="queryFormData.student_id"
+            placeholder="学员ID"
+            :min="1"
+            clearable
+            style="width: 120px"
+          />
         </el-form-item>
         <el-form-item prop="class_id" label="班级ID">
-          <el-input-number v-model="queryFormData.class_id" placeholder="班级ID" :min="1" clearable style="width: 120px" />
+          <el-input-number
+            v-model="queryFormData.class_id"
+            placeholder="班级ID"
+            :min="1"
+            clearable
+            style="width: 120px"
+          />
         </el-form-item>
         <el-form-item prop="attendance_status" label="考勤状态">
           <el-select
@@ -129,63 +141,82 @@
           stripe
           @selection-change="handleSelectionChange"
         >
-        <template #empty>
-          <el-empty :image-size="80" description="暂无数据" />
-        </template>
-        <el-table-column type="selection" min-width="55" align="center" />
-        <el-table-column fixed label="序号" min-width="60">
-          <template #default="scope">
-            {{ (queryFormData.page_no - 1) * queryFormData.page_size + scope.$index + 1 }}
+          <template #empty>
+            <el-empty :image-size="80" description="暂无数据" />
           </template>
-        </el-table-column>
-        <el-table-column label="学员" prop="student.name" min-width="120" />
-        <el-table-column label="班级" prop="class.name" min-width="120" />
-        <el-table-column label="考勤日期" prop="attendance_date" min-width="120" />
-        <el-table-column label="考勤状态" prop="attendance_status" min-width="90">
-          <template #default="scope">
-            <el-tag :type="scope.row.attendance_status === 'present' ? 'success' : scope.row.attendance_status === 'absent' ? 'danger' : 'warning'">
-              {{ scope.row.attendance_status === 'present' ? '出勤' : scope.row.attendance_status === 'absent' ? '缺勤' : '请假' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="考勤时间" prop="attendance_time" min-width="120" />
-        <el-table-column label="请假原因" prop="leave_reason" min-width="120" show-overflow-tooltip />
-        <el-table-column label="创建时间" prop="created_time" min-width="180" />
-        <el-table-column fixed="right" label="操作" align="center" min-width="180">
-          <template #default="scope">
-            <el-button
-              v-hasPerm="['module_badminton:class_attendance:detail']"
-              type="info"
-              size="small"
-              link
-              icon="document"
-              @click="handleOpenDialog('detail', scope.row.id)"
-            >
-              详情
-            </el-button>
-            <el-button
-              v-hasPerm="['module_badminton:class_attendance:update']"
-              type="primary"
-              size="small"
-              link
-              icon="edit"
-              @click="handleOpenDialog('update', scope.row.id)"
-            >
-              编辑
-            </el-button>
-            <el-button
-              v-hasPerm="['module_badminton:class_attendance:delete']"
-              type="danger"
-              size="small"
-              link
-              icon="delete"
-              @click="handleDelete([scope.row.id])"
-            >
-              删除
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+          <el-table-column type="selection" min-width="55" align="center" />
+          <el-table-column fixed label="序号" min-width="60">
+            <template #default="scope">
+              {{ (queryFormData.page_no - 1) * queryFormData.page_size + scope.$index + 1 }}
+            </template>
+          </el-table-column>
+          <el-table-column label="学员" prop="student.name" min-width="120" />
+          <el-table-column label="班级" prop="class.name" min-width="120" />
+          <el-table-column label="考勤日期" prop="attendance_date" min-width="120" />
+          <el-table-column label="考勤状态" prop="attendance_status" min-width="90">
+            <template #default="scope">
+              <el-tag
+                :type="
+                  scope.row.attendance_status === 'present'
+                    ? 'success'
+                    : scope.row.attendance_status === 'absent'
+                      ? 'danger'
+                      : 'warning'
+                "
+              >
+                {{
+                  scope.row.attendance_status === "present"
+                    ? "出勤"
+                    : scope.row.attendance_status === "absent"
+                      ? "缺勤"
+                      : "请假"
+                }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="考勤时间" prop="attendance_time" min-width="120" />
+          <el-table-column
+            label="请假原因"
+            prop="leave_reason"
+            min-width="120"
+            show-overflow-tooltip
+          />
+          <el-table-column label="创建时间" prop="created_time" min-width="180" />
+          <el-table-column fixed="right" label="操作" align="center" min-width="180">
+            <template #default="scope">
+              <el-button
+                v-hasPerm="['module_badminton:class_attendance:detail']"
+                type="info"
+                size="small"
+                link
+                icon="document"
+                @click="handleOpenDialog('detail', scope.row.id)"
+              >
+                详情
+              </el-button>
+              <el-button
+                v-hasPerm="['module_badminton:class_attendance:update']"
+                type="primary"
+                size="small"
+                link
+                icon="edit"
+                @click="handleOpenDialog('update', scope.row.id)"
+              >
+                编辑
+              </el-button>
+              <el-button
+                v-hasPerm="['module_badminton:class_attendance:delete']"
+                type="danger"
+                size="small"
+                link
+                icon="delete"
+                @click="handleDelete([scope.row.id])"
+              >
+                删除
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
       </div>
 
       <!-- 分页区域 -->
@@ -219,24 +250,38 @@
             {{ detailFormData.attendance_date }}
           </el-descriptions-item>
           <el-descriptions-item label="考勤状态">
-            <el-tag :type="detailFormData.attendance_status === 'present' ? 'success' : detailFormData.attendance_status === 'absent' ? 'danger' : 'warning'">
-              {{ detailFormData.attendance_status === 'present' ? '出勤' : detailFormData.attendance_status === 'absent' ? '缺勤' : '请假' }}
+            <el-tag
+              :type="
+                detailFormData.attendance_status === 'present'
+                  ? 'success'
+                  : detailFormData.attendance_status === 'absent'
+                    ? 'danger'
+                    : 'warning'
+              "
+            >
+              {{
+                detailFormData.attendance_status === "present"
+                  ? "出勤"
+                  : detailFormData.attendance_status === "absent"
+                    ? "缺勤"
+                    : "请假"
+              }}
             </el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="考勤时间">
-            {{ detailFormData.attendance_time || '未记录' }}
+            {{ detailFormData.attendance_time || "未记录" }}
           </el-descriptions-item>
           <el-descriptions-item label="请假原因" :span="2">
-            {{ detailFormData.leave_reason || '无' }}
+            {{ detailFormData.leave_reason || "无" }}
           </el-descriptions-item>
           <el-descriptions-item label="补课排课ID">
-            {{ detailFormData.makeup_schedule_id || '无' }}
+            {{ detailFormData.makeup_schedule_id || "无" }}
           </el-descriptions-item>
           <el-descriptions-item label="备注" :span="2">
-            {{ detailFormData.notes || '无' }}
+            {{ detailFormData.notes || "无" }}
           </el-descriptions-item>
           <el-descriptions-item label="创建人">
-            {{ detailFormData.created_by?.name || '系统' }}
+            {{ detailFormData.created_by?.name || "系统" }}
           </el-descriptions-item>
           <el-descriptions-item label="创建时间">
             {{ detailFormData.created_time }}
@@ -256,12 +301,22 @@
           <el-row :gutter="20">
             <el-col :span="24">
               <el-form-item label="学员ID" prop="student_id">
-                <el-input-number v-model="formData.student_id" :min="1" placeholder="学员ID" style="width: 100%" />
+                <el-input-number
+                  v-model="formData.student_id"
+                  :min="1"
+                  placeholder="学员ID"
+                  style="width: 100%"
+                />
               </el-form-item>
             </el-col>
             <el-col :span="24">
               <el-form-item label="班级ID" prop="class_id">
-                <el-input-number v-model="formData.class_id" :min="1" placeholder="班级ID" style="width: 100%" />
+                <el-input-number
+                  v-model="formData.class_id"
+                  :min="1"
+                  placeholder="班级ID"
+                  style="width: 100%"
+                />
               </el-form-item>
             </el-col>
             <el-col :span="24">
@@ -277,16 +332,24 @@
             </el-col>
             <el-col :span="24">
               <el-form-item label="考勤状态" prop="attendance_status">
-                <el-select v-model="formData.attendance_status" placeholder="请选择考勤状态" style="width: 100%">
+                <el-select
+                  v-model="formData.attendance_status"
+                  placeholder="请选择考勤状态"
+                  style="width: 100%"
+                >
                   <el-option value="present" label="出勤" />
                   <el-option value="absent" label="缺勤" />
                   <el-option value="leave" label="请假" />
                 </el-select>
               </el-form-item>
             </el-col>
-            <el-col :span="24" v-if="formData.attendance_status === 'leave'">
+            <el-col v-if="formData.attendance_status === 'leave'" :span="24">
               <el-form-item label="请假原因">
-                <el-input v-model="formData.leave_reason" placeholder="请输入请假原因" :maxlength="200" />
+                <el-input
+                  v-model="formData.leave_reason"
+                  placeholder="请输入请假原因"
+                  :maxlength="200"
+                />
               </el-form-item>
             </el-col>
             <el-col :span="24">
@@ -327,7 +390,11 @@ defineOptions({
 import { ref, reactive, onMounted } from "vue";
 import { ElMessage, ElMessageBox, ElNotification } from "element-plus";
 import { QuestionFilled } from "@element-plus/icons-vue";
-import ClassAttendanceAPI, { ClassAttendanceTable, ClassAttendanceForm, ClassAttendancePageQuery } from "@/api/module_badminton/class-attendance";
+import ClassAttendanceAPI, {
+  ClassAttendanceTable,
+  ClassAttendanceForm,
+  ClassAttendancePageQuery,
+} from "@/api/module_badminton/class-attendance";
 
 const visible = ref(true);
 const queryFormRef = ref();
@@ -544,7 +611,7 @@ async function handleDelete(ids: number[]) {
       cancelButtonText: "取消",
       type: "warning",
     });
-    
+
     await ClassAttendanceAPI.deleteClassAttendance(ids);
     ElMessage.success("删除成功");
     loadingData();

@@ -43,10 +43,7 @@
           <el-input v-model="queryFormData.location" placeholder="请输入比赛地点" clearable />
         </el-form-item>
         <el-form-item v-if="isExpand" prop="start_date" label="开始日期">
-          <DatePicker
-            v-model="startDateRange"
-            @update:model-value="handleStartDateRangeChange"
-          />
+          <DatePicker v-model="startDateRange" @update:model-value="handleStartDateRangeChange" />
         </el-form-item>
         <!-- 查询、重置、展开/收起按钮 -->
         <el-form-item>
@@ -192,126 +189,126 @@
           stripe
           @selection-change="handleSelectionChange"
         >
-        <template #empty>
-          <el-empty :image-size="80" description="暂无数据" />
-        </template>
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'selection')?.show"
-          type="selection"
-          min-width="55"
-          align="center"
-        />
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'index')?.show"
-          fixed
-          label="序号"
-          min-width="60"
-        >
-          <template #default="scope">
-            {{ (queryFormData.page_no - 1) * queryFormData.page_size + scope.$index + 1 }}
+          <template #empty>
+            <el-empty :image-size="80" description="暂无数据" />
           </template>
-        </el-table-column>
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'name')?.show"
-          label="赛事名称"
-          prop="name"
-          min-width="150"
-        />
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'format')?.show"
-          label="赛制"
-          prop="format"
-          min-width="120"
-        >
-          <template #default="scope">
-            <el-tag>
-              {{ getFormatText(scope.row.format) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'status')?.show"
-          label="状态"
-          prop="status"
-          min-width="100"
-        >
-          <template #default="scope">
-            <el-tag :type="getStatusTagType(scope.row.status)">
-              {{ getStatusText(scope.row.status) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'start_date')?.show"
-          label="开始日期"
-          prop="start_date"
-          min-width="120"
-        />
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'end_date')?.show"
-          label="结束日期"
-          prop="end_date"
-          min-width="120"
-        />
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'location')?.show"
-          label="比赛地点"
-          prop="location"
-          min-width="150"
-        />
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'participant_count')?.show"
-          label="参赛人数"
-          prop="participant_count"
-          min-width="100"
-        />
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'created_time')?.show"
-          label="创建时间"
-          prop="created_time"
-          min-width="180"
-        />
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'operation')?.show"
-          fixed="right"
-          label="操作"
-          align="center"
-          min-width="180"
-        >
-          <template #default="scope">
-            <el-button
-              v-hasPerm="['module_badminton:tournament:detail']"
-              type="info"
-              size="small"
-              link
-              icon="document"
-              @click="handleOpenDialog('detail', scope.row.id)"
-            >
-              详情
-            </el-button>
-            <el-button
-              v-hasPerm="['module_badminton:tournament:update']"
-              type="primary"
-              size="small"
-              link
-              icon="edit"
-              @click="handleOpenDialog('update', scope.row.id)"
-            >
-              编辑
-            </el-button>
-            <el-button
-              v-hasPerm="['module_badminton:tournament:delete']"
-              type="danger"
-              size="small"
-              link
-              icon="delete"
-              @click="handleDelete([scope.row.id])"
-            >
-              删除
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'selection')?.show"
+            type="selection"
+            min-width="55"
+            align="center"
+          />
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'index')?.show"
+            fixed
+            label="序号"
+            min-width="60"
+          >
+            <template #default="scope">
+              {{ (queryFormData.page_no - 1) * queryFormData.page_size + scope.$index + 1 }}
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'name')?.show"
+            label="赛事名称"
+            prop="name"
+            min-width="150"
+          />
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'format')?.show"
+            label="赛制"
+            prop="format"
+            min-width="120"
+          >
+            <template #default="scope">
+              <el-tag>
+                {{ getFormatText(scope.row.format) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'status')?.show"
+            label="状态"
+            prop="status"
+            min-width="100"
+          >
+            <template #default="scope">
+              <el-tag :type="getStatusTagType(scope.row.status)">
+                {{ getStatusText(scope.row.status) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'start_date')?.show"
+            label="开始日期"
+            prop="start_date"
+            min-width="120"
+          />
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'end_date')?.show"
+            label="结束日期"
+            prop="end_date"
+            min-width="120"
+          />
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'location')?.show"
+            label="比赛地点"
+            prop="location"
+            min-width="150"
+          />
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'participant_count')?.show"
+            label="参赛人数"
+            prop="participant_count"
+            min-width="100"
+          />
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'created_time')?.show"
+            label="创建时间"
+            prop="created_time"
+            min-width="180"
+          />
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'operation')?.show"
+            fixed="right"
+            label="操作"
+            align="center"
+            min-width="180"
+          >
+            <template #default="scope">
+              <el-button
+                v-hasPerm="['module_badminton:tournament:detail']"
+                type="info"
+                size="small"
+                link
+                icon="document"
+                @click="handleOpenDialog('detail', scope.row.id)"
+              >
+                详情
+              </el-button>
+              <el-button
+                v-hasPerm="['module_badminton:tournament:update']"
+                type="primary"
+                size="small"
+                link
+                icon="edit"
+                @click="handleOpenDialog('update', scope.row.id)"
+              >
+                编辑
+              </el-button>
+              <el-button
+                v-hasPerm="['module_badminton:tournament:delete']"
+                type="danger"
+                size="small"
+                link
+                icon="delete"
+                @click="handleDelete([scope.row.id])"
+              >
+                删除
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
       </div>
 
       <!-- 分页区域 -->
@@ -355,22 +352,22 @@
             {{ detailFormData.end_date }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="比赛地点">
-            {{ detailFormData.location || '未设置' }}
+            {{ detailFormData.location || "未设置" }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="参赛人数">
             {{ detailFormData.participant_count || 0 }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="规则说明" :span="2">
-            {{ detailFormData.rules_description || '无' }}
+            {{ detailFormData.rules_description || "无" }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="备注" :span="2">
-            {{ detailFormData.description || '无' }}
+            {{ detailFormData.description || "无" }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="创建人">
-            {{ detailFormData.created_by?.name || '系统' }}
+            {{ detailFormData.created_by?.name || "系统" }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="更新人">
-            {{ detailFormData.updated_by?.name || '系统' }}
+            {{ detailFormData.updated_by?.name || "系统" }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="创建时间">
             {{ detailFormData.created_time }}
@@ -478,7 +475,11 @@ import { ElMessage, ElMessageBox, ElNotification } from "element-plus";
 import { QuestionFilled, ArrowUp, ArrowDown } from "@element-plus/icons-vue";
 import { formatToDateTime } from "@/utils/dateUtil";
 import DatePicker from "@/components/DatePicker/index.vue";
-import TournamentAPI, { TournamentTable, TournamentForm, TournamentPageQuery } from "@/api/module_badminton/tournament";
+import TournamentAPI, {
+  TournamentTable,
+  TournamentForm,
+  TournamentPageQuery,
+} from "@/api/module_badminton/tournament";
 
 const visible = ref(true);
 const queryFormRef = ref();
@@ -570,33 +571,48 @@ const rules = reactive({
 // 获取赛制文本
 const getFormatText = (format?: string) => {
   switch (format) {
-    case 'group_cycle': return '分组循环赛';
-    case 'pure_group': return '纯小组赛';
-    case 'fixed_zone_promotion': return '定区升降赛';
-    case 'single_elimination': return '小组单败制淘汰赛';
-    default: return format || '未知';
+    case "group_cycle":
+      return "分组循环赛";
+    case "pure_group":
+      return "纯小组赛";
+    case "fixed_zone_promotion":
+      return "定区升降赛";
+    case "single_elimination":
+      return "小组单败制淘汰赛";
+    default:
+      return format || "未知";
   }
 };
 
 // 获取状态标签类型
 const getStatusTagType = (status?: string) => {
   switch (status) {
-    case 'planned': return 'info';
-    case 'ongoing': return 'warning';
-    case 'completed': return 'success';
-    case 'cancelled': return 'danger';
-    default: return 'info';
+    case "planned":
+      return "info";
+    case "ongoing":
+      return "warning";
+    case "completed":
+      return "success";
+    case "cancelled":
+      return "danger";
+    default:
+      return "info";
   }
 };
 
 // 获取状态文本
 const getStatusText = (status?: string) => {
   switch (status) {
-    case 'planned': return '计划中';
-    case 'ongoing': return '进行中';
-    case 'completed': return '已结束';
-    case 'cancelled': return '已取消';
-    default: return '未知';
+    case "planned":
+      return "计划中";
+    case "ongoing":
+      return "进行中";
+    case "completed":
+      return "已结束";
+    case "cancelled":
+      return "已取消";
+    default:
+      return "未知";
   }
 };
 
@@ -672,10 +688,10 @@ async function handleOpenDialog(type: "create" | "update" | "detail", id?: numbe
   dialogVisible.type = type;
   if (id) {
     const response = await TournamentAPI.getTournamentDetail(id);
-    if (type === 'detail') {
+    if (type === "detail") {
       dialogVisible.title = "赛事详情";
       Object.assign(detailFormData.value, response.data.data);
-    } else if (type === 'update') {
+    } else if (type === "update") {
       dialogVisible.title = "修改赛事";
       Object.assign(formData, response.data.data);
     }
@@ -781,7 +797,7 @@ async function handleDelete(ids: number[]) {
 // 批量开始/结束
 async function handleMoreClick(status: string) {
   if (selectIds.value.length) {
-    ElMessageBox.confirm(`确认${status === 'ongoing' ? '开始' : '结束'}该赛事?`, "警告", {
+    ElMessageBox.confirm(`确认${status === "ongoing" ? "开始" : "结束"}该赛事?`, "警告", {
       confirmButtonText: "确定",
       cancelButtonText: "取消",
       type: "warning",

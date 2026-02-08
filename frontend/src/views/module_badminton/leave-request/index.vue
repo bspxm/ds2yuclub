@@ -250,7 +250,12 @@
         label-position="right"
       >
         <el-form-item label="学员" prop="student_id">
-          <el-select v-model="formData.student_id" placeholder="请选择学员" style="width: 100%" filterable>
+          <el-select
+            v-model="formData.student_id"
+            placeholder="请选择学员"
+            style="width: 100%"
+            filterable
+          >
             <el-option
               v-for="student in studentOptions"
               :key="student.value"
@@ -260,7 +265,12 @@
           </el-select>
         </el-form-item>
         <el-form-item label="课程" prop="course_id">
-          <el-select v-model="formData.course_id" placeholder="请选择课程" style="width: 100%" filterable>
+          <el-select
+            v-model="formData.course_id"
+            placeholder="请选择课程"
+            style="width: 100%"
+            filterable
+          >
             <el-option
               v-for="course in courseOptions"
               :key="course.value"
@@ -510,7 +520,7 @@ async function handleSubmit() {
     // }
 
     // 模拟API调用
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 500));
 
     notification.close();
     ElNotification({

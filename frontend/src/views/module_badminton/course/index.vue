@@ -46,10 +46,7 @@
           <el-input v-model="queryFormData.course_type" placeholder="请输入课程类型" clearable />
         </el-form-item>
         <el-form-item v-if="isExpand" prop="start_time" label="开始时间">
-          <DatePicker
-            v-model="startTimeRange"
-            @update:model-value="handleStartTimeRangeChange"
-          />
+          <DatePicker v-model="startTimeRange" @update:model-value="handleStartTimeRangeChange" />
         </el-form-item>
         <!-- 查询、重置、展开/收起按钮 -->
         <el-form-item>
@@ -195,118 +192,128 @@
           stripe
           @selection-change="handleSelectionChange"
         >
-        <template #empty>
-          <el-empty :image-size="80" description="暂无数据" />
-        </template>
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'selection')?.show"
-          type="selection"
-          min-width="55"
-          align="center"
-        />
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'index')?.show"
-          fixed
-          label="序号"
-          min-width="60"
-        >
-          <template #default="scope">
-            {{ (queryFormData.page_no - 1) * queryFormData.page_size + scope.$index + 1 }}
+          <template #empty>
+            <el-empty :image-size="80" description="暂无数据" />
           </template>
-        </el-table-column>
-            <template v-if="tableColumns.find((col) => col.prop === 'name')?.show">
-              <el-table-column prop="name" label="课程名称" min-width="120" show-overflow-tooltip />
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'selection')?.show"
+            type="selection"
+            min-width="55"
+            align="center"
+          />
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'index')?.show"
+            fixed
+            label="序号"
+            min-width="60"
+          >
+            <template #default="scope">
+              {{ (queryFormData.page_no - 1) * queryFormData.page_size + scope.$index + 1 }}
             </template>
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'course_type')?.show"
-          label="课程类型"
-          prop="course_type"
-          min-width="120"
-        />
-            <template v-if="tableColumns.find((col) => col.prop === 'coach')?.show">
-              <el-table-column prop="coach" label="教练" min-width="100" show-overflow-tooltip>
-                <template #default="{ row }">
-                  {{ row.coach?.username || '未分配' }}
-                </template>
-              </el-table-column>
-            </template>
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'status')?.show"
-          label="状态"
-          prop="status"
-          min-width="100"
-        >
-          <template #default="scope">
-            <el-tag :type="getStatusTagType(scope.row.status)">
-              {{ getStatusText(scope.row.status) }}
-            </el-tag>
+          </el-table-column>
+          <template v-if="tableColumns.find((col) => col.prop === 'name')?.show">
+            <el-table-column prop="name" label="课程名称" min-width="120" show-overflow-tooltip />
           </template>
-        </el-table-column>
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'start_time')?.show"
-          label="开始时间"
-          prop="start_time"
-          min-width="180"
-        />
-            <template v-if="tableColumns.find((col) => col.prop === 'end_time')?.show">
-              <el-table-column prop="end_time" label="结束时间" min-width="150" show-overflow-tooltip />
-            </template>
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'max_students')?.show"
-          label="最大学员数"
-          prop="max_students"
-          min-width="100"
-        />
-            <template v-if="tableColumns.find((col) => col.prop === 'court_number')?.show">
-              <el-table-column prop="court_number" label="场地号" min-width="80" show-overflow-tooltip />
-            </template>
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'created_time')?.show"
-          label="创建时间"
-          prop="created_time"
-          min-width="180"
-        />
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'operation')?.show"
-          fixed="right"
-          label="操作"
-          align="center"
-          min-width="180"
-        >
-          <template #default="scope">
-            <el-button
-              v-hasPerm="['module_badminton:course:detail']"
-              type="info"
-              size="small"
-              link
-              icon="document"
-              @click="handleOpenDialog('detail', scope.row.id)"
-            >
-              详情
-            </el-button>
-            <el-button
-              v-hasPerm="['module_badminton:course:update']"
-              type="primary"
-              size="small"
-              link
-              icon="edit"
-              @click="handleOpenDialog('update', scope.row.id)"
-            >
-              编辑
-            </el-button>
-            <el-button
-              v-hasPerm="['module_badminton:course:delete']"
-              type="danger"
-              size="small"
-              link
-              icon="delete"
-              @click="handleDelete([scope.row.id])"
-            >
-              删除
-            </el-button>
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'course_type')?.show"
+            label="课程类型"
+            prop="course_type"
+            min-width="120"
+          />
+          <template v-if="tableColumns.find((col) => col.prop === 'coach')?.show">
+            <el-table-column prop="coach" label="教练" min-width="100" show-overflow-tooltip>
+              <template #default="{ row }">
+                {{ row.coach?.username || "未分配" }}
+              </template>
+            </el-table-column>
           </template>
-        </el-table-column>
-      </el-table>
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'status')?.show"
+            label="状态"
+            prop="status"
+            min-width="100"
+          >
+            <template #default="scope">
+              <el-tag :type="getStatusTagType(scope.row.status)">
+                {{ getStatusText(scope.row.status) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'start_time')?.show"
+            label="开始时间"
+            prop="start_time"
+            min-width="180"
+          />
+          <template v-if="tableColumns.find((col) => col.prop === 'end_time')?.show">
+            <el-table-column
+              prop="end_time"
+              label="结束时间"
+              min-width="150"
+              show-overflow-tooltip
+            />
+          </template>
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'max_students')?.show"
+            label="最大学员数"
+            prop="max_students"
+            min-width="100"
+          />
+          <template v-if="tableColumns.find((col) => col.prop === 'court_number')?.show">
+            <el-table-column
+              prop="court_number"
+              label="场地号"
+              min-width="80"
+              show-overflow-tooltip
+            />
+          </template>
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'created_time')?.show"
+            label="创建时间"
+            prop="created_time"
+            min-width="180"
+          />
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'operation')?.show"
+            fixed="right"
+            label="操作"
+            align="center"
+            min-width="180"
+          >
+            <template #default="scope">
+              <el-button
+                v-hasPerm="['module_badminton:course:detail']"
+                type="info"
+                size="small"
+                link
+                icon="document"
+                @click="handleOpenDialog('detail', scope.row.id)"
+              >
+                详情
+              </el-button>
+              <el-button
+                v-hasPerm="['module_badminton:course:update']"
+                type="primary"
+                size="small"
+                link
+                icon="edit"
+                @click="handleOpenDialog('update', scope.row.id)"
+              >
+                编辑
+              </el-button>
+              <el-button
+                v-hasPerm="['module_badminton:course:delete']"
+                type="danger"
+                size="small"
+                link
+                icon="delete"
+                @click="handleDelete([scope.row.id])"
+              >
+                删除
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
       </div>
 
       <!-- 分页区域 -->
@@ -334,7 +341,7 @@
             {{ detailFormData.course_name }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="课程类型">
-            {{ detailFormData.course_type || '未设置' }}
+            {{ detailFormData.course_type || "未设置" }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="状态">
             <el-tag :type="getStatusTagType(detailFormData.status)">
@@ -342,13 +349,13 @@
             </el-tag>
           </ElDescriptionsItem>
           <ElDescriptionsItem label="教练">
-            {{ detailFormData.coach?.username || '未分配' }}
+            {{ detailFormData.coach?.username || "未分配" }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="开始时间">
             {{ detailFormData.start_time }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="结束时间">
-            {{ detailFormData.end_time || '未设置' }}
+            {{ detailFormData.end_time || "未设置" }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="最大学员数">
             {{ detailFormData.max_students || 0 }}
@@ -357,16 +364,16 @@
             {{ detailFormData.min_students || 0 }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="场地号">
-            {{ detailFormData.court_number || '未设置' }}
+            {{ detailFormData.court_number || "未设置" }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="备注" :span="2">
-            {{ detailFormData.notes || '无' }}
+            {{ detailFormData.notes || "无" }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="创建人">
-            {{ detailFormData.created_by?.name || '系统' }}
+            {{ detailFormData.created_by?.name || "系统" }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="更新人">
-            {{ detailFormData.updated_by?.name || '系统' }}
+            {{ detailFormData.updated_by?.name || "系统" }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="创建时间">
             {{ detailFormData.created_time }}
@@ -390,15 +397,19 @@
           <el-form-item label="课程名称" prop="name">
             <el-input v-model="formData.name" placeholder="请输入课程名称" :maxlength="100" />
           </el-form-item>
-        <el-form-item prop="course_type" label="课程类型">
-          <el-select v-model="formData.course_type" placeholder="请选择课程类型" style="width: 100%">
-            <el-option value="regular" label="常规课" />
-            <el-option value="private" label="私教课" />
-            <el-option value="group" label="小组课" />
-            <el-option value="competition" label="比赛课" />
-            <el-option value="theory" label="理论课" />
-          </el-select>
-        </el-form-item>
+          <el-form-item prop="course_type" label="课程类型">
+            <el-select
+              v-model="formData.course_type"
+              placeholder="请选择课程类型"
+              style="width: 100%"
+            >
+              <el-option value="regular" label="常规课" />
+              <el-option value="private" label="私教课" />
+              <el-option value="group" label="小组课" />
+              <el-option value="competition" label="比赛课" />
+              <el-option value="theory" label="理论课" />
+            </el-select>
+          </el-form-item>
           <el-form-item label="状态" prop="status">
             <el-radio-group v-model="formData.status">
               <el-radio value="scheduled">已安排</el-radio>
@@ -407,22 +418,22 @@
               <el-radio value="cancelled">已取消</el-radio>
             </el-radio-group>
           </el-form-item>
-                          <el-form-item label="教练" prop="coach_id">
-                            <el-select
-                              v-model="formData.coach_id"
-                              placeholder="请选择教练"
-                              style="width: 100%"
-                              clearable
-                              filterable
-                            >
-                              <el-option
-                                v-for="user in userList"
-                                :key="user.id"
-                                :label="user.name || user.username"
-                                :value="user.id"
-                              />
-                            </el-select>
-                          </el-form-item>
+          <el-form-item label="教练" prop="coach_id">
+            <el-select
+              v-model="formData.coach_id"
+              placeholder="请选择教练"
+              style="width: 100%"
+              clearable
+              filterable
+            >
+              <el-option
+                v-for="user in userList"
+                :key="user.id"
+                :label="user.name || user.username"
+                :value="user.id"
+              />
+            </el-select>
+          </el-form-item>
           <el-form-item label="开始时间" prop="start_time">
             <el-date-picker
               v-model="formData.start_time"
@@ -449,21 +460,30 @@
               placeholder="请输入时长"
             />
           </el-form-item>
-        <el-form-item label="最大学员数">
-          <el-input v-model="formData.max_students" placeholder="请输入最大学员数" type="number" />
-        </el-form-item>
-        <el-form-item label="最小学员数">
-          <el-input v-model="formData.min_students" placeholder="请输入最小学员数" type="number" />
-        </el-form-item>
-        <el-form-item label="价格">
-          <el-input v-model="formData.price" placeholder="请输入价格" type="number" />
-        </el-form-item>
-                          <el-form-item label="场地号">
-                            <el-input v-model="formData.court_number" placeholder="请输入场地号" :maxlength="50" />
-                          </el-form-item>
-                          <el-form-item label="所属校区">
-                            <el-input v-model="formData.campus" placeholder="请输入所属校区" :maxlength="100" />
-                          </el-form-item>          <el-form-item label="备注">
+          <el-form-item label="最大学员数">
+            <el-input
+              v-model="formData.max_students"
+              placeholder="请输入最大学员数"
+              type="number"
+            />
+          </el-form-item>
+          <el-form-item label="最小学员数">
+            <el-input
+              v-model="formData.min_students"
+              placeholder="请输入最小学员数"
+              type="number"
+            />
+          </el-form-item>
+          <el-form-item label="价格">
+            <el-input v-model="formData.price" placeholder="请输入价格" type="number" />
+          </el-form-item>
+          <el-form-item label="场地号">
+            <el-input v-model="formData.court_number" placeholder="请输入场地号" :maxlength="50" />
+          </el-form-item>
+          <el-form-item label="所属校区">
+            <el-input v-model="formData.campus" placeholder="请输入所属校区" :maxlength="100" />
+          </el-form-item>
+          <el-form-item label="备注">
             <el-input
               v-model="formData.notes"
               :rows="3"
@@ -599,22 +619,32 @@ const rules = reactive({
 // 获取状态标签类型
 const getStatusTagType = (status?: string) => {
   switch (status) {
-    case 'scheduled': return 'info';
-    case 'in_progress': return 'warning';
-    case 'completed': return 'success';
-    case 'cancelled': return 'danger';
-    default: return 'info';
+    case "scheduled":
+      return "info";
+    case "in_progress":
+      return "warning";
+    case "completed":
+      return "success";
+    case "cancelled":
+      return "danger";
+    default:
+      return "info";
   }
 };
 
 // 获取状态文本
 const getStatusText = (status?: string) => {
   switch (status) {
-    case 'scheduled': return '已安排';
-    case 'in_progress': return '进行中';
-    case 'completed': return '已完成';
-    case 'cancelled': return '已取消';
-    default: return '未知';
+    case "scheduled":
+      return "已安排";
+    case "in_progress":
+      return "进行中";
+    case "completed":
+      return "已完成";
+    case "cancelled":
+      return "已取消";
+    default:
+      return "未知";
   }
 };
 
@@ -691,15 +721,15 @@ async function handleOpenDialog(type: "create" | "update" | "detail", id?: numbe
   // 每次打开弹窗前先重置表单
   resetForm();
   dialogVisible.type = type;
-  
-  if (type === 'detail' && id) {
+
+  if (type === "detail" && id) {
     // 详情：从当前表格数据中查找
     dialogVisible.title = "课程详情";
-    const course = pageTableData.value.find(item => item.id === id);
+    const course = pageTableData.value.find((item) => item.id === id);
     if (course) {
       Object.assign(detailFormData.value, course);
     }
-  } else if (type === 'update' && id) {
+  } else if (type === "update" && id) {
     // 编辑：由于API不支持，暂时禁用编辑功能
     ElMessage.warning("课程编辑功能暂未实现");
     return;
@@ -794,7 +824,7 @@ const loadUserList = async () => {
     const response = await UserAPI.listUser({
       page: 1,
       page_size: 100, // API限制最大100
-      status: "0" // 只获取启用状态的用户
+      status: "0", // 只获取启用状态的用户
     } as any); // 临时使用any绕过类型检查
     if (response.data?.data?.items) {
       userList.value = response.data.data.items;

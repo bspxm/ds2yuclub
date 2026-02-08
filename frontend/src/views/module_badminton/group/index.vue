@@ -277,7 +277,7 @@
               {{ detailFormData.name }}
             </el-descriptions-item>
             <el-descriptions-item label="备注" :span="2">
-              {{ detailFormData.description || '无' }}
+              {{ detailFormData.description || "无" }}
             </el-descriptions-item>
             <el-descriptions-item label="教练数量">
               {{ detailFormData.coach_count || 0 }}
@@ -290,7 +290,7 @@
                 v-for="coach in detailFormData.coaches"
                 :key="coach.id"
                 type="primary"
-                style="margin-right: 5px; margin-bottom: 5px;"
+                style="margin-right: 5px; margin-bottom: 5px"
               >
                 {{ coach.name }}
               </el-tag>
@@ -301,17 +301,19 @@
                 v-for="student in detailFormData.students"
                 :key="student.id"
                 type="success"
-                style="margin-right: 5px; margin-bottom: 5px;"
+                style="margin-right: 5px; margin-bottom: 5px"
               >
                 {{ student.name }}
               </el-tag>
-              <span v-if="!detailFormData.students || detailFormData.students.length === 0">无</span>
+              <span v-if="!detailFormData.students || detailFormData.students.length === 0">
+                无
+              </span>
             </el-descriptions-item>
             <el-descriptions-item label="创建人">
-              {{ detailFormData.created_by?.name || '系统' }}
+              {{ detailFormData.created_by?.name || "系统" }}
             </el-descriptions-item>
             <el-descriptions-item label="更新人">
-              {{ detailFormData.updated_by?.name || '系统' }}
+              {{ detailFormData.updated_by?.name || "系统" }}
             </el-descriptions-item>
             <el-descriptions-item label="创建时间">
               {{ formatDateTime(detailFormData.created_time) }}
@@ -331,19 +333,21 @@
             <el-col :span="8">
               <el-card shadow="never">
                 <template #header>
-                  <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <div style="display: flex; justify-content: space-between; align-items: center">
                     <span>选择学员（{{ formData.student_ids.length }} 人）</span>
-                    <el-tag type="info" size="small">已选择 {{ formData.student_ids.length }} 人</el-tag>
+                    <el-tag type="info" size="small">
+                      已选择 {{ formData.student_ids.length }} 人
+                    </el-tag>
                   </div>
                 </template>
 
                 <!-- 筛选区域 -->
-                <div style="margin-bottom: 15px;">
+                <div style="margin-bottom: 15px">
                   <el-input
                     v-model="studentSearch"
                     placeholder="搜索：姓名、手机号或年龄（如：张三、138...、8岁）"
                     clearable
-                    style="width: 100%; margin-bottom: 10px;"
+                    style="width: 100%; margin-bottom: 10px"
                   >
                     <template #prefix>
                       <el-icon><Search /></el-icon>
@@ -351,7 +355,12 @@
                   </el-input>
                   <el-row :gutter="10">
                     <el-col :span="12">
-                      <el-select v-model="groupFilter" placeholder="筛选组别" clearable style="width: 100%">
+                      <el-select
+                        v-model="groupFilter"
+                        placeholder="筛选组别"
+                        clearable
+                        style="width: 100%"
+                      >
                         <el-option label="全部组别" value="" />
                         <el-option label="未设置" value="__none__" />
                         <el-option
@@ -363,7 +372,12 @@
                       </el-select>
                     </el-col>
                     <el-col :span="12">
-                      <el-select v-model="levelFilter" placeholder="筛选水平" clearable style="width: 100%">
+                      <el-select
+                        v-model="levelFilter"
+                        placeholder="筛选水平"
+                        clearable
+                        style="width: 100%"
+                      >
                         <el-option label="全部水平" value="" />
                         <el-option
                           v-for="level in uniqueLevels"
@@ -377,18 +391,20 @@
                 </div>
 
                 <!-- 学员列表 -->
-                <div style="height: 450px; overflow-y: auto;">
+                <div style="height: 450px; overflow-y: auto">
                   <el-checkbox-group v-model="formData.student_ids">
                     <div
                       v-for="student in filteredStudents"
                       :key="student.id"
-                      style="padding: 8px; border-bottom: 1px solid #f0f0f0;"
+                      style="padding: 8px; border-bottom: 1px solid #f0f0f0"
                     >
                       <el-checkbox :label="student.id">
-                        <span style="margin-left: 8px;">
-                          {{ student.name }}:{{ calculateAge(student.birth_date) }}岁:{{ student.level || '未设置' }}:{{ student.group_name || '未设置' }}
-                          <span style="color: #909399; font-size: 12px; margin-left: 8px;">
-                            {{ student.mobile || '无手机号' }}
+                        <span style="margin-left: 8px">
+                          {{ student.name }}:{{ calculateAge(student.birth_date) }}岁:{{
+                            student.level || "未设置"
+                          }}:{{ student.group_name || "未设置" }}
+                          <span style="color: #909399; font-size: 12px; margin-left: 8px">
+                            {{ student.mobile || "无手机号" }}
                           </span>
                         </span>
                       </el-checkbox>
@@ -550,7 +566,16 @@ const rules = reactive({
 const coachOptions = ref<Array<{ id: number; name: string }>>([]);
 
 // 学员选项
-const studentOptions = ref<Array<{ id: number; name: string; birth_date?: string; level?: string; group_name?: string; mobile?: string }>>([]);
+const studentOptions = ref<
+  Array<{
+    id: number;
+    name: string;
+    birth_date?: string;
+    level?: string;
+    group_name?: string;
+    mobile?: string;
+  }>
+>([]);
 
 // 学员搜索和筛选
 const studentSearch = ref("");
@@ -560,7 +585,7 @@ const levelFilter = ref("");
 // 计算属性：筛选后的学员列表
 const filteredStudents = computed(() => {
   let filtered = studentOptions.value;
-  console.log('filteredStudents计算, studentOptions.value:', studentOptions.value.length, '条');
+  console.log("filteredStudents计算, studentOptions.value:", studentOptions.value.length, "条");
 
   // 搜索过滤
   if (studentSearch.value) {
@@ -586,7 +611,7 @@ const filteredStudents = computed(() => {
   if (groupFilter.value) {
     if (groupFilter.value === "__none__") {
       // 筛选未设置组别的学员
-      filtered = filtered.filter((student) => !student.group_name || student.group_name === '');
+      filtered = filtered.filter((student) => !student.group_name || student.group_name === "");
     } else {
       // 筛选指定组别的学员
       filtered = filtered.filter((student) => student.group_name === groupFilter.value);
@@ -598,7 +623,7 @@ const filteredStudents = computed(() => {
     filtered = filtered.filter((student) => student.level === levelFilter.value);
   }
 
-  console.log('filteredStudents结果:', filtered.length, '条');
+  console.log("filteredStudents结果:", filtered.length, "条");
   return filtered;
 });
 
@@ -639,18 +664,18 @@ const calculateAge = (birthDate: string) => {
 
 // 格式化时间（精确到秒）
 const formatDateTime = (dateTime: string | null | undefined) => {
-  if (!dateTime) return '';
+  if (!dateTime) return "";
   try {
     const date = new Date(dateTime);
     const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    const seconds = String(date.getSeconds()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    const seconds = String(date.getSeconds()).padStart(2, "0");
     return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
   } catch (error) {
-    console.error('时间格式化失败:', error);
+    console.error("时间格式化失败:", error);
     return dateTime;
   }
 };
@@ -749,17 +774,19 @@ const loadGroupDetail = async (id: number) => {
 const loadCoachOptions = async () => {
   try {
     const response = await UserAPI.listUser({ page_no: 1, page_size: 100 });
-    coachOptions.value = response.data.data.items.filter((user: any) => {
-      const isEnabled = user.status === '0';
-      const hasPositions = user.positions && user.positions.length > 0;
-      const isCoach = hasPositions && user.positions.some((pos: any) =>
-        pos.name === '教练' || pos.name === '主管教练'
-      );
-      return isEnabled && isCoach;
-    }).map((user: any) => ({
-      id: user.id,
-      name: user.name,
-    }));
+    coachOptions.value = response.data.data.items
+      .filter((user: any) => {
+        const isEnabled = user.status === "0";
+        const hasPositions = user.positions && user.positions.length > 0;
+        const isCoach =
+          hasPositions &&
+          user.positions.some((pos: any) => pos.name === "教练" || pos.name === "主管教练");
+        return isEnabled && isCoach;
+      })
+      .map((user: any) => ({
+        id: user.id,
+        name: user.name,
+      }));
   } catch (error) {
     console.error("加载教练列表失败:", error);
   }
@@ -769,16 +796,16 @@ const loadCoachOptions = async () => {
 const loadStudentOptions = async () => {
   try {
     const res = await StudentAPI.getStudentList({ page_no: 1, page_size: 100 });
-    console.log('学员列表响应:', res);
+    console.log("学员列表响应:", res);
 
     if (res.data && res.data.code === 0 && res.data.data) {
       // 过滤掉禁用状态的学员（status !== '0' 表示禁用）
       studentOptions.value = (res.data.data.items || []).filter(
-        (student) => student.status === '0'
+        (student) => student.status === "0"
       );
-      console.log('学员选项:', studentOptions.value);
+      console.log("学员选项:", studentOptions.value);
     } else {
-      console.error('响应格式错误:', res);
+      console.error("响应格式错误:", res);
     }
   } catch (error) {
     console.error("加载学员列表失败:", error);
@@ -840,7 +867,7 @@ const handleSubmit = async () => {
       res = await GroupAPI.updateGroup(updateId, submitData);
     }
 
-    console.log('提交响应:', res);
+    console.log("提交响应:", res);
     if (res.data.code === 0) {
       // 关闭加载通知，显示成功通知
       notification.close();
@@ -903,10 +930,10 @@ const handleDelete = async (ids: number[]) => {
 
 // 初始化
 const loadingText = computed(() => {
-  if (dialogVisible.type === 'update') {
-    return '保存中...';
+  if (dialogVisible.type === "update") {
+    return "保存中...";
   }
-  return '加载中...';
+  return "加载中...";
 });
 
 onMounted(() => {

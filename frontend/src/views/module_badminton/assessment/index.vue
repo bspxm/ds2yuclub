@@ -324,7 +324,7 @@
         </el-form-item>
 
         <el-row :gutter="20">
-          <el-col :span="12" v-for="dimension in assessmentDimensions" :key="dimension.key">
+          <el-col v-for="dimension in assessmentDimensions" :key="dimension.key" :span="12">
             <el-form-item :label="dimension.label" :prop="dimension.key">
               <el-rate
                 v-model="formData[dimension.key]"
@@ -351,7 +351,7 @@
       </el-form>
       <template #footer>
         <div class="dialog-footer">
-          <el-button type="primary" @click="handleSubmit" :loading="submitting">确定</el-button>
+          <el-button type="primary" :loading="submitting" @click="handleSubmit">确定</el-button>
           <el-button @click="handleCloseDialog">取消</el-button>
         </div>
       </template>
@@ -369,7 +369,11 @@ import { ref, reactive, computed, onMounted } from "vue";
 import { ElMessage, ElMessageBox, ElNotification } from "element-plus";
 import type { FormInstance, FormRules } from "element-plus";
 import { QuestionFilled, ArrowUp, ArrowDown } from "@element-plus/icons-vue";
-import AssessmentAPI, { type AssessmentForm, type AssessmentTable, type AssessmentPageQuery } from "@/api/module_badminton/assessment";
+import AssessmentAPI, {
+  type AssessmentForm,
+  type AssessmentTable,
+  type AssessmentPageQuery,
+} from "@/api/module_badminton/assessment";
 import StudentAPI, { type StudentTable } from "@/api/module_badminton/student";
 import UserAPI, { type UserInfo } from "@/api/module_system/user";
 import { useUserStoreHook } from "@/store/modules/user.store";

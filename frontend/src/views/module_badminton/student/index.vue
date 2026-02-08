@@ -204,146 +204,154 @@
           stripe
           @selection-change="handleSelectionChange"
         >
-        <template #empty>
-          <el-empty :image-size="80" description="暂无数据" />
-        </template>
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'selection')?.show"
-          type="selection"
-          min-width="55"
-          align="center"
-        />
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'index')?.show"
-          fixed
-          label="序号"
-          min-width="60"
-        >
-          <template #default="scope">
-            {{ (queryFormData.page_no - 1) * queryFormData.page_size + scope.$index + 1 }}
+          <template #empty>
+            <el-empty :image-size="80" description="暂无数据" />
           </template>
-        </el-table-column>
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'name')?.show"
-          label="姓名"
-          prop="name"
-          min-width="100"
-        />
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'gender')?.show"
-          label="性别"
-          prop="gender"
-          min-width="80"
-        >
-          <template #default="scope">
-            <el-tag :type="scope.row.gender === '0' ? 'primary' : scope.row.gender === '1' ? 'danger' : 'info'">
-              {{ scope.row.gender === '0' ? '男' : scope.row.gender === '1' ? '女' : '未知' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'birth_date')?.show"
-          label="出生日期"
-          prop="birth_date"
-          min-width="120"
-        />
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'group_name')?.show"
-          label="所属组别"
-          prop="group_name"
-          min-width="120"
-        />
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'campus')?.show"
-          label="所属校区"
-          prop="campus"
-          min-width="120"
-        />
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'level')?.show"
-          label="技术水平"
-          prop="level"
-          min-width="100"
-        />
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'total_matches')?.show"
-          label="总比赛"
-          prop="total_matches"
-          min-width="90"
-        />
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'win_rate')?.show"
-          label="胜率"
-          prop="win_rate"
-          min-width="90"
-        >
-          <template #default="scope">
-            {{ scope.row.win_rate ? `${scope.row.win_rate}%` : '0%' }}
-          </template>
-        </el-table-column>
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'status')?.show"
-          label="状态"
-          prop="status"
-          min-width="90"
-        >
-          <template #default="scope">
-            <el-tag :type="scope.row.status === '0' ? 'success' : 'info'">
-              {{ scope.row.status === '0' ? '启用' : '停用' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'created_time')?.show"
-          label="创建时间"
-          prop="created_time"
-          min-width="180"
-        >
-          <template #default="scope">
-            {{ formatDateTime(scope.row.created_time) }}
-          </template>
-        </el-table-column>
-        <el-table-column
-          v-if="tableColumns.find((col) => col.prop === 'operation')?.show"
-          fixed="right"
-          label="操作"
-          align="center"
-          min-width="180"
-        >
-          <template #default="scope">
-            <el-button
-              v-hasPerm="['module_badminton:student:detail']"
-              type="info"
-              size="small"
-              link
-              icon="document"
-              @click="handleOpenDialog('detail', scope.row.id)"
-            >
-              详情
-            </el-button>
-            <el-button
-              v-hasPerm="['module_badminton:student:update']"
-              type="primary"
-              size="small"
-              link
-              icon="edit"
-              @click="handleOpenDialog('update', scope.row.id)"
-            >
-              编辑
-            </el-button>
-            <el-button
-              v-hasPerm="['module_badminton:student:delete']"
-              type="danger"
-              size="small"
-              link
-              icon="delete"
-              @click="handleDelete([scope.row.id])"
-            >
-              删除
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'selection')?.show"
+            type="selection"
+            min-width="55"
+            align="center"
+          />
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'index')?.show"
+            fixed
+            label="序号"
+            min-width="60"
+          >
+            <template #default="scope">
+              {{ (queryFormData.page_no - 1) * queryFormData.page_size + scope.$index + 1 }}
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'name')?.show"
+            label="姓名"
+            prop="name"
+            min-width="100"
+          />
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'gender')?.show"
+            label="性别"
+            prop="gender"
+            min-width="80"
+          >
+            <template #default="scope">
+              <el-tag
+                :type="
+                  scope.row.gender === '0'
+                    ? 'primary'
+                    : scope.row.gender === '1'
+                      ? 'danger'
+                      : 'info'
+                "
+              >
+                {{ scope.row.gender === "0" ? "男" : scope.row.gender === "1" ? "女" : "未知" }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'birth_date')?.show"
+            label="出生日期"
+            prop="birth_date"
+            min-width="120"
+          />
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'group_name')?.show"
+            label="所属组别"
+            prop="group_name"
+            min-width="120"
+          />
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'campus')?.show"
+            label="所属校区"
+            prop="campus"
+            min-width="120"
+          />
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'level')?.show"
+            label="技术水平"
+            prop="level"
+            min-width="100"
+          />
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'total_matches')?.show"
+            label="总比赛"
+            prop="total_matches"
+            min-width="90"
+          />
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'win_rate')?.show"
+            label="胜率"
+            prop="win_rate"
+            min-width="90"
+          >
+            <template #default="scope">
+              {{ scope.row.win_rate ? `${scope.row.win_rate}%` : "0%" }}
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'status')?.show"
+            label="状态"
+            prop="status"
+            min-width="90"
+          >
+            <template #default="scope">
+              <el-tag :type="scope.row.status === '0' ? 'success' : 'info'">
+                {{ scope.row.status === "0" ? "启用" : "停用" }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'created_time')?.show"
+            label="创建时间"
+            prop="created_time"
+            min-width="180"
+          >
+            <template #default="scope">
+              {{ formatDateTime(scope.row.created_time) }}
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="tableColumns.find((col) => col.prop === 'operation')?.show"
+            fixed="right"
+            label="操作"
+            align="center"
+            min-width="180"
+          >
+            <template #default="scope">
+              <el-button
+                v-hasPerm="['module_badminton:student:detail']"
+                type="info"
+                size="small"
+                link
+                icon="document"
+                @click="handleOpenDialog('detail', scope.row.id)"
+              >
+                详情
+              </el-button>
+              <el-button
+                v-hasPerm="['module_badminton:student:update']"
+                type="primary"
+                size="small"
+                link
+                icon="edit"
+                @click="handleOpenDialog('update', scope.row.id)"
+              >
+                编辑
+              </el-button>
+              <el-button
+                v-hasPerm="['module_badminton:student:delete']"
+                type="danger"
+                size="small"
+                link
+                icon="delete"
+                @click="handleDelete([scope.row.id])"
+              >
+                删除
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
       </div>
 
       <!-- 分页区域 -->
@@ -371,44 +379,60 @@
             {{ detailFormData.name }}
           </el-descriptions-item>
           <el-descriptions-item label="英文名">
-            {{ detailFormData.english_name || '无' }}
+            {{ detailFormData.english_name || "无" }}
           </el-descriptions-item>
           <el-descriptions-item label="性别">
-            <el-tag :type="detailFormData.gender === '0' ? 'primary' : detailFormData.gender === '1' ? 'danger' : 'info'">
-              {{ detailFormData.gender === '0' ? '男' : detailFormData.gender === '1' ? '女' : '未知' }}
+            <el-tag
+              :type="
+                detailFormData.gender === '0'
+                  ? 'primary'
+                  : detailFormData.gender === '1'
+                    ? 'danger'
+                    : 'info'
+              "
+            >
+              {{
+                detailFormData.gender === "0" ? "男" : detailFormData.gender === "1" ? "女" : "未知"
+              }}
             </el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="出生日期">
-            {{ detailFormData.birth_date || '未设置' }}
+            {{ detailFormData.birth_date || "未设置" }}
           </el-descriptions-item>
           <el-descriptions-item label="身高">
-            {{ detailFormData.height ? `${detailFormData.height}cm` : '未设置' }}
+            {{ detailFormData.height ? `${detailFormData.height}cm` : "未设置" }}
           </el-descriptions-item>
           <el-descriptions-item label="体重">
-            {{ detailFormData.weight ? `${detailFormData.weight}kg` : '未设置' }}
+            {{ detailFormData.weight ? `${detailFormData.weight}kg` : "未设置" }}
           </el-descriptions-item>
           <el-descriptions-item label="惯用手">
             <el-tag>
-              {{ detailFormData.handedness === 'right' ? '右手' : detailFormData.handedness === 'left' ? '左手' : '双手' }}
+              {{
+                detailFormData.handedness === "right"
+                  ? "右手"
+                  : detailFormData.handedness === "left"
+                    ? "左手"
+                    : "双手"
+              }}
             </el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="入训日期">
             {{ detailFormData.join_date }}
           </el-descriptions-item>
           <el-descriptions-item label="技术水平">
-            {{ detailFormData.level || '未设置' }}
+            {{ detailFormData.level || "未设置" }}
           </el-descriptions-item>
           <el-descriptions-item label="所属组别">
-            {{ detailFormData.group_name || '未分组' }}
+            {{ detailFormData.group_name || "未分组" }}
           </el-descriptions-item>
           <el-descriptions-item label="所属校区">
-            {{ detailFormData.campus || '未设置' }}
+            {{ detailFormData.campus || "未设置" }}
           </el-descriptions-item>
           <el-descriptions-item label="联系人">
-            {{ detailFormData.contact || '未设置' }}
+            {{ detailFormData.contact || "未设置" }}
           </el-descriptions-item>
           <el-descriptions-item label="手机号码">
-            {{ detailFormData.mobile || '未设置' }}
+            {{ detailFormData.mobile || "未设置" }}
           </el-descriptions-item>
           <el-descriptions-item label="总比赛场次">
             {{ detailFormData.total_matches || 0 }}
@@ -420,18 +444,18 @@
             {{ detailFormData.losses || 0 }}
           </el-descriptions-item>
           <el-descriptions-item label="胜率">
-            {{ detailFormData.win_rate ? `${detailFormData.win_rate}%` : '0%' }}
+            {{ detailFormData.win_rate ? `${detailFormData.win_rate}%` : "0%" }}
           </el-descriptions-item>
           <el-descriptions-item label="状态">
             <el-tag :type="detailFormData.status === '0' ? 'success' : 'info'">
-              {{ detailFormData.status === '0' ? '启用' : '停用' }}
+              {{ detailFormData.status === "0" ? "启用" : "停用" }}
             </el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="创建人">
-            {{ detailFormData.created_by?.name || '系统' }}
+            {{ detailFormData.created_by?.name || "系统" }}
           </el-descriptions-item>
           <el-descriptions-item label="更新人">
-            {{ detailFormData.updated_by?.name || '系统' }}
+            {{ detailFormData.updated_by?.name || "系统" }}
           </el-descriptions-item>
           <el-descriptions-item label="创建时间">
             {{ formatDateTime(detailFormData.created_time) }}
@@ -440,7 +464,7 @@
             {{ formatDateTime(detailFormData.updated_time) }}
           </el-descriptions-item>
           <el-descriptions-item label="备注" :span="2">
-            {{ detailFormData.description || '无' }}
+            {{ detailFormData.description || "无" }}
           </el-descriptions-item>
         </el-descriptions>
       </template>
@@ -463,10 +487,14 @@
             </el-col>
             <el-col :span="12">
               <el-form-item label="英文名">
-                <el-input v-model="formData.english_name" placeholder="请输入英文名" :maxlength="64" />
+                <el-input
+                  v-model="formData.english_name"
+                  placeholder="请输入英文名"
+                  :maxlength="64"
+                />
               </el-form-item>
             </el-col>
-            
+
             <!-- 第二行：性别、出生日期 -->
             <el-col :span="12">
               <el-form-item label="性别" prop="gender">
@@ -488,23 +516,41 @@
                 />
               </el-form-item>
             </el-col>
-            
+
             <!-- 第三行：身高、体重 -->
             <el-col :span="12">
               <el-form-item label="身高(cm)">
-                <el-input-number v-model="formData.height" :min="50" :max="250" :step="0.5" placeholder="身高" style="width: 100%" />
+                <el-input-number
+                  v-model="formData.height"
+                  :min="50"
+                  :max="250"
+                  :step="0.5"
+                  placeholder="身高"
+                  style="width: 100%"
+                />
               </el-form-item>
             </el-col>
             <el-col :span="12">
               <el-form-item label="体重(kg)">
-                <el-input-number v-model="formData.weight" :min="10" :max="200" :step="0.5" placeholder="体重" style="width: 100%" />
+                <el-input-number
+                  v-model="formData.weight"
+                  :min="10"
+                  :max="200"
+                  :step="0.5"
+                  placeholder="体重"
+                  style="width: 100%"
+                />
               </el-form-item>
             </el-col>
-            
+
             <!-- 第四行：惯用手、入训日期 -->
             <el-col :span="12">
               <el-form-item label="惯用手" prop="handedness">
-                <el-select v-model="formData.handedness" placeholder="请选择惯用手" style="width: 100%">
+                <el-select
+                  v-model="formData.handedness"
+                  placeholder="请选择惯用手"
+                  style="width: 100%"
+                >
                   <el-option value="right" label="右手" />
                   <el-option value="left" label="左手" />
                   <el-option value="both" label="双手" />
@@ -522,7 +568,7 @@
                 />
               </el-form-item>
             </el-col>
-            
+
             <!-- 第五行：技术水平、所属组别 -->
             <el-col :span="12">
               <el-form-item label="技术水平">
@@ -531,10 +577,14 @@
             </el-col>
             <el-col :span="12">
               <el-form-item label="所属组别">
-                <el-input v-model="formData.group_name" placeholder="请输入所属组别" :maxlength="64" />
+                <el-input
+                  v-model="formData.group_name"
+                  placeholder="请输入所属组别"
+                  :maxlength="64"
+                />
               </el-form-item>
             </el-col>
-            
+
             <!-- 第六行：所属校区、联系人 -->
             <el-col :span="12">
               <el-form-item label="所属校区">
@@ -546,7 +596,7 @@
                 <el-input v-model="formData.contact" placeholder="请输入联系人" :maxlength="32" />
               </el-form-item>
             </el-col>
-            
+
             <!-- 第七行：手机号码、状态 -->
             <el-col :span="12">
               <el-form-item label="手机号码">
@@ -561,7 +611,7 @@
                 </el-radio-group>
               </el-form-item>
             </el-col>
-            
+
             <!-- 第八行：备注（跨两列） -->
             <el-col :span="24">
               <el-form-item label="备注">
@@ -601,7 +651,10 @@
         <el-alert type="info" show-icon class="mb-4">
           <template #title>
             <div>
-              <p>1. 请先<el-link type="primary" @click="handleDownloadTemplate">下载导入模板</el-link></p>
+              <p>
+                1. 请先
+                <el-link type="primary" @click="handleDownloadTemplate">下载导入模板</el-link>
+              </p>
               <p>2. 按照模板格式填写学员信息</p>
               <p>3. 上传填写好的Excel文件</p>
               <p class="text-red-500">注意：姓名、性别、入训日期为必填项</p>
@@ -622,14 +675,13 @@
             :file-list="fileList"
             accept=".xlsx,.xls"
           >
-            <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+            <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
             <div class="el-upload__text">
-              将文件拖到此处，或<em>点击上传</em>
+              将文件拖到此处，或
+              <em>点击上传</em>
             </div>
             <template #tip>
-              <div class="el-upload__tip">
-                仅支持 Excel 文件 (.xlsx, .xls)，文件大小不超过 10MB
-              </div>
+              <div class="el-upload__tip">仅支持 Excel 文件 (.xlsx, .xls)，文件大小不超过 10MB</div>
             </template>
           </el-upload>
         </div>
@@ -646,14 +698,19 @@
                 <el-tag type="success">{{ importResult.success }}</el-tag>
               </el-descriptions-item>
               <el-descriptions-item label="失败数">
-                <el-tag v-if="importResult.failed > 0" type="danger">{{ importResult.failed }}</el-tag>
+                <el-tag v-if="importResult.failed > 0" type="danger">
+                  {{ importResult.failed }}
+                </el-tag>
                 <el-tag v-else type="info">{{ importResult.failed }}</el-tag>
               </el-descriptions-item>
             </el-descriptions>
           </div>
 
           <!-- 错误详情 -->
-          <div v-if="importResult.errors && importResult.errors.length > 0" class="error-details mt-4">
+          <div
+            v-if="importResult.errors && importResult.errors.length > 0"
+            class="error-details mt-4"
+          >
             <el-alert type="error" show-icon title="导入错误详情" />
             <el-table :data="importResult.errors" size="small" border class="mt-2" height="200">
               <el-table-column prop="row" label="行号" width="80" align="center" />
@@ -665,7 +722,10 @@
 
         <!-- 导入进度 -->
         <div v-if="importing" class="import-progress mt-4">
-          <el-progress :percentage="importProgress" :status="importProgress === 100 ? 'success' : ''" />
+          <el-progress
+            :percentage="importProgress"
+            :status="importProgress === 100 ? 'success' : ''"
+          />
           <div class="progress-text text-center mt-2">
             {{ importMessage }}
           </div>
@@ -674,14 +734,14 @@
 
       <template #footer>
         <div class="dialog-footer">
-          <el-button @click="handleCloseImportDialog" :disabled="importing">取消</el-button>
-          <el-button 
-            type="primary" 
-            @click="handleImportSubmit" 
+          <el-button :disabled="importing" @click="handleCloseImportDialog">取消</el-button>
+          <el-button
+            type="primary"
             :loading="importing"
             :disabled="!selectedFile || importing"
+            @click="handleImportSubmit"
           >
-            {{ importing ? '导入中...' : '开始导入' }}
+            {{ importing ? "导入中..." : "开始导入" }}
           </el-button>
         </div>
       </template>
@@ -700,7 +760,12 @@ import { ElMessage, ElMessageBox, ElNotification } from "element-plus";
 import { QuestionFilled, ArrowUp, ArrowDown, UploadFilled } from "@element-plus/icons-vue";
 import { formatToDateTime } from "@/utils/dateUtil";
 import DatePicker from "@/components/DatePicker/index.vue";
-import StudentAPI, { StudentTable, StudentForm, StudentPageQuery, ImportResult } from "@/api/module_badminton/student";
+import StudentAPI, {
+  StudentTable,
+  StudentForm,
+  StudentPageQuery,
+  ImportResult,
+} from "@/api/module_badminton/student";
 
 const visible = ref(true);
 const queryFormRef = ref();
@@ -759,18 +824,18 @@ function handleCreatedDateRangeChange(range: [Date, Date]) {
 
 // 格式化时间（精确到秒）
 function formatDateTime(dateTime: string | null | undefined) {
-  if (!dateTime) return '';
+  if (!dateTime) return "";
   try {
     const date = new Date(dateTime);
     const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    const seconds = String(date.getSeconds()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    const seconds = String(date.getSeconds()).padStart(2, "0");
     return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
   } catch (error) {
-    console.error('时间格式化失败:', error);
+    console.error("时间格式化失败:", error);
     return dateTime;
   }
 }
@@ -1052,12 +1117,15 @@ async function handleDownloadTemplate() {
     const response = await StudentAPI.downloadImportTemplate();
 
     // request拦截器返回的是response对象，需要从response.data获取blob
-    const blob = response.data instanceof Blob ? response.data : new Blob([response.data], {
-      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    });
+    const blob =
+      response.data instanceof Blob
+        ? response.data
+        : new Blob([response.data], {
+            type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          });
 
     const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = url;
     link.download = `学员导入模板_${new Date().toISOString().slice(0, 10)}.xlsx`;
     document.body.appendChild(link);
@@ -1091,7 +1159,7 @@ function handleCloseImportDialog() {
   importProgress.value = 0;
   importing.value = false;
   importMessage.value = "";
-  
+
   // 清除上传组件
   if (uploadRef.value) {
     uploadRef.value.clearFiles();
@@ -1121,10 +1189,10 @@ async function handleImportSubmit() {
   }
 
   // 验证文件类型
-  const allowedTypes = ['.xlsx', '.xls'];
+  const allowedTypes = [".xlsx", ".xls"];
   const fileName = selectedFile.value.name.toLowerCase();
-  const isValidType = allowedTypes.some(type => fileName.endsWith(type));
-  
+  const isValidType = allowedTypes.some((type) => fileName.endsWith(type));
+
   if (!isValidType) {
     ElMessage.warning("只支持 Excel 文件 (.xlsx, .xls)");
     return;
@@ -1143,16 +1211,16 @@ async function handleImportSubmit() {
 
   try {
     const formData = new FormData();
-    formData.append('file', selectedFile.value);
+    formData.append("file", selectedFile.value);
 
     importProgress.value = 30;
     importMessage.value = "正在上传文件...";
 
     const response = await StudentAPI.batchImportStudents(formData);
-    
+
     importProgress.value = 80;
     importMessage.value = "正在处理导入数据...";
-    
+
     // 模拟进度完成
     setTimeout(() => {
       importProgress.value = 100;
@@ -1161,25 +1229,26 @@ async function handleImportSubmit() {
 
     // 处理导入结果
     importResult.value = response.data.data;
-    
+
     if (importResult.value.failed > 0) {
-      ElMessage.warning(`导入完成，成功 ${importResult.value.success} 条，失败 ${importResult.value.failed} 条`);
+      ElMessage.warning(
+        `导入完成，成功 ${importResult.value.success} 条，失败 ${importResult.value.failed} 条`
+      );
     } else {
       ElMessage.success(`导入成功，共导入 ${importResult.value.success} 条学员数据`);
-      
+
       // 导入成功后刷新表格数据
       setTimeout(() => {
         handleResetQuery();
       }, 1000);
     }
-    
+
     // 导入完成后重置文件选择
     fileList.value = [];
     selectedFile.value = null;
     if (uploadRef.value) {
       uploadRef.value.clearFiles();
     }
-
   } catch (error: any) {
     console.error("导入失败:", error);
     ElMessage.error(`导入失败: ${error.response?.data?.msg || error.message}`);

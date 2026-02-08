@@ -55,7 +55,7 @@ const ClassAPI = {
     });
   },
 
-// 获取班级可用时间段
+  // 获取班级可用时间段
   getAvailableTimeSlots(classId: number, dayOfWeek?: number) {
     return request<ApiResponse<any>>({
       url: `${API_PATH}/${classId}/available-time-slots`,
@@ -134,9 +134,9 @@ export interface TimeSlot {
   id: number;
   schedule_date?: string;
   day_of_week?: number;
-  day?: string;  // 星期名称，如"周一"
-  day_index?: number;  // 星期索引，0-6
-  slot_code?: string;  // 时间段代码，如"A"、"B"
+  day?: string; // 星期名称，如"周一"
+  day_index?: number; // 星期索引，0-6
+  slot_code?: string; // 时间段代码，如"A"、"B"
   start_time?: string;
   end_time?: string;
   duration_minutes?: number;

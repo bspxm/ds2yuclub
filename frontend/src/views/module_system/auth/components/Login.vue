@@ -137,11 +137,7 @@
           <p class="success-text">扫码成功，正在登录...</p>
         </div>
         <div v-else class="qrcode-container">
-          <el-image
-            :src="wechatQrCodeUrl"
-            fit="contain"
-            class="qrcode-image"
-          />
+          <el-image :src="wechatQrCodeUrl" fit="contain" class="qrcode-image" />
           <p class="qrcode-tip">请使用微信扫描二维码登录</p>
           <p class="qrcode-expire">二维码有效期: 120秒</p>
         </div>
@@ -455,7 +451,7 @@ async function handleWechatCallback(scanData: any) {
       unionid: scanData.unionid,
       nickname: scanData.nickname,
       headimgurl: scanData.headimgurl,
-      login_type: "微信登录"
+      login_type: "微信登录",
     });
 
     // 关闭弹窗

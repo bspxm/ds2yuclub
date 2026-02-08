@@ -151,129 +151,134 @@
           @selection-change="handleSelectionChange"
           @row-click="handleRowClick"
         >
-        <template #empty>
-          <el-empty :image-size="80" description="暂无数据" />
-        </template>
-        <el-table-column type="selection" min-width="55" align="center" />
-        <el-table-column type="index" fixed label="序号" min-width="60" />
-        <el-table-column label="菜单名称" prop="name" min-width="240" />
-        <el-table-column label="图标" prop="icon" min-width="80" align="center">
-          <template #default="scope">
-            <template v-if="scope.row.icon && scope.row.icon.startsWith('el-icon')">
-              <el-icon style="vertical-align: -0.15em">
-                <component :is="scope.row.icon.replace('el-icon-', '')" />
-              </el-icon>
+          <template #empty>
+            <el-empty :image-size="80" description="暂无数据" />
+          </template>
+          <el-table-column type="selection" min-width="55" align="center" />
+          <el-table-column type="index" fixed label="序号" min-width="60" />
+          <el-table-column label="菜单名称" prop="name" min-width="240" />
+          <el-table-column label="图标" prop="icon" min-width="80" align="center">
+            <template #default="scope">
+              <template v-if="scope.row.icon && scope.row.icon.startsWith('el-icon')">
+                <el-icon style="vertical-align: -0.15em">
+                  <component :is="scope.row.icon.replace('el-icon-', '')" />
+                </el-icon>
+              </template>
+              <template v-else-if="scope.row.icon">
+                <div :class="`i-svg:${scope.row.icon}`" />
+              </template>
             </template>
-            <template v-else-if="scope.row.icon">
-              <div :class="`i-svg:${scope.row.icon}`" />
+          </el-table-column>
+          <el-table-column label="状态" prop="status" min-width="80" align="center">
+            <template #default="scope">
+              <el-tag :type="scope.row.status === '0' ? 'success' : 'danger'">
+                {{ scope.row.status ? "启用" : "停用" }}
+              </el-tag>
             </template>
-          </template>
-        </el-table-column>
-        <el-table-column label="状态" prop="status" min-width="80" align="center">
-          <template #default="scope">
-            <el-tag :type="scope.row.status === '0' ? 'success' : 'danger'">
-              {{ scope.row.status ? "启用" : "停用" }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="类型" prop="type" min-width="80" align="center">
-          <template #default="scope">
-            <el-tag v-if="scope.row.type === MenuTypeEnum.CATALOG" type="warning">目录</el-tag>
-            <el-tag v-if="scope.row.type === MenuTypeEnum.MENU" type="success">菜单</el-tag>
-            <el-tag v-if="scope.row.type === MenuTypeEnum.BUTTON" type="danger">按钮</el-tag>
-            <el-tag v-if="scope.row.type === MenuTypeEnum.EXTLINK" type="info">外链</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="排序" prop="order" min-width="80" />
-        <el-table-column label="重定向" prop="redirect" min-width="200" />
-        <el-table-column label="是否缓存" prop="keep_alive" min-width="100">
-          <template #default="scope">
-            <el-tag :type="scope.row.keep_alive ? 'success' : 'danger'">
-              {{ scope.row.keep_alive ? "是" : "否" }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="是否隐藏" prop="hidden" min-width="100">
-          <template #default="scope">
-            <el-tag :type="scope.row.hidden ? 'success' : 'danger'">
-              {{ scope.row.hidden ? "是" : "否" }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="显示根路由" prop="always_show" min-width="120">
-          <template #default="scope">
-            <el-tag :type="scope.row.always_show ? 'success' : 'danger'">
-              {{ scope.row.always_show ? "是" : "否" }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="固定路由" prop="affix" min-width="100">
-          <template #default="scope">
-            <el-tag :type="scope.row.affix ? 'success' : 'danger'">
-              {{ scope.row.affix ? "是" : "否" }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="菜单标题" prop="title" min-width="200" />
-        <el-table-column label="权限标识" prop="permission" show-overflow-tooltip min-width="220" />
-        <el-table-column label="路由名称" prop="route_name" min-width="200" />
-        <el-table-column label="路由路径" prop="route_path" min-width="200" />
-        <el-table-column
-          label="组件路径"
-          prop="component_path"
-          show-overflow-tooltip
-          min-width="200"
-        />
-        <el-table-column label="路由参数" prop="params" min-width="100" />
-        <el-table-column label="描述" prop="description" show-overflow-tooltip min-width="200" />
-        <el-table-column label="创建时间" prop="created_time" min-width="200" sortable />
-        <el-table-column label="更新时间" prop="updated_time" min-width="200" sortable />
-        <el-table-column fixed="right" label="操作" align="center" min-width="260">
-          <template #default="scope">
-            <el-button
-              v-if="scope.row.type == MenuTypeEnum.CATALOG || scope.row.type == MenuTypeEnum.MENU"
-              v-hasPerm="['module_system:menu:create']"
-              type="success"
-              link
-              size="small"
-              icon="plus"
-              @click.stop="handleOpenDialog('create', undefined, scope.row.id)"
-            >
-              新增
-            </el-button>
-            <el-button
-              v-hasPerm="['module_system:menu:detail']"
-              type="info"
-              size="small"
-              link
-              icon="document"
-              @click="handleOpenDialog('detail', scope.row.id)"
-            >
-              详情
-            </el-button>
-            <el-button
-              v-hasPerm="['module_system:menu:update']"
-              type="primary"
-              size="small"
-              link
-              icon="edit"
-              @click="handleOpenDialog('update', scope.row.id)"
-            >
-              编辑
-            </el-button>
-            <el-button
-              v-hasPerm="['module_system:menu:delete']"
-              type="danger"
-              size="small"
-              link
-              icon="delete"
-              @click="handleDelete([scope.row.id])"
-            >
-              删除
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+          </el-table-column>
+          <el-table-column label="类型" prop="type" min-width="80" align="center">
+            <template #default="scope">
+              <el-tag v-if="scope.row.type === MenuTypeEnum.CATALOG" type="warning">目录</el-tag>
+              <el-tag v-if="scope.row.type === MenuTypeEnum.MENU" type="success">菜单</el-tag>
+              <el-tag v-if="scope.row.type === MenuTypeEnum.BUTTON" type="danger">按钮</el-tag>
+              <el-tag v-if="scope.row.type === MenuTypeEnum.EXTLINK" type="info">外链</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="排序" prop="order" min-width="80" />
+          <el-table-column label="重定向" prop="redirect" min-width="200" />
+          <el-table-column label="是否缓存" prop="keep_alive" min-width="100">
+            <template #default="scope">
+              <el-tag :type="scope.row.keep_alive ? 'success' : 'danger'">
+                {{ scope.row.keep_alive ? "是" : "否" }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="是否隐藏" prop="hidden" min-width="100">
+            <template #default="scope">
+              <el-tag :type="scope.row.hidden ? 'success' : 'danger'">
+                {{ scope.row.hidden ? "是" : "否" }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="显示根路由" prop="always_show" min-width="120">
+            <template #default="scope">
+              <el-tag :type="scope.row.always_show ? 'success' : 'danger'">
+                {{ scope.row.always_show ? "是" : "否" }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="固定路由" prop="affix" min-width="100">
+            <template #default="scope">
+              <el-tag :type="scope.row.affix ? 'success' : 'danger'">
+                {{ scope.row.affix ? "是" : "否" }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="菜单标题" prop="title" min-width="200" />
+          <el-table-column
+            label="权限标识"
+            prop="permission"
+            show-overflow-tooltip
+            min-width="220"
+          />
+          <el-table-column label="路由名称" prop="route_name" min-width="200" />
+          <el-table-column label="路由路径" prop="route_path" min-width="200" />
+          <el-table-column
+            label="组件路径"
+            prop="component_path"
+            show-overflow-tooltip
+            min-width="200"
+          />
+          <el-table-column label="路由参数" prop="params" min-width="100" />
+          <el-table-column label="描述" prop="description" show-overflow-tooltip min-width="200" />
+          <el-table-column label="创建时间" prop="created_time" min-width="200" sortable />
+          <el-table-column label="更新时间" prop="updated_time" min-width="200" sortable />
+          <el-table-column fixed="right" label="操作" align="center" min-width="260">
+            <template #default="scope">
+              <el-button
+                v-if="scope.row.type == MenuTypeEnum.CATALOG || scope.row.type == MenuTypeEnum.MENU"
+                v-hasPerm="['module_system:menu:create']"
+                type="success"
+                link
+                size="small"
+                icon="plus"
+                @click.stop="handleOpenDialog('create', undefined, scope.row.id)"
+              >
+                新增
+              </el-button>
+              <el-button
+                v-hasPerm="['module_system:menu:detail']"
+                type="info"
+                size="small"
+                link
+                icon="document"
+                @click="handleOpenDialog('detail', scope.row.id)"
+              >
+                详情
+              </el-button>
+              <el-button
+                v-hasPerm="['module_system:menu:update']"
+                type="primary"
+                size="small"
+                link
+                icon="edit"
+                @click="handleOpenDialog('update', scope.row.id)"
+              >
+                编辑
+              </el-button>
+              <el-button
+                v-hasPerm="['module_system:menu:delete']"
+                type="danger"
+                size="small"
+                link
+                icon="delete"
+                @click="handleDelete([scope.row.id])"
+              >
+                删除
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
       </div>
     </el-card>
 
