@@ -123,3 +123,14 @@ async def get_upcoming_schedules(
     
     result = await ClassScheduleService.list_service(auth, search, order_by)
     return SuccessResponse(data=result, msg="近期排课记录获取成功")
+
+@ClassScheduleRouter.get("/coach/daily", summary="教练每日排课", description="获取教练在指定日期的排课列表（按时间段分组）")
+async def get_coach_daily_schedule(
+    coach_id: int = Query(..., description="教练ID"),
+    schedule_date: str = Query(..., description="排课日期"),
+    auth: AuthSchema = Depends(AuthPermission(["module_badminton:class-schedule:list"])),
+    redis: Redis = Depends(redis_getter)
+) -> JSONResponse:
+    """教练每日排课"""
+    result = await ClassScheduleService.get_coach_daily_schedule_service(auth, redis, coach_id, schedule_date)
+    return SuccessResponse(data=result, msg="教练每日排课获取成功")

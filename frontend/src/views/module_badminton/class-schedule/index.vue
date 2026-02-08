@@ -1169,7 +1169,7 @@ async function loadAvailableTimeSlots() {
   if (!formDataV2.class_ids.length || !formDataV2.schedule_date) {
     console.log("缺少班级或日期，使用字典数据");
     // 使用字典数据作为默认值
-    if (timeSlotDict.value.length === 0) {
+    if (timeSlotList.value.length === 0) {
       await loadTimeSlotDict();
     }
     return;

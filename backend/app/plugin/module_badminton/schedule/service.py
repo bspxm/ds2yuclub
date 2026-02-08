@@ -10,6 +10,7 @@ from redis.asyncio.client import Redis
 from sqlalchemy.orm import Session
 
 from app.api.v1.module_system.user.service import UserService
+from ..student.service import StudentService
 from app.core.base_crud import CRUDBase
 from app.core.database import SessionDep
 from app.core.exceptions import CustomException
@@ -1024,3 +1025,143 @@ class ClassScheduleService:
             message=f"成功创建 {len(created_schedules)} 条排课记录",
             data=result
         ).model_dump()
+
+    @staticmethod
+    async def get_coach_daily_schedule_service(
+        auth: AuthSchema,
+        redis: Redis,
+        coach_id: int,
+        schedule_date: str
+    ) -> dict:
+        """
+        获取教练在指定日期的排课列表（按时间段分组）
+
+        Args:
+            auth: 认证信息
+            redis: Redis客户端
+            coach_id: 教练ID
+            schedule_date: 排课日期
+
+        Returns:
+            按时间段分组的排课数据
+        """
+        # 将字符串日期转换为 date 对象
+        try:
+            from datetime import datetime
+            schedule_date_obj = datetime.strptime(schedule_date, "%Y-%m-%d").date()
+        except Exception as e:
+            logger.error(f"日期格式转换失败: {schedule_date}, 错误: {e}")
+            return {
+                "date": schedule_date,
+                "coach_id": coach_id,
+                "coach_name": "",
+                "time_slots": []
+            }
+        
+        # 1. 使用视图查询教练在该日期的所有排课记录（包含学员列表）
+        search = {
+            "coach_id": ("eq", coach_id),
+            "schedule_date": ("eq", schedule_date_obj)
+        }
+        order_by = [{"start_time": "asc"}]
+        
+        # 使用新的CRUD查询视图
+        schedules = await CoachScheduleCRUD(auth).list_crud(search=search, order_by=order_by)
+        
+        if not schedules:
+            return {
+                "date": schedule_date,
+                "coach_id": coach_id,
+                "coach_name": "",
+                "time_slots": []
+            }
+        
+        # 2. 获取教练名称（从第一条记录中获取）
+        coach_name = schedules[0].get("coach_name", "")
+        
+        # 3. 获取时间段字典数据
+        time_slot_dict_list = await get_time_slot_dict_with_cache(redis)
+        
+        # 将时间段列表转换为字典（以 dict_value 为键）
+        time_slot_dict = {}
+        for slot in time_slot_dict_list:
+            if isinstance(slot, dict) and 'dict_value' in slot:
+                # 解析 dict_label 获取开始和结束时间
+                dict_label = slot.get('dict_label', '')
+                if '-' in dict_label:
+                    time_parts = dict_label.split('-')
+                    start_time = time_parts[0].strip()
+                    end_time = time_parts[1].strip()
+                else:
+                    start_time = '08:00'
+                    end_time = '09:30'
+                
+                time_slot_dict[slot['dict_value']] = {
+                    "start": start_time,
+                    "end": end_time,
+                    "dict_label": dict_label
+                }
+        
+        # 4. 按时间段分组
+        time_slot_groups = {}
+        
+        for schedule in schedules:
+            # 解析 time_slots_json 获取时间段代码
+            time_slot_code = schedule.get("time_slot_code")
+            if not time_slot_code:
+                continue
+            
+            # 如果该时间段还没有分组，创建分组
+            if time_slot_code not in time_slot_groups:
+                # 从字典中查找时间段信息
+                slot_info = time_slot_dict.get(time_slot_code, {})
+                time_slot_groups[time_slot_code] = {
+                    "time_slot_code": time_slot_code,
+                    "time_slot_name": f"{time_slot_code}时段",
+                    "start_time": slot_info.get("start", ""),
+                    "end_time": slot_info.get("end", ""),
+                    "schedules": []
+                }
+            
+            # 5. 从视图中获取学员列表（已经是 JSON 格式）
+            students = schedule.get("students_json", [])
+            if isinstance(students, str):
+                try:
+                    students = json.loads(students)
+                except:
+                    students = []
+            
+            # 6. 添加排课信息到分组
+            time_slot_groups[time_slot_code]["schedules"].append({
+                "id": schedule.get("id"),
+                "class_id": schedule.get("class_id"),
+                "class_name": schedule.get("class_name", ""),
+                "location": schedule.get("location"),
+                "topic": schedule.get("topic"),
+                "content_summary": schedule.get("content_summary"),
+                "schedule_status": schedule.get("schedule_status"),
+                "students": students,
+                "student_count": schedule.get("student_count", len(students)),
+                "attendance_count": schedule.get("attendance_count", len([s for s in students if s.get("has_attended", False)])),
+                "notes": schedule.get("notes")
+            })
+        
+        # 7. 按时间段代码排序 (A, B, C, D, E, ...)
+        time_slot_order = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L']
+        sorted_time_slots = []
+        
+        for slot_code in time_slot_order:
+            if slot_code in time_slot_groups:
+                sorted_time_slots.append(time_slot_groups[slot_code])
+        
+        # 添加未在预定义顺序中的时间段
+        for slot_code, group in time_slot_groups.items():
+            if slot_code not in time_slot_order:
+                sorted_time_slots.append(group)
+        
+        return {
+            "date": schedule_date,
+            "coach_id": coach_id,
+            "coach_name": coach_name,
+            "time_slots": sorted_time_slots
+        }
