@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>项目进度管理 - 羽毛球培训系统</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; padding: 20px; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    
+    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 12px; margin-bottom: 20px; }
+    .header h1 { font-size: 28px; margin-bottom: 10px; }
+    .header .stats { display: flex; gap: 30px; margin-top: 20px; flex-wrap: wrap; }
+    .header .stat-item { text-align: center; }
+    .header .stat-value { font-size: 32px; font-weight: bold; }
+    .header .stat-label { font-size: 14px; opacity: 0.9; }
+    
+    .progress-bar-container { background: rgba(255,255,255,0.2); height: 12px; border-radius: 6px; margin-top: 20px; overflow: hidden; }
+    .progress-bar { height: 100%; background: #4ade80; border-radius: 6px; transition: width 0.3s; }
+    
+    .toolbar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+    .btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; transition: all 0.2s; }
+    .btn-primary { background: #667eea; color: white; }
+    .btn-success { background: #10b981; color: white; }
+    .btn-secondary { background: #6b7280; color: white; }
+    .btn-warning { background: #f59e0b; color: white; }
+    
+    .search-box { margin-bottom: 16px; }
+    .search-box input { width: 100%; padding: 12px 16px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 14px; }
+    .search-box input:focus { outline: none; border-color: #667eea; }
+    
+    .filter-tags { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .filter-tag { padding: 6px 14px; border-radius: 20px; font-size: 12px; cursor: pointer; background: #e5e7eb; color: #6b7280; transition: all 0.2s; }
+    .filter-tag.active { background: #667eea; color: white; }
+    
+    .file-info { font-size: 12px; color: #6b7280; margin-bottom: 16px; }
+    
+    .tree { background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow: hidden; }
+    .tree-item { border-bottom: 1px solid #f3f4f6; }
+    .tree-item:last-child { border-bottom: none; }
+    .tree-item.hidden { display: none; }
+    
+    .tree-node { display: flex; align-items: center; padding: 12px 16px; cursor: pointer; transition: background 0.2s; }
+    .tree-node:hover { background: #f9fafb; }
+    .tree-node.matched { background: #fef3c7; }
+    .tree-node.matched .tree-label { font-weight: 600; color: #92400e; }
+    
+    .tree-toggle { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; margin-right: 8px; color: #9ca3af; transition: transform 0.2s; }
+    .tree-toggle.expanded { transform: rotate(90deg); }
+    .tree-toggle.empty { visibility: hidden; }
+    
+    .tree-icon { width: 20px; height: 20px; margin-right: 10px; }
+    .tree-icon.module { color: #667eea; font-size: 18px; }
+    .tree-icon.backend { color: #3b82f6; }
+    .tree-icon.frontend { color: #10b981; }
+    .tree-icon.api { color: #8b5cf6; }
+    .tree-icon.service { color: #f59e0b; }
+    .tree-icon.crud { color: #ec4899; }
+    .tree-icon.feature { color: #6b7280; }
+    .tree-icon.engines { color: #f97316; }
+    
+    .tree-label { flex: 1; font-size: 14px; color: #374151; }
+    .tree-label.module { font-weight: 600; font-size: 15px; }
+    
+    .tree-progress { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+    .tree-progress-bar { width: 80px; height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden; }
+    .tree-progress-bar .fill { height: 100%; border-radius: 3px; }
+    .fill-high { background: #10b981; }
+    .fill-medium { background: #f59e0b; }
+    .fill-low { background: #ef4444; }
+    .tree-progress-text { font-size: 12px; color: #6b7280; min-width: 40px; text-align: right; }
+    
+    .tree-actions { display: flex; gap: 6px; margin-left: 10px; }
+    .tree-btn { padding: 4px 10px; border: 1px solid #e5e7eb; border-radius: 4px; font-size: 11px; cursor: pointer; background: white; }
+    .tree-btn:hover { background: #f3f4f6; }
+    
+    .tree-children { padding-left: 40px; display: none; background: #fafafa; }
+    .tree-children.expanded { display: block; }
+    
+    .status-badge { padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 500; margin-left: 8px; white-space: nowrap; }
+    .status-completed { background: #d1fae5; color: #065f46; }
+    .status-in_progress { background: #fef3c7; color: #92400e; }
+    .status-pending { background: #e5e7eb; color: #374151; }
+    .status-abandoned { background: #fee2e2; color: #991b1b; }
+    .status-missing { background: #fef3c7; color: #92400e; }
+    .status-stubbed { background: #fee2e2; color: #991b1b; }
+    .status-partial { background: #fef3c7; color: #92400e; }
+    
+    .edit-panel { position: fixed; right: -400px; top: 0; width: 400px; height: 100vh; background: white; box-shadow: -4px 0 20px rgba(0,0,0,0.1); padding: 24px; transition: right 0.3s; z-index: 100; overflow-y: auto; }
+    .edit-panel.open { right: 0; }
+    .edit-panel h3 { margin-bottom: 20px; color: #1f2937; }
+    .edit-panel .form-group { margin-bottom: 16px; }
+    .edit-panel label { display: block; font-size: 13px; color: #6b7280; margin-bottom: 6px; }
+    .edit-panel input, .edit-panel select, .edit-panel textarea { width: 100%; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 14px; }
+    .edit-panel textarea { min-height: 100px; resize: vertical; }
+    .edit-panel .form-actions { display: flex; gap: 10px; margin-top: 24px; }
+    
+    .overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.3); display: none; z-index: 99; }
+    .overlay.open { display: block; }
+    
+    .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000; }
+    .modal.active { display: flex; }
+    .modal-content { background: white; border-radius: 12px; padding: 30px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; }
+    .modal-content h2 { margin-bottom: 20px; }
+    .modal-buttons { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+    
+    .missing-list { padding-left: 20px; margin-top: 8px; }
+    .missing-item { padding: 8px 0; font-size: 13px; color: #991b1b; border-bottom: 1px dashed #fecaca; }
+    .missing-item:last-child { border-bottom: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎯 项目进度管理</h1>
+      <p>羽毛球培训会员管理系统 - 功能完成度跟踪</p>
+      <div class="stats">
+        <div class="stat-item"><div class="stat-value" id="totalModules">-</div><div class="stat-label">总模块</div></div>
+        <div class="stat-item"><div class="stat-value" id="completedCount">-</div><div class="stat-label">已完成</div></div>
+        <div class="stat-item"><div class="stat-value" id="inProgressCount">-</div><div class="stat-label">进行中</div></div>
+        <div class="stat-item"><div class="stat-value" id="totalFeatures">-</div><div class="stat-label">子功能</div></div>
+        <div class="stat-item"><div class="stat-value" id="completedFeatures">-</div><div class="stat-label">已完成功能</div></div>
+      </div>
+      <div class="progress-bar-container"><div class="progress-bar" id="overallProgressBar" style="width: 0%"></div></div>
+    </div>
+    
+    <div class="toolbar">
+      <button class="btn btn-primary" onclick="expandAll()">📂 全部展开</button>
+      <button class="btn btn-secondary" onclick="collapseAll()">📁 全部折叠</button>
+      <button class="btn btn-success" onclick="saveData()">💾 导出JSON</button>
+      <button class="btn btn-warning" onclick="showAbandonedModal()">🚫 查看放弃项</button>
+    </div>
+    
+    <div class="search-box">
+      <input type="text" id="searchInput" placeholder="🔍 搜索模块、功能名称或描述..." oninput="filterTree()">
+    </div>
+    
+    <div class="filter-tags">
+      <div class="filter-tag active" data-filter="all" onclick="setFilter('all')">全部</div>
+      <div class="filter-tag" data-filter="completed" onclick="setFilter('completed')">已完成</div>
+      <div class="filter-tag" data-filter="in_progress" onclick="setFilter('in_progress')">进行中</div>
+      <div class="filter-tag" data-filter="pending" onclick="setFilter('pending')">待开始</div>
+      <div class="filter-tag" data-filter="abandoned" onclick="setFilter('abandoned')">已放弃</div>
+    </div>
+    
+    <div class="file-info" id="fileInfo">正在加载...</div>
+    
+    <div class="tree" id="treeContainer"></div>
+  </div>
+  
+  <div class="overlay" id="overlay" onclick="closeEditPanel()"></div>
+  <div class="edit-panel" id="editPanel">
+    <h3 id="editPanelTitle">编辑</h3>
+    <div class="form-group">
+      <label>状态</label>
+      <select id="editStatus">
+        <option value="completed">已完成</option>
+        <option value="in_progress">进行中</option>
+        <option value="pending">待开始</option>
+        <option value="abandoned">已放弃</option>
+        <option value="partial">部分完成</option>
+        <option value="missing">缺失</option>
+        <option value="stubbed">桩代码</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>完成度 (%)</label>
+      <input type="number" id="editCompletion" min="0" max="100">
+    </div>
+    <div class="form-group">
+      <label>备注/说明</label>
+      <textarea id="editNotes" placeholder="添加备注..."></textarea>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-success" onclick="saveEdit()">保存</button>
+      <button class="btn btn-secondary" onclick="closeEditPanel()">取消</button>
+    </div>
+  </div>
+  
+  <div class="modal" id="abandonedModal">
+    <div class="modal-content">
+      <h2>🚫 已放弃/未实现的功能</h2>
+      <div id="abandonedList"></div>
+      <div class="modal-buttons">
+        <button class="btn btn-secondary" onclick="closeAbandonedModal()">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let projectData = null;
+    let currentFilter = 'all';
+    let currentEditItem = null;
+    let matchedItems = new Set();
+    
+    async function loadData() {
+      try {
+        const response = await fetch('./feature-progress.json');
+        projectData = await response.json();
+        document.getElementById('fileInfo').textContent = `最后更新: ${projectData.generated_at}`;
+        renderTree();
+        updateStats();
+      } catch (error) {
+        console.error('加载失败:', error);
+        alert('加载失败，请确保在浏览器中打开此页面');
+      }
+    }
+    
+    const cnMap = {
+      'api_endpoints': 'API端点', 'service_functions': '服务函数', 'crud_operations': 'CRUD操作',
+      'backend': '后端', 'frontend': '前端', 'engines': '比赛引擎',
+      'search_filters': '搜索筛选', 'table_features': '表格功能', 'table_columns': '表格列',
+      'dialog_features': '对话框功能', 'create_dialog': '创建对话框', 'detail_dialog': '详情对话框',
+      'update_dialog': '编辑对话框', 'delete_operation': '删除操作', 'batch_operations': '批量操作',
+      'import_export': '导入导出', 'form_fields': '表单字段', 'missing': '缺失功能',
+      'missing_features': '未实现功能', 'missing_endpoints': '缺失端点', 'missing_planned': '规划未实现',
+      'coach_multi_select': '教练多选', 'student_multi_select': '学员多选',
+      'class_schedule_view': '班级排课视图', 'coach_schedule_view': '教练排课视图',
+      'single_purchase_dialog': '单条购买对话框', 'batch_purchase_dialog': '批量购买对话框',
+      'api_calls_mismatch': 'API调用不匹配', 'basic_crud': '基础CRUD', '9_dimension_rating': '9维评分',
+      'list_view': '列表视图', 'create_update': '创建更新', 'request_list': '请假列表',
+      'approve_reject': '审批操作', 'create_form': '创建表单', 'dashboard': '仪表盘',
+      'student_info': '学员信息', 'tournament_timeline': '比赛时间线', 'course_schedule': '课程安排',
+      'assessment_overview': '评估概览', 'engine_framework': '引擎框架', 'round_robin': '分组循环赛',
+      'pure_group': '纯小组赛', 'promotion_relegation': '定区升降赛', 'single_elimination': '单败淘汰赛',
+      'tournament_list': '赛事列表', 'critical_gap': '关键缺失', 'implemented': '已实现',
+      'notes': '备注', 'name': '名称', 'status': '状态', 'completion': '完成度'
+    };
+    
+    function getCN(key) { return cnMap[key] || key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()); }
+    
+    function getStatusText(status) {
+      const map = { 'completed': '已完成', 'in_progress': '进行中', 'pending': '待开始', 'abandoned': '已放弃', 'partial': '部分完成', 'missing': '缺失', 'stubbed': '桩代码' };
+      return map[status] || status;
+    }
+    
+    function getStatusClass(status) { return `status-${status}`; }
+    
+    function getProgressClass(pct) {
+      if (pct >= 80) return 'fill-high';
+      if (pct >= 50) return 'fill-medium';
+      return 'fill-low';
+    }
+    
+    function countFeatures(obj) {
+      let total = 0, completed = 0;
+      if (!obj || typeof obj !== 'object') return { total, completed };
+      
+      for (const key in obj) {
+        if (['name', 'completion', 'notes', 'status', 'analysis_note', 'generated_at', 'project', 'modules', 'overall', 'unplanned_from_docs', 'critical_gap', 'api_calls_mismatch'].includes(key)) continue;
+        
+        const val = obj[key];
+        
+        // 跳过数组形式的列表（如 search_filters: ["name", "gender", ...]）
+        if (Array.isArray(val) && !['missing_features', 'missing_endpoints', 'missing_planned', 'missing'].includes(key)) {
+          continue;
+        }
+        
+        // Handle missing arrays (这些需要统计为未完成项)
+        if (Array.isArray(val) && ['missing_features', 'missing_endpoints', 'missing_planned', 'missing'].includes(key)) {
+          total += val.length;
+          continue;
+        }
+        
+        // Handle objects with status property
+        if (val && typeof val === 'object' && !Array.isArray(val)) {
+          if (val.status) {
+            total++;
+            if (val.status === 'completed') completed++;
+          } else {
+            // Recurse into nested objects (like backend, frontend, api_endpoints)
+            const sub = countFeatures(val);
+            total += sub.total;
+            completed += sub.completed;
+          }
+          continue;
+        }
+        
+        // Handle string status values (like "completed", "partial", "all_completed - 10 functions")
+        if (typeof val === 'string') {
+          const v = val.toLowerCase();
+          // 统计明确表示完成状态的字符串
+          if (v === 'completed' || v.includes('all_completed') || v === '全部完成') {
+            total++;
+            completed++;
+          } else if (v.includes('completed') && !v.includes('partial')) {
+            total++;
+            completed++;
+          } else if (v.includes('partial') || v.includes('部分')) {
+            total++;
+          } else if (v.includes('missing') || v.includes('缺失') || v.includes('stubbed') || v.includes('桩')) {
+            total++;
+          } else if (v.includes('pending') || v.includes('待开始')) {
+            total++;
+          } else if (v.includes('in_progress') || v.includes('进行中')) {
+            total++;
+          }
+        }
+      }
+      return { total, completed };
+    }
+    
+    function searchInObject(obj, searchTerm, path = '') {
+      if (!obj || typeof obj !== 'object') return false;
+      
+      let found = false;
+      for (const key in obj) {
+        const val = obj[key];
+        const cnKey = getCN(key);
+        
+        // Check if key or Chinese translation matches
+        if (key.toLowerCase().includes(searchTerm) || cnKey.toLowerCase().includes(searchTerm)) {
+          matchedItems.add(path + '.' + key);
+          found = true;
+        }
+        
+        // Check string values
+        if (typeof val === 'string' && val.toLowerCase().includes(searchTerm)) {
+          matchedItems.add(path + '.' + key);
+          found = true;
+        }
+        
+        // Recurse into objects
+        if (val && typeof val === 'object') {
+          if (searchInObject(val, searchTerm, path + '.' + key)) {
+            found = true;
+          }
+        }
+      }
+      return found;
+    }
+    
+    function renderFeatureChildren(obj, moduleKey, parentPath, level = 0) {
+      let html = '';
+      const order = ['api_endpoints', 'service_functions', 'crud_operations', 'backend', 'frontend', 'engines'];
+      
+      const sortedKeys = Object.keys(obj).sort((a, b) => {
+        const aIdx = order.indexOf(a);
+        const bIdx = order.indexOf(b);
+        if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
+        if (aIdx !== -1) return -1;
+        if (bIdx !== -1) return 1;
+        return a.localeCompare(b);
+      });
+      
+      for (const key of sortedKeys) {
+        const val = obj[key];
+        const path = parentPath + '.' + key;
+        const isMatched = matchedItems.has(path);
+        
+        if (['name', 'completion', 'notes', 'status'].includes(key)) continue;
+        if (['critical_gap', 'api_calls_mismatch', 'unplanned_from_docs'].includes(key)) continue;
+        
+        // Handle missing arrays
+        if (Array.isArray(val) && (key === 'missing_features' || key === 'missing_endpoints' || key === 'missing_planned' || key === 'missing')) {
+          if (val.length > 0) {
+            const hasMatch = val.some(item => item.toLowerCase().includes(document.getElementById('searchInput').value.toLowerCase()));
+            const shouldShow = isMatched || hasMatch || document.getElementById('searchInput').value === '';
+            
+            html += `<div class="tree-item ${shouldShow ? '' : 'hidden'}">
+              <div class="tree-node ${isMatched ? 'matched' : ''}" onclick="toggleNode(this)">
+                <span class="tree-toggle">▶</span>
+                <span class="tree-icon feature">📋</span>
+                <span class="tree-label">${getCN(key)}</span>
+                <span class="status-badge status-missing">${val.length}项</span>
+              </div>
+              <div class="tree-children">
+                ${val.map((item, idx) => {
+                  const itemPath = path + '[' + idx + ']';
+                  const itemMatched = matchedItems.has(itemPath) || item.toLowerCase().includes(document.getElementById('searchInput').value.toLowerCase());
+                  return `<div class="tree-item ${itemMatched ? '' : (document.getElementById('searchInput').value && !itemMatched ? 'hidden' : '')}">
+                    <div class="tree-node ${itemMatched ? 'matched' : ''}">
+                      <span class="tree-toggle empty">▶</span>
+                      <span class="tree-icon feature">•</span>
+                      <span class="tree-label">${item}</span>
+                      <span class="status-badge status-missing">缺失</span>
+                    </div>
+                  </div>`;
+                }).join('')}
+              </div>
+            </div>`;
+          }
+          continue;
+        }
+        
+        if (Array.isArray(val)) continue;
+        
+        // Handle string values
+        if (typeof val === 'string') {
+          const status = val.includes('completed') ? 'completed' : val.includes('partial') ? 'partial' : val.includes('missing') ? 'missing' : val.includes('stub') ? 'stubbed' : 'in_progress';
+          const shouldShow = isMatched || document.getElementById('searchInput').value === '';
+          html += `<div class="tree-item ${shouldShow ? '' : 'hidden'}">
+            <div class="tree-node ${isMatched ? 'matched' : ''}" onclick="openEdit('${path}', '${getCN(key)}')">
+              <span class="tree-toggle empty">▶</span>
+              <span class="tree-icon feature">•</span>
+              <span class="tree-label">${getCN(key)}</span>
+              <span class="status-badge ${getStatusClass(status)}">${val.split(' - ')[0]}</span>
+            </div>
+          </div>`;
+          continue;
+        }
+        
+        // Handle objects
+        if (typeof val === 'object') {
+          const sub = countFeatures(val);
+          const pct = sub.total > 0 ? Math.round(sub.completed / sub.total * 100) : 0;
+          const iconMap = { 'api_endpoints': 'api', 'service_functions': 'service', 'crud_operations': 'crud', 'backend': 'backend', 'frontend': 'frontend', 'engines': 'engines' };
+          const icon = iconMap[key] || 'feature';
+          const iconEmoji = icon === 'api' ? '🔌' : icon === 'service' ? '⚙️' : icon === 'crud' ? '💾' : icon === 'backend' ? '⚙️' : icon === 'frontend' ? '🎨' : icon === 'engines' ? '🏆' : '📋';
+          
+          const shouldShow = isMatched || sub.total > 0 || document.getElementById('searchInput').value === '';
+          
+          html += `<div class="tree-item ${shouldShow ? '' : 'hidden'}">
+            <div class="tree-node ${isMatched ? 'matched' : ''}" onclick="toggleNode(this)">
+              <span class="tree-toggle ${sub.total > 0 ? '' : 'empty'}">▶</span>
+              <span class="tree-icon ${icon}">${iconEmoji}</span>
+              <span class="tree-label">${getCN(key)}</span>
+              <div class="tree-progress">
+                <div class="tree-progress-bar"><div class="fill ${getProgressClass(pct)}" style="width: ${pct}%"></div></div>
+                <span class="tree-progress-text">${sub.completed}/${sub.total}</span>
+              </div>
+            </div>
+            <div class="tree-children">${renderFeatureChildren(val, moduleKey, path, level + 1)}</div>
+          </div>`;
+        }
+      }
+      return html;
+    }
+    
+    function renderBackendFrontend(module, moduleKey) {
+      let html = '';
+      
+      ['backend', 'frontend'].forEach(section => {
+        if (module[section] && typeof module[section] === 'object') {
+          const sub = countFeatures(module[section]);
+          const pct = sub.total > 0 ? Math.round(sub.completed / sub.total * 100) : 0;
+          const icon = section === 'backend' ? '⚙️' : '🎨';
+          
+          html += `<div class="tree-item">
+            <div class="tree-node" onclick="toggleNode(this)">
+              <span class="tree-toggle">▶</span>
+              <span class="tree-icon ${section}">${icon}</span>
+              <span class="tree-label">${getCN(section)}</span>
+              <div class="tree-progress">
+                <div class="tree-progress-bar"><div class="fill ${getProgressClass(pct)}" style="width: ${pct}%"></div></div>
+                <span class="tree-progress-text">${sub.completed}/${sub.total}</span>
+              </div>
+            </div>
+            <div class="tree-children">${renderFeatureChildren(module[section], moduleKey, moduleKey + '.' + section)}</div>
+          </div>`;
+        }
+      });
+      
+      return html;
+    }
+    
+    function renderModule(module, key) {
+      const sub = countFeatures(module);
+      // 优先使用动态计算的完成度，如果子功能总数为0则用JSON中的值
+      const pct = sub.total > 0 ? Math.round(sub.completed / sub.total * 100) : (module.completion || 0);
+      const hasBackend = module.backend && typeof module.backend === 'object';
+      const hasFrontend = module.frontend && typeof module.frontend === 'object';
+      
+      return `<div class="tree-item" data-status="${module.status}" data-key="${key}">
+        <div class="tree-node" onclick="toggleNode(this)">
+          <span class="tree-toggle ${hasBackend || hasFrontend ? '' : 'empty'}">▶</span>
+          <span class="tree-icon module">📦</span>
+          <span class="tree-label module">${module.name}</span>
+          <span class="status-badge ${getStatusClass(module.status)}">${getStatusText(module.status)}</span>
+          <div class="tree-progress">
+            <div class="tree-progress-bar"><div class="fill ${getProgressClass(pct)}" style="width: ${pct}%"></div></div>
+            <span class="tree-progress-text">${pct}%</span>
+          </div>
+          <div class="tree-actions">
+            <button class="tree-btn" onclick="event.stopPropagation(); openEdit('${key}', '${module.name}')">✏️</button>
+          </div>
+        </div>
+        <div class="tree-children">${renderBackendFrontend(module, key)}</div>
+      </div>`;
+    }
+    
+    function renderTree() {
+      const container = document.getElementById('treeContainer');
+      let html = '';
+      matchedItems.clear();
+      
+      const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
+      
+      // Pre-search to find matched items
+      if (searchTerm) {
+        for (const key in projectData.modules) {
+          searchInObject(projectData.modules[key], searchTerm, key);
+        }
+      }
+      
+      for (const key in projectData.modules) {
+        const module = projectData.modules[key];
+        if (currentFilter !== 'all' && module.status !== currentFilter) continue;
+        
+        const moduleMatched = module.name.toLowerCase().includes(searchTerm) || key.toLowerCase().includes(searchTerm);
+        const childrenMatched = matchedItems.size > 0 && Array.from(matchedItems).some(p => p.startsWith(key + '.'));
+        
+        if (searchTerm && !moduleMatched && !childrenMatched) continue;
+        
+        html += renderModule(module, key);
+      }
+      
+      container.innerHTML = html || '<div style="padding: 40px; text-align: center; color: #6b7280;">无匹配结果</div>';
+      
+      // Auto-expand matched items
+      if (searchTerm && matchedItems.size > 0) {
+        setTimeout(() => {
+          matchedItems.forEach(path => {
+            const parts = path.split('.');
+            let currentPath = '';
+            parts.forEach((part, idx) => {
+              currentPath += (idx > 0 ? '.' : '') + part;
+              // Try to find and expand this node
+            });
+          });
+        }, 100);
+      }
+    }
+    
+    function updateStats() {
+      const modules = projectData.modules;
+      let total = 0, completed = 0, inProgress = 0;
+      let totalFeatures = 0, completedFeatures = 0;
+      
+      for (const key in modules) {
+        total++;
+        const m = modules[key];
+        if (m.status === 'completed') completed++;
+        if (m.status === 'in_progress') inProgress++;
+        
+        const sub = countFeatures(m);
+        totalFeatures += sub.total;
+        completedFeatures += sub.completed;
+      }
+      
+      document.getElementById('totalModules').textContent = total;
+      document.getElementById('completedCount').textContent = completed;
+      document.getElementById('inProgressCount').textContent = inProgress;
+      document.getElementById('totalFeatures').textContent = totalFeatures;
+      document.getElementById('completedFeatures').textContent = completedFeatures;
+      document.getElementById('overallProgressBar').style.width = totalFeatures > 0 ? Math.round(completedFeatures / totalFeatures * 100) + '%' : '0%';
+    }
+    
+    function toggleNode(node) {
+      const toggle = node.querySelector('.tree-toggle');
+      const children = node.nextElementSibling;
+      if (toggle && !toggle.classList.contains('empty')) {
+        toggle.classList.toggle('expanded');
+        if (children && children.classList.contains('tree-children')) {
+          children.classList.toggle('expanded');
+        }
+      }
+    }
+    
+    function expandAll() {
+      document.querySelectorAll('.tree-toggle:not(.empty)').forEach(t => t.classList.add('expanded'));
+      document.querySelectorAll('.tree-children').forEach(c => c.classList.add('expanded'));
+    }
+    
+    function collapseAll() {
+      document.querySelectorAll('.tree-toggle').forEach(t => t.classList.remove('expanded'));
+      document.querySelectorAll('.tree-children').forEach(c => c.classList.remove('expanded'));
+    }
+    
+    function setFilter(filter) {
+      currentFilter = filter;
+      document.querySelectorAll('.filter-tag').forEach(t => t.classList.toggle('active', t.dataset.filter === filter));
+      renderTree();
+    }
+    
+    function filterTree() {
+      renderTree();
+    }
+    
+    function openEdit(path, label) {
+      currentEditItem = path;
+      document.getElementById('editPanelTitle').textContent = `编辑: ${label}`;
+      
+      const parts = path.split('.');
+      let obj = projectData.modules;
+      for (const p of parts.slice(1)) {
+        if (obj[p] !== undefined) obj = obj[p];
+      }
+      
+      document.getElementById('editStatus').value = obj.status || 'pending';
+      document.getElementById('editCompletion').value = obj.completion || 0;
+      document.getElementById('editNotes').value = obj.notes || (typeof obj === 'string' ? obj : '');
+      
+      document.getElementById('editPanel').classList.add('open');
+      document.getElementById('overlay').classList.add('open');
+    }
+    
+    function closeEditPanel() {
+      document.getElementById('editPanel').classList.remove('open');
+      document.getElementById('overlay').classList.remove('open');
+      currentEditItem = null;
+    }
+    
+    function saveEdit() {
+      if (!currentEditItem) return;
+      
+      const parts = currentEditItem.split('.');
+      let obj = projectData.modules;
+      for (let i = 1; i < parts.length - 1; i++) {
+        if (obj[parts[i]] === undefined) obj[parts[i]] = {};
+        obj = obj[parts[i]];
+      }
+      const lastKey = parts[parts.length - 1];
+      if (typeof obj[lastKey] !== 'object') obj[lastKey] = {};
+      
+      obj[lastKey].status = document.getElementById('editStatus').value;
+      obj[lastKey].completion = parseInt(document.getElementById('editCompletion').value) || 0;
+      obj[lastKey].notes = document.getElementById('editNotes').value;
+      
+      closeEditPanel();
+      renderTree();
+      updateStats();
+    }
+    
+    function saveData() {
+      const jsonStr = JSON.stringify(projectData, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'feature-progress.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      alert('✅ 已导出！请复制回 docs/feature-progress.json');
+    }
+    
+    function showAbandonedModal() {
+      const list = document.getElementById('abandonedList');
+      let html = '';
+      
+      for (const key in projectData.modules) {
+        const m = projectData.modules[key];
+        if (m.status === 'abandoned') {
+          html += `<div style="padding: 12px; margin-bottom: 8px; background: #fef2f2; border-radius: 8px;">
+            <div style="font-weight: 600; color: #991b1b;">${m.name}</div>
+            <div style="font-size: 12px; color: #7f1d1d; margin-top: 4px;">${m.notes || '无备注'}</div>
+          </div>`;
+        }
+      }
+      
+      if (projectData.unplanned_from_docs) {
+        html += '<h3 style="margin: 20px 0 10px; color: #374151;">规划未实现功能</h3>';
+        projectData.unplanned_from_docs.forEach(f => {
+          html += `<div style="padding: 12px; margin-bottom: 8px; background: #fffbeb; border-radius: 8px;">
+            <div style="font-weight: 600; color: #92400e;">${f.feature} <span style="font-size: 11px; color: #b45309;">[${f.priority}]</span></div>
+            <div style="font-size: 12px; color: #78350f; margin-top: 4px;">${f.description}</div>
+          </div>`;
+        });
+      }
+      
+      list.innerHTML = html || '<p style="color: #6b7280; text-align: center;">暂无</p>';
+      document.getElementById('abandonedModal').classList.add('active');
+    }
+    
+    function closeAbandonedModal() {
+      document.getElementById('abandonedModal').classList.remove('active');
+    }
+    
+    document.getElementById('abandonedModal').addEventListener('click', function(e) {
+      if (e.target === this) closeAbandonedModal();
+    });
+    
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        closeAbandonedModal();
+        closeEditPanel();
+      }
+    });
+    
+    window.onload = loadData;
+  </script>
+</body>
+</html>

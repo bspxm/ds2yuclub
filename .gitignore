@@ -5,6 +5,11 @@ __pycache__
 .git
 .trae/
 .iflow/
+.ruff_cache/
+.sisyphus/
+.claude/
+.opencode/
+.agents/
 
 IFLOW.md
 

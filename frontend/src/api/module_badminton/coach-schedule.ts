@@ -4,10 +4,7 @@ const API_PATH = "/badminton/class-schedules";
 
 const CoachScheduleAPI = {
   // 获取教练在指定日期的排课列表（按时间段分组）
-  getCoachScheduleByDate(params: {
-    coach_id: number;
-    schedule_date: string;
-  }) {
+  getCoachScheduleByDate(params: { coach_id: number; schedule_date: string }) {
     return request<ApiResponse<CoachScheduleGroupedData>>({
       url: `${API_PATH}/coach/daily`,
       method: "get",

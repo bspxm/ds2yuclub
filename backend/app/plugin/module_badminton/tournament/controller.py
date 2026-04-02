@@ -1,0 +1,189 @@
+"""
+tournament模块 - 控制器
+"""
+
+from typing import Optional
+from fastapi import APIRouter, Depends, Path, Query
+from fastapi.responses import JSONResponse
+
+from app.api.v1.module_system.auth.schema import AuthSchema
+from app.common.response import SuccessResponse
+from app.core.dependencies import AuthPermission
+from app.core.exceptions import CustomException
+from app.core.router_class import OperationLogRoute
+
+from .engine.base import (
+    TournamentEngineFactory,
+    TournamentType,
+    MatchFormat,
+    Participant,
+    RoundType,
+)
+from .schema import (
+    TournamentCreateSchema,
+    TournamentUpdateSchema,
+    MatchScoreSchema,
+)
+from .service import (
+    TournamentService,
+    TournamentParticipantService,
+    TournamentMatchService,
+)
+
+TournamentRouter = APIRouter(
+    route_class=OperationLogRoute, prefix="/tournament", tags=["tournament管理"]
+)
+
+
+@TournamentRouter.post(
+    "/participants/batch",
+    summary="批量添加参赛队员",
+    description="为赛事批量添加参赛队员",
+)
+async def batch_add_participants(
+    tournament_id: int,
+    student_ids: list[int],
+    auth: AuthSchema = Depends(AuthPermission(["module_badminton:tournament:create"])),
+) -> JSONResponse:
+    result = await TournamentParticipantService.batch_add_service(
+        tournament_id, student_ids, auth
+    )
+    return SuccessResponse(data=result, msg="参赛队员添加成功")
+
+
+@TournamentRouter.get(
+    "/{tournament_id}/participants",
+    summary="获取参赛队员列表",
+    description="获取指定赛事的参赛队员列表",
+)
+async def get_participants(
+    tournament_id: int,
+    auth: AuthSchema = Depends(AuthPermission(["module_badminton:tournament:list"])),
+) -> JSONResponse:
+    result = await TournamentParticipantService.get_by_tournament_service(
+        tournament_id, auth
+    )
+    return SuccessResponse(data=result, msg="参赛队员获取成功")
+
+
+@TournamentRouter.delete(
+    "/{tournament_id}/participants/{participant_id}",
+    summary="移除参赛队员",
+    description="从赛事中移除参赛队员",
+)
+async def remove_participant(
+    tournament_id: int,
+    participant_id: int,
+    auth: AuthSchema = Depends(AuthPermission(["module_badminton:tournament:delete"])),
+) -> JSONResponse:
+    await TournamentParticipantService.remove_service(
+        tournament_id, participant_id, auth
+    )
+    return SuccessResponse(msg="参赛队员移除成功")
+
+
+@TournamentRouter.put(
+    "/{tournament_id}/participants/{participant_id}",
+    summary="更新参赛队员",
+    description="更新参赛队员信息（种子排名等）",
+)
+async def update_participant(
+    tournament_id: int,
+    participant_id: int,
+    seed_rank: Optional[int] = None,
+    auth: AuthSchema = Depends(AuthPermission(["module_badminton:tournament:update"])),
+) -> JSONResponse:
+    result = await TournamentParticipantService.update_service(
+        tournament_id, participant_id, seed_rank, auth
+    )
+    return SuccessResponse(data=result, msg="参赛队员更新成功")
+
+
+@TournamentRouter.post(
+    "/{tournament_id}/generate-matches",
+    summary="生成对阵表",
+    description="根据赛事类型生成比赛对阵表",
+)
+async def generate_matches(
+    tournament_id: int,
+    use_seeding: bool = Query(True, description="是否使用种子排名"),
+    auth: AuthSchema = Depends(AuthPermission(["module_badminton:tournament:create"])),
+) -> JSONResponse:
+    result = await TournamentMatchService.generate_matches_service(
+        tournament_id, use_seeding, auth
+    )
+    return SuccessResponse(data=result, msg="对阵表生成成功")
+
+
+@TournamentRouter.get(
+    "/{tournament_id}/matches",
+    summary="获取对阵列表",
+    description="获取赛事的比赛对阵列表",
+)
+async def get_matches(
+    tournament_id: int,
+    group_id: Optional[int] = Query(None, description="分组ID筛选"),
+    round_type: Optional[str] = Query(None, description="轮次类型筛选"),
+    auth: AuthSchema = Depends(AuthPermission(["module_badminton:tournament:list"])),
+) -> JSONResponse:
+    result = await TournamentMatchService.get_matches_service(
+        tournament_id, group_id, round_type, auth
+    )
+    return SuccessResponse(data=result, msg="对阵列表获取成功")
+
+
+@TournamentRouter.get(
+    "/{tournament_id}/matches/{match_id}",
+    summary="获取比赛详情",
+    description="获取单场比赛的详细信息",
+)
+async def get_match_detail(
+    tournament_id: int,
+    match_id: int,
+    auth: AuthSchema = Depends(AuthPermission(["module_badminton:tournament:list"])),
+) -> JSONResponse:
+    result = await TournamentMatchService.get_match_detail_service(
+        tournament_id, match_id, auth
+    )
+    return SuccessResponse(data=result, msg="比赛详情获取成功")
+
+
+@TournamentRouter.put(
+    "/{tournament_id}/matches/{match_id}/score",
+    summary="录入比分",
+    description="为比赛录入比分",
+)
+async def record_score(
+    tournament_id: int,
+    match_id: int,
+    scores: MatchScoreSchema,
+    auth: AuthSchema = Depends(AuthPermission(["module_badminton:tournament:update"])),
+) -> JSONResponse:
+    result = await TournamentMatchService.record_score_service(
+        tournament_id, match_id, scores, auth
+    )
+    return SuccessResponse(data=result, msg="比分录入成功")
+
+
+@TournamentRouter.get(
+    "/{tournament_id}/rankings", summary="获取排名", description="获取赛事排名"
+)
+async def get_rankings(
+    tournament_id: int,
+    group_id: Optional[int] = Query(None, description="分组ID"),
+    auth: AuthSchema = Depends(AuthPermission(["module_badminton:tournament:list"])),
+) -> JSONResponse:
+    result = await TournamentService.get_rankings_service(tournament_id, group_id, auth)
+    return SuccessResponse(data=result, msg="排名获取成功")
+
+
+@TournamentRouter.get(
+    "/h2h", summary="H2H查询", description="查询两学员之间的历史对战记录"
+)
+async def get_h2h(
+    student_id_1: int = Query(..., description="学员1ID"),
+    student_id_2: int = Query(..., description="学员2ID"),
+    auth: AuthSchema = Depends(AuthPermission(["module_badminton:tournament:list"])),
+) -> JSONResponse:
+    result = await TournamentService.get_h2h_service(student_id_1, student_id_2, auth)
+    return SuccessResponse(data=result, msg="H2H记录获取成功")

@@ -108,7 +108,10 @@
       </div>
 
       <!-- 空状态 -->
-      <div v-else-if="!loading && (!scheduleData || scheduleData.time_slots.length === 0)" class="empty-container">
+      <div
+        v-else-if="!loading && (!scheduleData || scheduleData.time_slots.length === 0)"
+        class="empty-container"
+      >
         <el-empty description="暂无排课安排" :image-size="120">
           <el-button type="primary" @click="handleQuery">刷新数据</el-button>
         </el-empty>
@@ -128,10 +131,10 @@
                   <el-tag type="primary" size="large" effect="dark">
                     {{ timeSlot.time_slot_code }} 时段
                   </el-tag>
-                  <span class="time-range">{{ timeSlot.start_time }} - {{ timeSlot.end_time }}</span>
-                  <el-tag type="info" size="small">
-                    共 {{ timeSlot.schedules.length }} 节课
-                  </el-tag>
+                  <span class="time-range">
+                    {{ timeSlot.start_time }} - {{ timeSlot.end_time }}
+                  </span>
+                  <el-tag type="info" size="small">共 {{ timeSlot.schedules.length }} 节课</el-tag>
                   <el-tag type="success" size="small">
                     总 {{ getTotalStudents(timeSlot) }} 人
                   </el-tag>
@@ -170,13 +173,13 @@
                         size="small"
                       >
                         {{
-                          schedule.schedule_status === 'scheduled'
-                            ? '已排课'
-                            : schedule.schedule_status === 'active'
-                              ? '进行中'
-                              : schedule.schedule_status === 'completed'
-                                ? '已完成'
-                                : '已取消'
+                          schedule.schedule_status === "scheduled"
+                            ? "已排课"
+                            : schedule.schedule_status === "active"
+                              ? "进行中"
+                              : schedule.schedule_status === "completed"
+                                ? "已完成"
+                                : "已取消"
                         }}
                       </el-tag>
                     </div>
@@ -185,12 +188,14 @@
 
                 <!-- 课程主题 -->
                 <div v-if="schedule.topic" class="schedule-topic">
-                  <strong>主题：</strong>{{ schedule.topic }}
+                  <strong>主题：</strong>
+                  {{ schedule.topic }}
                 </div>
 
                 <!-- 内容摘要 -->
                 <div v-if="schedule.content_summary" class="schedule-summary">
-                  <strong>内容：</strong>{{ schedule.content_summary }}
+                  <strong>内容：</strong>
+                  {{ schedule.content_summary }}
                 </div>
 
                 <!-- 备注 -->
@@ -203,38 +208,32 @@
                 <div class="students-section">
                   <div class="students-header">
                     <strong>学员列表</strong>
-                    <el-tag type="info" size="small">
-                      {{ schedule.student_count }} 人
-                    </el-tag>
-                    <el-tag v-if="schedule.attendance_count !== undefined" type="success" size="small">
+                    <el-tag type="info" size="small">{{ schedule.student_count }} 人</el-tag>
+                    <el-tag
+                      v-if="schedule.attendance_count !== undefined"
+                      type="success"
+                      size="small"
+                    >
                       已到 {{ schedule.attendance_count }} 人
                     </el-tag>
                   </div>
-                  <el-table
-                    :data="schedule.students"
-                    size="small"
-                    border
-                    style="margin-top: 10px"
-                  >
+                  <el-table :data="schedule.students" size="small" border style="margin-top: 10px">
                     <el-table-column label="姓名" prop="student_name" min-width="100" />
                     <el-table-column label="英文名" prop="english_name" min-width="80" />
                     <el-table-column label="水平" prop="level" min-width="80">
                       <template #default="{ row }">
-                        <el-tag size="small" type="warning">{{ row.level || '-' }}</el-tag>
+                        <el-tag size="small" type="warning">{{ row.level || "-" }}</el-tag>
                       </template>
                     </el-table-column>
                     <el-table-column label="分组" prop="group_name" min-width="80">
                       <template #default="{ row }">
-                        <el-tag size="small" type="primary">{{ row.group_name || '-' }}</el-tag>
+                        <el-tag size="small" type="primary">{{ row.group_name || "-" }}</el-tag>
                       </template>
                     </el-table-column>
                     <el-table-column label="出勤" min-width="60" align="center">
                       <template #default="{ row }">
-                        <el-tag
-                          :type="row.has_attended ? 'success' : 'info'"
-                          size="small"
-                        >
-                          {{ row.has_attended ? '已到' : '未到' }}
+                        <el-tag :type="row.has_attended ? 'success' : 'info'" size="small">
+                          {{ row.has_attended ? "已到" : "未到" }}
                         </el-tag>
                       </template>
                     </el-table-column>
@@ -277,7 +276,7 @@ const currentUser = computed(() => userStore.getBasicInfo);
 // 是否为教练（角色名称包含"教练"的用户）
 const isCoach = computed(() => {
   const roles = currentUser.value.roles || [];
-  return roles.some((role: any) => role.name && role.name.includes('教练'));
+  return roles.some((role: any) => role.name && role.name.includes("教练"));
 });
 
 // 是否为管理员（不是教练的用户）
@@ -297,7 +296,7 @@ const activeTimeSlots = ref<string[]>([]);
 // 查询表单
 const queryFormData = reactive({
   coach_id: undefined as number | undefined,
-  schedule_date: new Date().toISOString().split('T')[0], // 默认今天
+  schedule_date: new Date().toISOString().split("T")[0], // 默认今天
 });
 
 // 加载教练列表
@@ -382,7 +381,7 @@ function getTotalStudents(timeSlot: CoachTimeSlotGroup): number {
 
 // 格式化日期显示
 function formatDateDisplay(dateStr: string): string {
-  if (!dateStr) return '请选择日期';
+  if (!dateStr) return "请选择日期";
   try {
     const date = new Date(dateStr);
     const today = new Date();
@@ -392,13 +391,13 @@ function formatDateDisplay(dateStr: string): string {
     tomorrow.setDate(tomorrow.getDate() + 1);
 
     if (date.toDateString() === today.toDateString()) {
-      return '今天';
+      return "今天";
     } else if (date.toDateString() === yesterday.toDateString()) {
-      return '昨天';
+      return "昨天";
     } else if (date.toDateString() === tomorrow.toDateString()) {
-      return '明天';
+      return "明天";
     } else {
-      const days = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+      const days = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
       const dayOfWeek = days[date.getDay()];
       const month = date.getMonth() + 1;
       const day = date.getDate();

@@ -1,0 +1,463 @@
+{
+  "project": "羽毛球培训会员管理系统",
+  "generated_at": "2026-04-02",
+  "analysis_note": "本文件记录每个模块内的功能级完成进度，精确到API端点、服务方法、CRUD操作、前端特性。包括文档中提到的已规划但未实现的功能",
+  "modules": {
+    "student": {
+      "name": "学员管理",
+      "status": "completed",
+      "completion": 98,
+      "backend": {
+        "api_endpoints": {
+          "students_get_list": {"status": "completed", "detail": "GET /badminton/students - 分页查询"},
+          "students_get_detail": {"status": "completed", "detail": "GET /badminton/students/{id} - 详情含家长、评估"},
+          "students_create": {"status": "completed", "detail": "POST /badminton/students - 创建学员"},
+          "students_update": {"status": "completed", "detail": "PUT /badminton/students/{id} - 更新学员"},
+          "students_delete": {"status": "completed", "detail": "DELETE /badminton/students - 批量删除"},
+          "students_batch_status": {"status": "completed", "detail": "POST /badminton/students/batch-status - 批量状态"},
+          "students_import_template": {"status": "completed", "detail": "GET /badminton/students/import-template"},
+          "students_import": {"status": "completed", "detail": "POST /badminton/students/import - Excel导入"},
+          "parent_student_create": {"status": "completed", "detail": "POST /badminton/parent-student"},
+          "parent_student_by_parent": {"status": "completed", "detail": "GET /badminton/parent-student/parent/{id}"},
+          "parent_student_by_student": {"status": "completed", "detail": "GET /badminton/parent-student/student/{id}"},
+          "parent_student_delete": {"status": "completed", "detail": "DELETE /badminton/parent-student"},
+          "assessment_create": {"status": "completed", "detail": "POST /badminton/assessments"},
+          "assessment_update": {"status": "completed", "detail": "PUT /badminton/assessments/{id}"},
+          "assessment_delete": {"status": "completed", "detail": "DELETE /badminton/assessments"},
+          "assessment_latest": {"status": "completed", "detail": "GET /badminton/assessments/student/{id}/latest"},
+          "assessment_history": {"status": "completed", "detail": "GET /badminton/assessments/student/{id}/history"},
+          "assessment_list": {"status": "completed", "detail": "GET /badminton/assessments"}
+        },
+        "service_functions": {
+          "detail_service": "completed",
+          "list_service": "completed",
+          "page_service": "completed",
+          "create_service": "completed",
+          "update_service": "completed",
+          "delete_service": "completed",
+          "batch_set_status_service": "completed",
+          "generate_import_template_service": "completed",
+          "batch_import_service": "completed"
+        },
+        "crud_operations": "all_completed"
+      },
+      "frontend": {
+        "search_filters": ["name", "gender", "group", "campus", "level", "created_date"],
+        "table_features": ["selection", "index", "sortable", "visibility_toggle", "pagination"],
+        "crud_operations": ["create", "detail", "update", "delete", "batch_delete", "batch_status"],
+        "import_export": ["download_template", "upload_excel", "progress_display", "error_details"],
+        "form_fields": "all_completed",
+        "missing": ["export", "print", "column_resize", "学员能力雷达图"]
+      }
+    },
+    "class": {
+      "name": "班级管理",
+      "status": "completed",
+      "completion": 95,
+      "backend": {
+        "api_endpoints": {
+          "classes_create": {"status": "completed", "detail": "POST /badminton/classes"},
+          "classes_list": {"status": "completed", "detail": "GET /badminton/classes"},
+          "classes_detail": {"status": "completed", "detail": "GET /badminton/classes/{id}"},
+          "classes_update": {"status": "completed", "detail": "PUT /badminton/classes/{id}"},
+          "classes_delete": {"status": "completed", "detail": "DELETE /badminton/classes"},
+          "classes_available_time_slots": {"status": "completed", "detail": "GET /badminton/classes/{id}/available-time-slots"},
+          "classes_by_semester": {"status": "completed", "detail": "GET /badminton/classes/semester/{semester_id}"}
+        },
+        "service_functions": {
+          "detail_service": "completed",
+          "list_service": "completed",
+          "page_service": "completed",
+          "create_service": "partial - TODO: duplicate name check",
+          "update_service": "completed",
+          "delete_service": "completed",
+          "get_by_semester_service": "completed",
+          "get_available_time_slots": "completed"
+        },
+        "crud_operations": "all_completed"
+      },
+      "frontend": {
+        "search_filters": ["name", "class_type", "status", "semester", "coach"],
+        "table_columns": ["selection", "index", "name", "class_type", "semester", "coach", "students", "time_slots", "fee", "status", "created_time"],
+        "dialog_features": ["detail_view", "create_form", "update_form", "time_slot_selector", "coach_dropdown", "semester_dropdown"],
+        "missing": ["coach_filter_dropdown"]
+      }
+    },
+    "course": {
+      "name": "课程管理",
+      "status": "in_progress",
+      "completion": 35,
+      "backend": {
+        "api_endpoints": {
+          "course_upcoming": {"status": "completed", "detail": "GET /badminton/course/upcoming"},
+          "course_schedule": {"status": "completed", "detail": "POST /badminton/course/schedule"}
+        },
+        "missing_endpoints": [
+          "GET /badminton/courses - 课程列表(分页)",
+          "GET /badminton/courses/{id} - 课程详情",
+          "PUT /badminton/courses/{id} - 更新课程",
+          "DELETE /badminton/courses/{id} - 删除课程"
+        ],
+        "service_functions": {"schedule_service": "completed", "get_upcoming_service": "completed"},
+        "crud_operations": {"schedule_crud": "completed", "get_upcoming_courses_crud": "completed", "page_crud": "partial - unused"},
+        "schemas": "partial - only create schema exists"
+      },
+      "frontend": {
+        "search_filters": ["course_name", "coach", "status", "course_type", "start_time"],
+        "table_features": "completed",
+        "create_dialog": "completed",
+        "detail_dialog": "partial - uses table data not API",
+        "update_dialog": "stub - shows warning",
+        "delete_operation": "stub - shows warning",
+        "batch_operations": "stub - shows warning"
+      }
+    },
+    "schedule": {
+      "name": "排课管理",
+      "status": "completed",
+      "completion": 100,
+      "backend": {
+        "api_endpoints": "completed",
+        "service_functions": "completed",
+        "crud_operations": "completed"
+      },
+      "frontend": {
+        "class_schedule_view": "completed",
+        "coach_schedule_view": "completed"
+      }
+    },
+    "purchase": {
+      "name": "购买记录",
+      "status": "in_progress",
+      "completion": 45,
+      "backend": {
+        "critical_gap": "controller只暴露2个端点，service有10个方法未暴露",
+        "api_endpoints": {
+          "purchases_by_student": {"status": "completed", "detail": "GET /badminton/purchases/student/{student_id}"},
+          "batch_create": {"status": "completed", "detail": "POST /badminton/purchases/batch"}
+        },
+        "missing_endpoints": [
+          "GET /badminton/purchases - 列表(分页)",
+          "GET /badminton/purchases/{id} - 详情",
+          "POST /badminton/purchases - 单条创建",
+          "PUT /badminton/purchases/{id} - 更新",
+          "DELETE /badminton/purchases - 删除",
+          "POST /badminton/purchases/{id}/settle - 结算单条",
+          "POST /badminton/purchases/settle-semester/{semester_id} - 学期结算"
+        ],
+        "service_functions": "all_completed - 10 functions",
+        "crud_operations": "all_completed - 9 operations"
+      },
+      "frontend": {
+        "search_filters": ["student", "purchase_type", "status", "semester", "class"],
+        "table_features": "completed",
+        "single_purchase_dialog": "completed",
+        "batch_purchase_dialog": "completed",
+        "api_calls_mismatch": "5个前端API调用后端不存在"
+      }
+    },
+    "attendance": {
+      "name": "出勤管理",
+      "status": "completed",
+      "completion": 75,
+      "backend": {
+        "api_endpoints": {
+          "create": "completed",
+          "list": "completed",
+          "detail": "completed",
+          "update": "completed",
+          "delete": "completed",
+          "by_student": "stubbed - service method missing",
+          "by_class": "stubbed - service method missing"
+        },
+        "service_functions": {
+          "detail_service": "completed",
+          "list_service": "completed",
+          "page_service": "completed",
+          "create_service": "completed",
+          "update_service": "completed",
+          "delete_service": "completed",
+          "get_by_student_service": "missing",
+          "get_by_class_service": "missing"
+        },
+        "crud_operations": "all_completed"
+      },
+      "frontend": {
+        "basic_crud": "completed",
+        "search_filters": "partial - only ID inputs, no dropdowns",
+        "form_fields": "partial - missing time picker",
+        "missing_features": [
+          "student_dropdown",
+          "class_dropdown", 
+          "schedule_dropdown",
+          "attendance_time_picker",
+          "coach_confirmation",
+          "parent_confirmation",
+          "rating_system",
+          "comments",
+          "makeup_management_ui"
+        ]
+      }
+    },
+    "tournament": {
+      "name": "比赛管理",
+      "status": "in_progress",
+      "completion": 35,
+      "backend": {
+        "critical_gap": "无controller.py文件 - 所有service方法未暴露为HTTP端点",
+        "engine_framework": "completed",
+        "engines": {
+          "round_robin": "completed - 分组循环赛引擎完整",
+          "pure_group": "partial - generate_matches返回空列表",
+          "promotion_relegation": "partial - 多处TODO未实现",
+          "single_elimination": "partial - 缺少排名计算"
+        },
+        "service_functions": "completed - 5 functions",
+        "crud_operations": "completed - 13 operations",
+        "missing_planned": [
+          "比赛引擎数据库持久化 - 状态无法保存和恢复",
+          "比赛历史记录 - 无比赛历史查询功能"
+        ]
+      },
+      "frontend": {
+        "tournament_list": "completed",
+        "search_filters": "completed",
+        "crud_operations": "completed",
+        "missing_features": [
+          "participant_registration - 参赛者报名管理",
+          "match_generation - 对阵生成工作流",
+          "score_entry - 比分录入功能",
+          "bracket_visualization - 对阵图可视化",
+          "realtime_rankings - 实时排名展示",
+          "比赛创建向导 - 可视化比赛配置界面",
+          "智能参数建议",
+          "实时预览比赛结构"
+        ]
+      }
+    },
+    "assessment": {
+      "name": "能力评估",
+      "status": "completed",
+      "completion": 90,
+      "backend": {
+        "api_endpoints": "completed",
+        "service_functions": "completed",
+        "crud_operations": "completed"
+      },
+      "frontend": {
+        "9_dimension_rating": "completed",
+        "list_view": "completed",
+        "create_update": "completed",
+        "missing": ["学员能力雷达图", "数据可视化"]
+      }
+    },
+    "group": {
+      "name": "能力分组",
+      "status": "completed",
+      "completion": 85,
+      "backend": {
+        "api_endpoints": "completed - 7 endpoints",
+        "service_functions": "completed - 9 functions",
+        "crud_operations": "completed - 12 operations"
+      },
+      "frontend": {
+        "search_filters": "partial - coach dropdown not wired",
+        "crud_operations": "completed",
+        "coach_multi_select": "completed",
+        "student_multi_select": "completed",
+        "missing": [
+          "coach_filter_dropdown",
+          "student_id_filter",
+          "created_time_range",
+          "updated_time_range",
+          "column_sorting",
+          "export"
+        ]
+      }
+    },
+    "leave": {
+      "name": "请假管理",
+      "status": "completed",
+      "completion": 85,
+      "backend": {
+        "api_endpoints": "completed",
+        "service_functions": "completed",
+        "crud_operations": "completed"
+      },
+      "frontend": {
+        "request_list": "completed",
+        "approve_reject": "completed",
+        "create_form": "completed",
+        "missing": ["请假消息通知", "补课自动提醒"]
+      }
+    },
+    "semester": {
+      "name": "学期管理",
+      "status": "completed",
+      "completion": 95,
+      "backend": {
+        "api_endpoints": "completed",
+        "service_functions": "completed",
+        "crud_operations": "completed"
+      },
+      "frontend": {
+        "crud_operations": "completed"
+      }
+    },
+    "parent": {
+      "name": "家长管理",
+      "status": "completed",
+      "completion": 75,
+      "backend": {
+        "api_endpoints": "completed",
+        "service_functions": "completed"
+      },
+      "frontend": {
+        "dashboard": "completed",
+        "student_info": "completed",
+        "tournament_timeline": "completed",
+        "course_schedule": "completed",
+        "assessment_overview": "completed",
+        "missing": [
+          "学员能力雷达图",
+          "课程出勤统计图表",
+          "比赛数据图表"
+        ]
+      }
+    },
+    "auth": {
+      "name": "认证系统",
+      "status": "in_progress",
+      "completion": 70,
+      "backend": {
+        "implemented": [
+          "手机号登录 - 已支持用户名/手机号双模式登录",
+          "JWT认证流程 - 复用现有系统"
+        ],
+        "missing_planned": [
+          "微信登录集成 - wx_login字段已预留但未实现OAuth2.0",
+          "微信小程序/公众号登录 - 未实现",
+          "微信消息通知 - 未实现"
+        ]
+      },
+      "frontend": {
+        "missing": [
+          "微信登录按钮",
+          "微信绑定现有账号"
+        ]
+      }
+    },
+    "system": {
+      "name": "系统增强功能",
+      "status": "pending",
+      "completion": 10,
+      "backend": {
+        "missing_planned": [
+          "生产环境部署配置 - 未完成",
+          "系统性能优化 - 未完成",
+          "单元测试和集成测试 - 未完成",
+          "用户文档编写 - 未完成"
+        ]
+      },
+      "frontend": {
+        "missing_planned": [
+          "加载状态和骨架屏",
+          "移动端响应式布局适配",
+          "PWA渐进式Web应用支持",
+          "离线数据缓存",
+          "数据可视化图表"
+        ]
+      }
+    }
+  },
+  "unplanned_from_docs": [
+    {
+      "feature": "微信登录集成",
+      "priority": "中",
+      "description": "实现微信OAuth2.0认证，支持微信小程序/公众号登录，绑定现有账号或创建新账号"
+    },
+    {
+      "feature": "比赛引擎持久化",
+      "priority": "高",
+      "description": "实现比赛状态持久化，支持比赛恢复和继续，添加比赛历史记录"
+    },
+    {
+      "feature": "比赛创建向导",
+      "priority": "高",
+      "description": "可视化比赛配置界面，智能参数建议，实时预览比赛结构"
+    },
+    {
+      "feature": "实时比分系统",
+      "priority": "高",
+      "description": "简单的轮询更新机制，比分录入和验证，实时排名更新"
+    },
+    {
+      "feature": "数据可视化",
+      "priority": "中",
+      "description": "学员能力雷达图，课程出勤统计，比赛数据图表"
+    },
+    {
+      "feature": "移动端优化",
+      "priority": "低",
+      "description": "响应式布局适配，PWA支持，离线数据缓存"
+    },
+    {
+      "feature": "消息通知",
+      "priority": "中",
+      "description": "请假通知、补课通知等消息推送"
+    },
+    {
+      "feature": "报表功能",
+      "priority": "中",
+      "description": "课时统计报表、考勤统计报表"
+    },
+    {
+      "feature": "导出功能",
+      "priority": "中",
+      "description": "Excel/CSV导出功能"
+    },
+    {
+      "feature": "自动化测试",
+      "priority": "中",
+      "description": "后端API测试(Pytest)，前端组件测试(Vitest)，E2E端到端测试"
+    },
+    {
+      "feature": "性能监控",
+      "priority": "低",
+      "description": "数据库查询优化，API响应缓存，前端资源懒加载"
+    }
+  ],
+  "overall": {
+    "total_modules": 15,
+    "completed": 10,
+    "in_progress": 3,
+    "pending": 2,
+    "completion_percentage": 78.5,
+    "critical_gaps": [
+      {
+        "module": "tournament",
+        "issue": "无controller.py - 前端API调用无后端实现"
+      },
+      {
+        "module": "purchase",
+        "issue": "controller只暴露2/9个端点"
+      },
+      {
+        "module": "attendance",
+        "issue": "2个端点调用不存在的service方法"
+      },
+      {
+        "module": "course",
+        "issue": "前端Update/Delete功能未实现"
+      },
+      {
+        "module": "auth",
+        "issue": "微信登录集成未实现"
+      },
+      {
+        "module": "system",
+        "issue": "大量规划功能未实现(移动端、数据可视化、测试等)"
+      }
+    ]
+  }
+}

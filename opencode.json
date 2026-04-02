@@ -1,0 +1,45 @@
+{
+    "$schema": "https://opencode.ai/config.json",
+    "provider": {
+        "ZhipuAI/GLM-5": {
+            "npm": "@ai-sdk/openai-compatible",
+            "name": "魔塔",
+            "options": {
+                "baseURL": "https://api-inference.modelscope.cn/v1/",
+                "apiKey": "ms-0a4c325c-b609-4adf-bd79-712dfd4ac6d8"
+            },
+            "models": {
+                "ZhipuAI/GLM-5": {
+                    "name": "ZhipuAI/GLM-5"
+                }
+            }
+        },
+        "MiniMax/MiniMax-M2.5": {
+            "npm": "@ai-sdk/openai-compatible",
+            "name": "魔塔",
+            "options": {
+                "baseURL": "https://api-inference.modelscope.cn/v1/",
+                "apiKey": "ms-0a4c325c-b609-4adf-bd79-712dfd4ac6d8"
+            },
+            "models": {
+                "MiniMax/MiniMax-M2.5": {
+                    "name": "MiniMax/MiniMax-M2.5"
+                }
+            }
+        }
+    },
+    "agent": {
+        "prometheus": {
+            "provider": "opencode-go/glm-5",
+            "model": "opencode-go/glm-5"
+        },
+        "atlas": {
+            "provider": "opencode-go/minimax-m2.7",
+            "model": "opencode-go/minimax-m2.7"
+        },
+        "sisyphus": {
+            "provider": "opencode-go/minimax-m2.7",
+            "model": "opencode-go/minimax-m2.7"
+        }
+    }
+}
