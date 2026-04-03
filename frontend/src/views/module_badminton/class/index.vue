@@ -401,7 +401,7 @@
             {{ detailFormData.location || "未设置" }}
           </el-descriptions-item>
           <el-descriptions-item label="教练">
-            {{ detailFormData.coach_user?.name || "未指定" }}
+            {{ detailFormData.coach?.name || "未指定" }}
           </el-descriptions-item>
           <el-descriptions-item label="每节课费用">
             ¥{{ detailFormData.fee_per_session || 0 }}
@@ -537,7 +537,7 @@
                     >
                       {{ day }}
                     </div>
-                    <el-checkbox-group v-model="formData.time_slots[day]">
+                     <el-checkbox-group v-model="formData.time_slots![day]">
                       <el-checkbox label="A" value="A">09:00-10:30</el-checkbox>
                       <el-checkbox label="B" value="B">10:30-12:00</el-checkbox>
                       <el-checkbox label="C" value="C">15:00-16:30</el-checkbox>
@@ -667,7 +667,6 @@ defineOptions({
 import { ref, reactive, onMounted, computed, watch } from "vue";
 import { ElMessage, ElMessageBox, ElNotification } from "element-plus";
 import { QuestionFilled, ArrowUp, ArrowDown } from "@element-plus/icons-vue";
-import DatePicker from "@/components/DatePicker/index.vue";
 import ClassAPI, { ClassTable, ClassForm, ClassPageQuery } from "@/api/module_badminton/class";
 import SemesterAPI from "@/api/module_badminton/semester";
 import { UserAPI } from "@/api/module_system/user";
@@ -769,7 +768,7 @@ const formData = reactive<ClassForm>(initialFormData);
 const sortedWeeklyScheduleDays = computed(() => {
   const dayOrder = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
   // 过滤出选中的星期
-  const selectedDays = formData.weekly_schedule_days.filter((day) => dayOrder.includes(day));
+  const selectedDays = (formData.weekly_schedule_days || []).filter((day) => dayOrder.includes(day));
   // 按固定顺序排序
   return selectedDays.sort((a, b) => dayOrder.indexOf(a) - dayOrder.indexOf(b));
 });
@@ -803,8 +802,8 @@ const validateTimeSlots = (rule: any, value: any, callback: any) => {
 
   // 检查每个选中的星期是否有时间段
   const emptyDays: string[] = [];
-  for (const day of formData.weekly_schedule_days) {
-    if (!formData.time_slots[day] || formData.time_slots[day].length === 0) {
+  for (const day of formData.weekly_schedule_days || []) {
+    if (!formData.time_slots?.[day] || formData.time_slots[day].length === 0) {
       emptyDays.push(day);
       timeSlotsValidationError[day] = true;
     } else {
@@ -1002,11 +1001,11 @@ watch(
   () => formData.weekly_schedule_days,
   (newDays, oldDays = []) => {
     // 找出被移除的星期
-    const removedDays = oldDays.filter((day) => !newDays.includes(day));
+    const removedDays = (oldDays || []).filter((day) => !(newDays || []).includes(day));
 
     // 清除被移除星期的时间段数据
     removedDays.forEach((day) => {
-      if (formData.time_slots[day]) {
+      if (formData.time_slots?.[day]) {
         formData.time_slots[day] = [];
       }
       // 同时清除该星期的验证错误状态
@@ -1073,7 +1072,7 @@ async function handleSubmit() {
   formData.time_slots_json = JSON.stringify(formData.time_slots || {});
   // 将选中的星期数组转换为逗号分隔的字符串（按固定顺序：周日、周一...周六）
   const dayOrder = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
-  const sortedDays = formData.weekly_schedule_days.filter((day) => dayOrder.includes(day));
+  const sortedDays = (formData.weekly_schedule_days || []).filter((day) => dayOrder.includes(day));
   formData.weekly_schedule = sortedDays.join("、") || "";
 
   // 保存表单数据副本
@@ -1103,9 +1102,11 @@ async function handleSubmit() {
       res = await ClassAPI.createClass(submitData);
     } else if (operationType === "update" && updateId) {
       res = await ClassAPI.updateClass(updateId, submitData);
+    } else {
+      throw new Error("Invalid operation type");
     }
 
-    if (res.data.code === 0) {
+    if (res!.data.code === 0) {
       notification.close();
       ElNotification({
         title: operationType === "create" ? "创建成功" : "更新成功",
@@ -1119,7 +1120,7 @@ async function handleSubmit() {
       notification.close();
       ElNotification({
         title: "操作失败",
-        message: res.data.msg || "操作失败",
+        message: res!.data.msg || "操作失败",
         type: "error",
         duration: 3000,
         position: "bottom-right",

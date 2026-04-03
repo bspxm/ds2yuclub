@@ -510,7 +510,7 @@ const tableColumns = ref([
 ]);
 
 // 详情表单
-const detailFormData = ref<TournamentTable>({});
+const detailFormData = ref<Partial<TournamentTable>>({});
 // 日期范围临时变量
 const startDateRange = ref<[Date, Date] | []>([]);
 
@@ -621,8 +621,8 @@ async function loadingData() {
   loading.value = true;
   try {
     const response = await TournamentAPI.getTournamentList(queryFormData);
-    pageTableData.value = response.data.data.items;
-    total.value = response.data.data.total;
+    pageTableData.value = response.data.data.items || [];
+    total.value = response.data.data.total || 0;
   } catch (error: any) {
     console.error(error);
   } finally {
@@ -738,7 +738,7 @@ async function handleSubmit() {
       res = await TournamentAPI.updateTournament(updateId, submitData);
     }
 
-    if (res.data.code === 0) {
+    if (res && res.data.code === 0) {
       notification.close();
       ElNotification({
         title: operationType === "create" ? "创建成功" : "更新成功",
@@ -752,7 +752,7 @@ async function handleSubmit() {
       notification.close();
       ElNotification({
         title: "操作失败",
-        message: res.data.msg || "操作失败",
+        message: res?.data?.msg || "操作失败",
         type: "error",
         duration: 3000,
         position: "bottom-right",

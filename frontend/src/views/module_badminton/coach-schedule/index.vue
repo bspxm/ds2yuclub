@@ -260,7 +260,6 @@ import { QuestionFilled, Location, InfoFilled } from "@element-plus/icons-vue";
 import CoachScheduleAPI, {
   CoachScheduleGroupedData,
   CoachTimeSlotGroup,
-  CoachScheduleItem,
 } from "@/api/module_badminton/coach-schedule";
 import UserAPI from "@/api/module_system/user";
 import { useUserStore } from "@/store";

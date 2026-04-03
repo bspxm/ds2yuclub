@@ -242,8 +242,8 @@
             min-width="90"
           >
             <template #default="scope">
-              <el-tag :type="statusTypeMap[scope.row.status] || 'info'">
-                {{ statusMap[scope.row.status] || scope.row.status }}
+              <el-tag :type="(statusTypeMap[scope.row.status || ''] || 'info') as any">
+                {{ statusMap[scope.row.status || ''] || scope.row.status }}
               </el-tag>
             </template>
           </el-table-column>
@@ -330,8 +330,8 @@
             </el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="学期状态">
-            <el-tag :type="statusTypeMap[detailFormData.status] || 'info'">
-              {{ statusMap[detailFormData.status] || detailFormData.status }}
+            <el-tag :type="(statusTypeMap[detailFormData.status || ''] || 'info') as any">
+              {{ statusMap[detailFormData.status || ''] || detailFormData.status }}
             </el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="开始日期">
@@ -743,6 +743,10 @@ async function handleSubmit() {
       res = await SemesterAPI.updateSemester(updateId, submitData);
     }
 
+    if (!res) {
+      throw new Error("操作失败：未获取到响应");
+    }
+
     if (res.data.code === 0) {
       notification.close();
       ElNotification({
@@ -757,7 +761,7 @@ async function handleSubmit() {
       notification.close();
       ElNotification({
         title: "操作失败",
-        message: res.data.msg || "操作失败",
+        message: res!.data.msg || "操作失败",
         type: "error",
         duration: 3000,
         position: "bottom-right",

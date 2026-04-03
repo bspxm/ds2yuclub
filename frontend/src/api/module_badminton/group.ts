@@ -1,4 +1,5 @@
 import request from "@/utils/request";
+import type { StudentTable } from "./student";
 
 const API_PATH = "/badminton/groups";
 
@@ -86,6 +87,8 @@ export interface GroupTable extends BaseType {
   student_count?: number;
   coaches?: CommonType[];
   students?: StudentTable[];
+  created_by?: CommonType;
+  updated_by?: CommonType;
 }
 
 // 分组表单数据

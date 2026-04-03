@@ -568,9 +568,11 @@ async function handleSubmit() {
       res = await ClassAttendanceAPI.createClassAttendance(submitData);
     } else if (operationType === "update" && updateId) {
       res = await ClassAttendanceAPI.updateClassAttendance(updateId, submitData);
+    } else {
+      throw new Error("Invalid operation type");
     }
 
-    if (res.data.code === 0) {
+    if (res!.data.code === 0) {
       notification.close();
       ElNotification({
         title: operationType === "create" ? "创建成功" : "更新成功",
@@ -584,7 +586,7 @@ async function handleSubmit() {
       notification.close();
       ElNotification({
         title: "操作失败",
-        message: res.data.msg || "操作失败",
+        message: res!.data.msg || "操作失败",
         type: "error",
         duration: 3000,
         position: "bottom-right",

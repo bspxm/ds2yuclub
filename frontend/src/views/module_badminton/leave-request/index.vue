@@ -183,7 +183,7 @@
                 link
                 size="small"
                 icon="check"
-                @click="handleApprove(row)"
+                @click="handleApprove()"
               >
                 批准
               </el-button>
@@ -194,7 +194,7 @@
                 link
                 size="small"
                 icon="close"
-                @click="handleReject(row)"
+                @click="handleReject()"
               >
                 拒绝
               </el-button>
@@ -315,7 +315,7 @@ defineOptions({
   inheritAttrs: false,
 });
 
-import { ref, reactive, computed, onMounted } from "vue";
+import { ref, reactive, onMounted } from "vue";
 import { ElMessage, ElMessageBox, ElNotification } from "element-plus";
 import type { FormInstance, FormRules } from "element-plus";
 import { QuestionFilled, ArrowUp, ArrowDown } from "@element-plus/icons-vue";
@@ -493,9 +493,8 @@ async function handleSubmit() {
   const submitData = { ...formData };
   delete submitData.id;
 
-  // 保存操作类型和ID
+  // 保存操作类型
   const operationType = dialogVisible.type;
-  const updateId = formData.id;
 
   // 立即关闭窗口
   handleCloseDialog();
@@ -566,7 +565,7 @@ async function handleDelete(ids: number[]) {
 }
 
 // 批准
-async function handleApprove(row: any) {
+async function handleApprove() {
   ElMessageBox.confirm(`确定批准该请假申请吗？`, "批准请假", {
     confirmButtonText: "确定",
     cancelButtonText: "取消",
@@ -587,7 +586,7 @@ async function handleApprove(row: any) {
 }
 
 // 拒绝
-async function handleReject(row: any) {
+async function handleReject() {
   ElMessageBox.confirm(`确定拒绝该请假申请吗？`, "拒绝请假", {
     confirmButtonText: "确定",
     cancelButtonText: "取消",

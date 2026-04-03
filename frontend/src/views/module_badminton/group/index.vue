@@ -334,9 +334,9 @@
               <el-card shadow="never">
                 <template #header>
                   <div style="display: flex; justify-content: space-between; align-items: center">
-                    <span>选择学员（{{ formData.student_ids.length }} 人）</span>
+                    <span>选择学员（{{ (formData.student_ids || []).length }} 人）</span>
                     <el-tag type="info" size="small">
-                      已选择 {{ formData.student_ids.length }} 人
+                      已选择 {{ (formData.student_ids || []).length }} 人
                     </el-tag>
                   </div>
                 </template>
@@ -400,7 +400,7 @@
                     >
                       <el-checkbox :label="student.id">
                         <span style="margin-left: 8px">
-                          {{ student.name }}:{{ calculateAge(student.birth_date) }}岁:{{
+                          {{ student.name }}:{{ calculateAge(student.birth_date ?? "") }}岁:{{
                             student.level || "未设置"
                           }}:{{ student.group_name || "未设置" }}
                           <span style="color: #909399; font-size: 12px; margin-left: 8px">
@@ -531,7 +531,18 @@ const tableColumns = ref([
 ]);
 
 // 详情表单
-const detailFormData = ref<GroupTable>({});
+const detailFormData = ref<GroupTable>({
+  name: undefined,
+  description: undefined,
+  coach_count: undefined,
+  student_count: undefined,
+  coaches: undefined,
+  students: undefined,
+  created_by: undefined,
+  updated_by: undefined,
+  created_time: undefined,
+  updated_time: undefined,
+});
 
 // 分页查询参数
 const queryFormData = reactive<GroupPageQuery>({
@@ -716,7 +727,9 @@ const handleRefresh = () => {
 
 // 选择变化
 const handleSelectionChange = (selection: GroupTable[]) => {
-  selectIds.value = selection.map((item) => item.id);
+  selectIds.value = selection
+    .map((item) => item.id)
+    .filter((id): id is number => id !== undefined);
 };
 
 // 打开弹窗
@@ -758,8 +771,8 @@ const loadGroupDetail = async (id: number) => {
         formData.id = data.id;
         formData.name = data.name;
         formData.description = data.description;
-        formData.coach_ids = data.coaches?.map((c) => c.id) || [];
-        formData.student_ids = data.students?.map((s) => s.id) || [];
+        formData.coach_ids = (data.coaches?.map((c) => c.id).filter((id): id is number => id !== undefined) || []);
+        formData.student_ids = (data.students?.map((s) => s.id).filter((id): id is number => id !== undefined) || []);
       }
     }
   } catch (error) {
@@ -800,7 +813,15 @@ const loadStudentOptions = async () => {
 
     if (res.data && res.data.code === 0 && res.data.data) {
       // 过滤掉禁用状态的学员（status !== '0' 表示禁用）
-      studentOptions.value = (res.data.data.items || []).filter(
+      studentOptions.value = ((res.data.data.items || []) as Array<{
+        id: number;
+        name: string;
+        birth_date?: string;
+        level?: string;
+        group_name?: string;
+        mobile?: string;
+        status?: string;
+      }>).filter(
         (student) => student.status === "0"
       );
       console.log("学员选项:", studentOptions.value);
@@ -868,7 +889,7 @@ const handleSubmit = async () => {
     }
 
     console.log("提交响应:", res);
-    if (res.data.code === 0) {
+    if (res!.data.code === 0) {
       // 关闭加载通知，显示成功通知
       notification.close();
       ElNotification({
@@ -884,7 +905,7 @@ const handleSubmit = async () => {
       notification.close();
       ElNotification({
         title: "操作失败",
-        message: res.data.msg || "操作失败",
+        message: res!.data.msg || "操作失败",
         type: "error",
         duration: 3000,
         position: "bottom-right",

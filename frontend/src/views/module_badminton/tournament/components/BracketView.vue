@@ -88,7 +88,8 @@ function getRoundName(roundNum: number, matchCount: number): string {
   return names[roundNum] || `第${roundNum}轮`;
 }
 
-function isWinner(match: Match, playerId: number): boolean {
+function isWinner(match: Match, playerId: number | undefined): boolean {
+  if (playerId === undefined) return false;
   return match.winner_id === playerId;
 }
 </script>

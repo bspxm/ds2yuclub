@@ -593,14 +593,14 @@
             </el-col>
             <el-col :span="12">
               <el-form-item label="联系人">
-                <el-input v-model="formData.contact" placeholder="请输入联系人" :maxlength="32" />
+                <el-input v-model="formData.emergency_contact" placeholder="请输入联系人" :maxlength="32" />
               </el-form-item>
             </el-col>
 
             <!-- 第七行：手机号码、状态 -->
             <el-col :span="12">
               <el-form-item label="手机号码">
-                <el-input v-model="formData.mobile" placeholder="请输入手机号码" :maxlength="20" />
+                <el-input v-model="formData.emergency_phone" placeholder="请输入手机号码" :maxlength="20" />
               </el-form-item>
             </el-col>
             <el-col :span="12">
@@ -869,8 +869,8 @@ const formData = reactive<StudentForm>({
   level: undefined,
   group_name: undefined,
   campus: undefined,
-  contact: undefined,
-  mobile: undefined,
+  emergency_contact: undefined,
+  emergency_phone: undefined,
   status: "0",
   description: undefined,
 });
@@ -935,8 +935,8 @@ const initialFormData: StudentForm = {
   level: undefined,
   group_name: undefined,
   campus: undefined,
-  contact: undefined,
-  mobile: undefined,
+  emergency_contact: undefined,
+  emergency_phone: undefined,
   status: "0",
   description: undefined,
 };
@@ -1020,7 +1020,7 @@ async function handleSubmit() {
       res = await StudentAPI.updateStudent(updateId, submitData);
     }
 
-    if (res.data.code === 0) {
+    if (res && res.data.code === 0) {
       notification.close();
       ElNotification({
         title: operationType === "create" ? "创建成功" : "更新成功",
@@ -1034,7 +1034,7 @@ async function handleSubmit() {
       notification.close();
       ElNotification({
         title: "操作失败",
-        message: res.data.msg || "操作失败",
+        message: res?.data?.msg || "操作失败",
         type: "error",
         duration: 3000,
         position: "bottom-right",
@@ -1140,14 +1140,6 @@ async function handleDownloadTemplate() {
   } finally {
     importMessage.value = "";
   }
-}
-
-// 打开导入对话框
-function handleOpenImportDialog() {
-  importDialogVisible.value = true;
-  importResult.value = null;
-  fileList.value = [];
-  selectedFile.value = null;
 }
 
 // 关闭导入对话框

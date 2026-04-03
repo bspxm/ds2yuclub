@@ -13,10 +13,11 @@ const TournamentAPI = {
   },
 
   // 获取赛事列表
-  getTournamentList() {
-    return request<ApiResponse<TournamentTable[]>>({
+  getTournamentList(params?: TournamentPageQuery) {
+    return request<ApiResponse<PageResult<TournamentTable[]>>>({
       url: `${API_PATH}`,
       method: "get",
+      params,
     });
   },
 
@@ -43,15 +44,51 @@ const TournamentAPI = {
       method: "post",
     });
   },
+
+  getTournamentDetail(id: number) {
+    console.warn("getTournamentDetail: 后端API未实现");
+    return request<ApiResponse<TournamentTable>>({
+      url: `${API_PATH}/${id}`,
+      method: "get",
+    });
+  },
+
+  updateTournament(id: number, body: TournamentForm) {
+    console.warn("updateTournament: 后端API未实现");
+    return request<ApiResponse<TournamentTable>>({
+      url: `${API_PATH}/${id}`,
+      method: "put",
+      data: body,
+    });
+  },
+
+  deleteTournament(ids: number[]) {
+    console.warn("deleteTournament: 后端API未实现");
+    return request<ApiResponse>({
+      url: `${API_PATH}`,
+      method: "delete",
+      data: ids,
+    });
+  },
+
+  batchSetTournamentStatus(data: { ids: number[]; status: string }) {
+    console.warn("batchSetTournamentStatus: 后端API未实现");
+    return request<ApiResponse>({
+      url: `${API_PATH}/batch-status`,
+      method: "post",
+      data,
+    });
+  },
 };
 
 // 赛事表格数据
 export interface TournamentTable extends BaseType {
+  id: number;
   name: string;
-  tournament_type: string;
+  tournament_type?: string;
   status: string;
   start_date: string;
-  end_date: string;
+  end_date?: string;
   registration_deadline?: string;
   max_participants?: number;
   group_size?: number;
@@ -62,14 +99,34 @@ export interface TournamentTable extends BaseType {
   location?: string;
   created_by?: CommonType;
   updated_by?: CommonType;
+  format?: string;
+  participant_count?: number;
+  rules_description?: string;
+}
+
+export interface TournamentPageQuery extends PageQuery {
+  name?: string;
+  tournament_type?: string;
+  status?: string;
+  format?: string;
+  location?: string;
+  start_date?: [string, string] | undefined;
+  end_date?: [string, string] | undefined;
+  created_time?: [string, string] | undefined;
+  updated_time?: [string, string] | undefined;
+  created_id?: number;
+  updated_id?: number;
 }
 
 // 赛事表单数据
 export interface TournamentForm extends BaseFormType {
+  id?: number;
   name: string;
-  tournament_type: string;
+  tournament_type?: string;
+  format?: string;
+  status?: string;
   start_date: string;
-  end_date: string;
+  end_date?: string;
   registration_deadline?: string;
   max_participants?: number;
   group_size?: number;
@@ -78,6 +135,7 @@ export interface TournamentForm extends BaseFormType {
   points_per_game?: number;
   description?: string;
   location?: string;
+  rules_description?: string;
 }
 
 // 赛制类型
@@ -142,9 +200,9 @@ const TournamentAPIExtended = {
   // 批量添加参赛队员
   batchAddParticipants(tournamentId: number, studentIds: number[]) {
     return request<ApiResponse<any[]>>({
-      url: `${API_PATH}/participants/batch`,
+      url: `${API_PATH}/${tournamentId}/participants/batch`,
       method: "post",
-      data: { tournament_id: tournamentId, student_ids: studentIds },
+      data: { student_ids: studentIds },
     });
   },
 
@@ -169,7 +227,7 @@ const TournamentAPIExtended = {
     return request<ApiResponse<TournamentMatch[]>>({
       url: `${API_PATH}/${tournamentId}/generate-matches`,
       method: "post",
-      data: { use_seeding: useSeeding },
+      params: { use_seeding: useSeeding },
     });
   },
 

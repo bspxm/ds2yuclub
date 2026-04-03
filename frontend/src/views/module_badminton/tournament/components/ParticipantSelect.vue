@@ -38,8 +38,8 @@ import { ElMessage } from "element-plus";
 import StudentAPI from "@/api/module_badminton/student";
 
 interface Student {
-  id: number;
-  name: string;
+  id?: number;
+  name?: string;
 }
 
 interface SelectedParticipant {
@@ -90,7 +90,7 @@ function handleSearch(query: string) {
     students.value = allStudents.value;
   } else {
     students.value = allStudents.value.filter((s) =>
-      s.name.toLowerCase().includes(query.toLowerCase())
+      s.name?.toLowerCase().includes(query.toLowerCase())
     );
   }
 }

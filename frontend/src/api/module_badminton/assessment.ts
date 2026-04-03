@@ -49,7 +49,7 @@ const AssessmentAPI = {
 
   // 评估列表查询
   getAssessmentList(query: AssessmentPageQuery) {
-    return request<ApiResponse<AssessmentTable[]>>({
+    return request<ApiResponse<PageResult<AssessmentTable[]>>>({
       url: `${API_PATH}`,
       method: "get",
       params: query,

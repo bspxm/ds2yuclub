@@ -25,7 +25,7 @@
               v-for="user in userList"
               :key="user.id"
               :label="user.name || user.username"
-              :value="user.id"
+              :value="(user.id as number)"
             />
           </el-select>
         </el-form-item>
@@ -128,7 +128,7 @@
                 </el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item icon="Check" @click="handleMoreClick('in_progress')">
+                    <el-dropdown-item icon="Check" @click="handleMoreClick('started')">
                       批量开始
                     </el-dropdown-item>
                     <el-dropdown-item icon="CircleClose" @click="handleMoreClick('completed')">
@@ -223,7 +223,7 @@
           <template v-if="tableColumns.find((col) => col.prop === 'coach')?.show">
             <el-table-column prop="coach" label="教练" min-width="100" show-overflow-tooltip>
               <template #default="{ row }">
-                {{ row.coach?.username || "未分配" }}
+                {{ row.coach?.name || "未分配" }}
               </template>
             </el-table-column>
           </template>
@@ -349,7 +349,7 @@
             </el-tag>
           </ElDescriptionsItem>
           <ElDescriptionsItem label="教练">
-            {{ detailFormData.coach?.username || "未分配" }}
+            {{ detailFormData.coach?.name || detailFormData.instructor_name || "未分配" }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="开始时间">
             {{ detailFormData.start_time }}
@@ -411,7 +411,7 @@
             </el-select>
           </el-form-item>
           <el-form-item label="状态" prop="status">
-            <el-radio-group v-model="formData.status">
+            <el-radio-group v-model="(formData as any).status">
               <el-radio value="scheduled">已安排</el-radio>
               <el-radio value="in_progress">进行中</el-radio>
               <el-radio value="completed">已完成</el-radio>
@@ -430,7 +430,7 @@
                 v-for="user in userList"
                 :key="user.id"
                 :label="user.name || user.username"
-                :value="user.id"
+                :value="(user.id as number)"
               />
             </el-select>
           </el-form-item>
@@ -453,7 +453,7 @@
           </el-form-item>
           <el-form-item label="时长(分钟)" prop="duration">
             <el-input-number
-              v-model="formData.duration"
+              v-model="(formData as any).duration"
               :min="30"
               :max="240"
               :step="30"
@@ -516,7 +516,7 @@ defineOptions({
 });
 
 import { ref, reactive, onMounted } from "vue";
-import { ElMessage, ElMessageBox, ElNotification } from "element-plus";
+import { ElMessage, ElNotification } from "element-plus";
 import { QuestionFilled, ArrowUp, ArrowDown } from "@element-plus/icons-vue";
 import { formatToDateTime } from "@/utils/dateUtil";
 import DatePicker from "@/components/DatePicker/index.vue";
@@ -555,7 +555,12 @@ const tableColumns = ref([
 ]);
 
 // 详情表单
-const detailFormData = ref<CourseTable>({});
+const detailFormData = ref<Partial<CourseTable>>({
+  name: "",
+  course_type: "",
+  start_time: "",
+  end_time: "",
+});
 // 时间范围临时变量
 const startTimeRange = ref<[Date, Date] | []>([]);
 
@@ -575,18 +580,13 @@ const queryFormData = reactive<CoursePageQuery>({
   page_size: 10,
   course_name: undefined,
   course_type: undefined,
-  instructor_name: undefined,
   status: undefined,
   start_time: undefined,
   end_time: undefined,
-  created_time: undefined,
-  updated_time: undefined,
-  created_id: undefined,
-  updated_id: undefined,
 });
 
 // 编辑表单
-const formData = reactive<CourseForm>({
+const formData = reactive<CourseForm & { id?: number }>({
   id: undefined,
   name: "",
   course_type: "regular",
@@ -679,7 +679,7 @@ async function handleResetQuery() {
 }
 
 // 定义初始表单数据常量
-const initialFormData: CourseForm = {
+const initialFormData: CourseForm & { id?: number } = {
   id: undefined,
   name: "",
   course_type: "regular",
@@ -747,12 +747,8 @@ async function handleSubmit() {
   const valid = await dataFormRef.value.validate().catch(() => false);
   if (!valid) return;
 
-  // 保存表单数据副本
-  const submitData = { ...formData };
-  delete submitData.id;
-
-  // 保存操作类型
-  const operationType = "create";
+  // 保存表单数据副本（排除id）
+  const { id, ...submitData } = formData;
 
   // 立即关闭窗口
   handleCloseDialog();
@@ -804,12 +800,12 @@ async function handleSubmit() {
 }
 
 // 删除、批量删除
-async function handleDelete(ids: number[]) {
+async function handleDelete(_ids: number[]) {
   ElMessage.warning("课程删除功能暂未实现");
 }
 
 // 批量开始/结束
-async function handleMoreClick(status: string) {
+async function handleMoreClick(_status: string) {
   ElMessage.warning("批量操作功能暂未实现");
 }
 

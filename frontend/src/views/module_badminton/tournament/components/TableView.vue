@@ -77,10 +77,10 @@ const emit = defineEmits<{
   (e: "matchClick", match: Match): void;
 }>();
 
-const roundFilter = ref<string | null>(null);
+const roundFilter = ref<string>("");
 
 const roundOptions = [
-  { label: "全部", value: null },
+  { label: "全部", value: "" },
   { label: "小组赛", value: "group_stage" },
   { label: "淘汰赛", value: "knockout" },
 ];

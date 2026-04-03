@@ -20,9 +20,9 @@
           >
             <el-option
               v-for="student in studentOptions"
-              :key="student.id"
+              :key="student.id!"
               :label="student.name"
-              :value="student.id"
+              :value="student.id!"
             />
           </el-select>
         </el-form-item>
@@ -289,9 +289,9 @@
           >
             <el-option
               v-for="student in studentOptions"
-              :key="student.id"
+              :key="student.id!"
               :label="student.name"
-              :value="student.id"
+              :value="student.id!"
             />
           </el-select>
         </el-form-item>
@@ -327,7 +327,7 @@
           <el-col v-for="dimension in assessmentDimensions" :key="dimension.key" :span="12">
             <el-form-item :label="dimension.label" :prop="dimension.key">
               <el-rate
-                v-model="formData[dimension.key]"
+                v-model="formData[dimension.key] as number"
                 :max="5"
                 :colors="['#99A9BF', '#F7BA2A', '#FF9900']"
                 show-score
@@ -365,7 +365,7 @@ defineOptions({
   inheritAttrs: false,
 });
 
-import { ref, reactive, computed, onMounted } from "vue";
+import { ref, reactive, onMounted } from "vue";
 import { ElMessage, ElMessageBox, ElNotification } from "element-plus";
 import type { FormInstance, FormRules } from "element-plus";
 import { QuestionFilled, ArrowUp, ArrowDown } from "@element-plus/icons-vue";
@@ -375,7 +375,7 @@ import AssessmentAPI, {
   type AssessmentPageQuery,
 } from "@/api/module_badminton/assessment";
 import StudentAPI, { type StudentTable } from "@/api/module_badminton/student";
-import UserAPI, { type UserInfo } from "@/api/module_system/user";
+import UserAPI from "@/api/module_system/user";
 import { useUserStoreHook } from "@/store/modules/user.store";
 
 const queryFormRef = ref<FormInstance>();
@@ -442,7 +442,10 @@ const rules: FormRules = {
 };
 
 // 能力评估维度配置
-const assessmentDimensions = [
+const assessmentDimensions: {
+  key: keyof Omit<AssessmentForm, "student_id" | "assessment_date" | "coach_id" | "comments">;
+  label: string;
+}[] = [
   { key: "technique", label: "技术能力" },
   { key: "footwork", label: "步法移动" },
   { key: "tactics", label: "战术意识" },
@@ -454,11 +457,6 @@ const assessmentDimensions = [
   { key: "mental", label: "心理素质" },
 ];
 
-// 对话框标题
-const dialogTitle = computed(() => {
-  return formData.id ? "编辑能力评估" : "新建能力评估";
-});
-
 // 格式化评分显示
 const formatScore = (percentage: number) => {
   return `${(percentage / 20).toFixed(1)}分`;
@@ -468,8 +466,8 @@ const formatScore = (percentage: number) => {
 function handleAssessmentDateRangeChange(range: [Date, Date]) {
   assessmentDateRange.value = range;
   if (range && range.length === 2) {
-    queryFormData.assessment_date_start = range[0];
-    queryFormData.assessment_date_end = range[1];
+    queryFormData.assessment_date_start = range[0].toISOString().split("T")[0];
+    queryFormData.assessment_date_end = range[1].toISOString().split("T")[0];
   } else {
     queryFormData.assessment_date_start = undefined;
     queryFormData.assessment_date_end = undefined;
@@ -500,7 +498,7 @@ async function handleRefresh() {
 
 // 行复选框选中项变化
 async function handleSelectionChange(selection: AssessmentTable[]) {
-  selectIds.value = selection.map((item) => item.id);
+  selectIds.value = selection.map((item) => item.id!);
 }
 
 // 关闭弹窗
@@ -585,7 +583,7 @@ async function handleSubmit() {
       res = await AssessmentAPI.updateAssessment(updateId, submitData);
     }
 
-    if (res.data.code === 0) {
+    if (res && res.data && res.data.code === 0) {
       notification.close();
       ElNotification({
         title: operationType === "create" ? "创建成功" : "更新成功",
@@ -595,7 +593,7 @@ async function handleSubmit() {
         position: "bottom-right",
       });
       loadingData();
-    } else {
+    } else if (res) {
       notification.close();
       ElNotification({
         title: "操作失败",
@@ -664,7 +662,7 @@ const loadStudentOptions = async () => {
       page_no: 1,
       page_size: 100,
     });
-    studentOptions.value = response.data.data.items;
+    studentOptions.value = (response.data.data.items || []).filter((s) => s.id !== undefined);
   } catch (error) {
     console.error("加载学员列表失败:", error);
   }

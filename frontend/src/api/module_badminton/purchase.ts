@@ -102,6 +102,7 @@ export interface PurchaseTable extends BaseType {
   remaining_sessions?: number;
   unit_price: number;
   total_amount: number;
+  actual_price?: number;
   purchase_date?: string;
   start_date?: string;
   end_date?: string;
@@ -123,6 +124,7 @@ export interface PurchaseForm extends BaseFormType {
   total_amount: number;
   total_sessions?: number;
   original_price?: number;
+  actual_price?: number;
   discount_rate?: number;
   purchase_date?: string;
   start_date?: string;

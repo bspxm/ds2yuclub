@@ -153,7 +153,7 @@ export interface ClassScheduleCreateV2Form {
   coach_id: number | undefined;
   time_slots: { [key: string]: string[] };
   schedule_status: string;
-  student_ids: number[];
+  student_ids?: number[];
   location?: string;
   topic?: string;
   content_summary?: string;
@@ -185,6 +185,7 @@ export interface ClassScheduleTable extends BaseType {
   class?: {
     id: number;
     name: string;
+    semester_id?: number;
   };
   schedule_date?: string;
   day_of_week?: number;
@@ -210,6 +211,9 @@ export interface ClassScheduleTable extends BaseType {
   leave_count?: number;
   student_ids?: number[];
   notes?: string;
+  topic?: string;
+  content_summary?: string;
+  semester_id?: number;
   created_by?: CommonType;
   updated_by?: CommonType;
 }

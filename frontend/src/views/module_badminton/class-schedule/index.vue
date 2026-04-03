@@ -165,13 +165,13 @@
             <template #default="scope">
               <el-tag
                 :type="
-                  scope.row.schedule_type === 'regular'
-                    ? ''
+                  (scope.row.schedule_type === 'regular'
+                    ? 'primary'
                     : scope.row.schedule_type === 'makeup'
                       ? 'warning'
                       : scope.row.schedule_type === 'extra'
                         ? 'success'
-                        : 'info'
+                        : 'info') as any
                 "
               >
                 {{ getScheduleTypeName(scope.row.schedule_type) }}
@@ -703,7 +703,7 @@ function formatTimeSlotsJson(jsonStr: string | undefined): string {
     const timeSlots = JSON.parse(jsonStr);
     const result: string[] = [];
     for (const [day, codes] of Object.entries(timeSlots)) {
-      result.push(`${day}: ${codes.join(", ")}`);
+      result.push(`${day}: ${(codes as string[]).join(", ")}`);
     }
     return result.join("; ");
   } catch {
@@ -760,7 +760,7 @@ const queryFormData = reactive<ClassSchedulePageQuery>({
 const dialogVisible = reactive({
   title: "",
   visible: false,
-  type: "create" | "update" | "detail",
+  type: "create" as "create" | "update" | "detail",
 });
 
 // 表单验证规则
@@ -783,7 +783,7 @@ const formDataV2 = reactive<ClassScheduleCreateV2Form>({
   class_ids: [],
   coach_id: undefined,
   time_slots: {},
-  schedule_status: undefined,
+  schedule_status: "",
   student_ids: [],
   location: "",
   topic: "",
@@ -1608,15 +1608,14 @@ async function handleSubmit() {
       return;
     }
 
-    if (formDataV2.student_ids.length === 0) {
+    if ((formDataV2.student_ids || []).length === 0) {
       ElMessage.warning("请至少选择一名学员");
       return;
     }
   }
 
-  // 保存表单数据副本
-  const submitData = { ...formDataV2 };
-  delete submitData.student_ids; // student_ids 会在 API 中处理
+  // 保存表单数据副本（排除student_ids，由API处理）
+  const { student_ids: _student_ids, ...submitData } = formDataV2;
 
   // 保存操作类型和ID
   const operationType = dialogVisible.type;
@@ -1644,7 +1643,7 @@ async function handleSubmit() {
       res = await ClassScheduleAPI.updateClassSchedule(updateId, submitData);
     }
 
-    if (res.data.code === 0) {
+    if (res && res.data.code === 0) {
       notification.close();
       ElNotification({
         title: operationType === "create" ? "创建成功" : "更新成功",
@@ -1654,7 +1653,7 @@ async function handleSubmit() {
         position: "bottom-right",
       });
       loadingData();
-    } else {
+    } else if (res) {
       notification.close();
       ElNotification({
         title: "操作失败",

@@ -22,7 +22,7 @@
               v-for="student in studentList"
               :key="student.id"
               :label="`${student.name}:${calculateAge(student.birth_date)}岁:${student.level || '未设置'}:${student.group_name || '未设置'}`"
-              :value="student.id"
+                       :value="student.id as number"
             />
           </el-select>
         </el-form-item>
@@ -64,7 +64,7 @@
               v-for="semester in semesterList"
               :key="semester.id"
               :label="semester.name"
-              :value="semester.id"
+                       :value="semester.id as number"
             />
           </el-select>
         </el-form-item>
@@ -75,7 +75,7 @@
             style="width: 150px"
             clearable
           >
-            <el-option v-for="cls in classList" :key="cls.id" :label="cls.name" :value="cls.id" />
+            <el-option v-for="cls in classList" :key="cls.id" :label="cls.name" :value="cls.id!" />
           </el-select>
         </el-form-item>
         <!-- 查询、重置、展开/收起按钮 -->
@@ -259,8 +259,8 @@
             min-width="90"
           >
             <template #default="scope">
-              <el-tag :type="getPurchaseTypeTagType(scope.row.purchase_type)">
-                {{ getPurchaseTypeText(scope.row.purchase_type) }}
+              <el-tag :type="getPurchaseTypeTagType(scope.row.purchase_type || '') as any">
+                {{ getPurchaseTypeText(scope.row.purchase_type || '') }}
               </el-tag>
             </template>
           </el-table-column>
@@ -312,8 +312,8 @@
             min-width="90"
           >
             <template #default="scope">
-              <el-tag :type="getStatusTagType(scope.row.status)">
-                {{ getStatusText(scope.row.status) }}
+              <el-tag :type="getStatusTagType(scope.row.status || '') as any">
+                {{ getStatusText(scope.row.status || '') }}
               </el-tag>
             </template>
           </el-table-column>
@@ -415,8 +415,8 @@
               {{ detailFormData.class_ref?.name || detailFormData.class_id }}
             </el-descriptions-item>
             <el-descriptions-item label="购买类型">
-              <el-tag :type="getPurchaseTypeTagType(detailFormData.purchase_type)">
-                {{ getPurchaseTypeText(detailFormData.purchase_type) }}
+              <el-tag :type="getPurchaseTypeTagType(detailFormData.purchase_type || '') as any">
+                {{ getPurchaseTypeText(detailFormData.purchase_type || '') }}
               </el-tag>
             </el-descriptions-item>
             <el-descriptions-item label="购买课次">
@@ -448,8 +448,8 @@
               {{ detailFormData.end_date }}
             </el-descriptions-item>
             <el-descriptions-item label="状态">
-              <el-tag :type="getStatusTagType(detailFormData.status)">
-                {{ getStatusText(detailFormData.status) }}
+              <el-tag :type="getStatusTagType(detailFormData.status || '') as any">
+                {{ getStatusText(detailFormData.status || '') }}
               </el-tag>
             </el-descriptions-item>
             <el-descriptions-item label="创建人">
@@ -517,7 +517,7 @@
                       v-for="student in studentList"
                       :key="student.id"
                       :label="`${student.name}:${calculateAge(student.birth_date)}岁:${student.level || '未设置'}:${student.group_name || '未设置'}`"
-                      :value="student.id"
+                       :value="student.id as number"
                     />
                   </el-select>
                 </el-form-item>
@@ -534,7 +534,7 @@
                       v-for="semester in semesterList"
                       :key="semester.id"
                       :label="semester.name"
-                      :value="semester.id"
+                      :value="semester.id!"
                     />
                   </el-select>
                 </el-form-item>
@@ -553,7 +553,7 @@
                       v-for="cls in classList"
                       :key="cls.id"
                       :label="cls.name"
-                      :value="cls.id"
+                      :value="cls.id!"
                     />
                   </el-select>
                 </el-form-item>
@@ -727,8 +727,8 @@
                           {{ day }}
                         </div>
                         <el-checkbox-group
-                          v-model="formData.selected_time_slots[day]"
-                          @change="handleTimeSlotChangeSingle(formData.selected_time_slots)"
+                          v-model="formData.selected_time_slots![day]"
+                          @change="handleTimeSlotChangeSingle(formData.selected_time_slots!)"
                         >
                           <div style="display: flex; flex-direction: column; gap: 8px">
                             <div
@@ -916,7 +916,7 @@
                         v-for="semester in semesterList"
                         :key="semester.id"
                         :label="semester.name"
-                        :value="semester.id"
+                        :value="semester.id as number"
                       />
                     </el-select>
                   </el-form-item>
@@ -934,7 +934,7 @@
                         v-for="cls in classList"
                         :key="cls.id"
                         :label="cls.name"
-                        :value="cls.id"
+                        :value="cls.id as number"
                       />
                     </el-select>
                   </el-form-item>
@@ -1057,7 +1057,7 @@
                             {{ day }}
                           </div>
                           <el-checkbox-group
-                            v-model="batchFormData.selected_time_slots[day]"
+                            v-model="batchFormData.selected_time_slots![day]"
                             @change="handleTimeSlotChange(batchFormData.selected_time_slots)"
                           >
                             <div style="display: flex; flex-direction: column; gap: 8px">
@@ -1137,6 +1137,7 @@ defineOptions({
 
 import { ref, reactive, onMounted, computed, watch } from "vue";
 import { ElMessage, ElMessageBox, ElNotification } from "element-plus";
+import request from "@/utils/request";
 import {
   QuestionFilled,
   ArrowUp,
@@ -1191,7 +1192,7 @@ const tableColumns = ref([
 ]);
 
 // 详情表单
-const detailFormData = ref<PurchaseTable>({});
+const detailFormData = ref<Partial<PurchaseTable>>({});
 
 // 分页查询参数
 const queryFormData = reactive<PurchasePageQuery>({
@@ -1251,7 +1252,7 @@ const rules = reactive({
             callback(new Error("请选择上课时间段"));
           } else {
             const selectedCount = Object.keys(value).reduce(
-              (sum, day) => sum + value[day].length,
+              (sum, day) => sum + (value[day] || []).length,
               0
             );
             if (selectedCount !== requiredCount) {
@@ -1298,7 +1299,7 @@ const batchGroupFilter = ref("");
 const batchLevelFilter = ref("");
 
 // 单个新增表单相关
-const availableTimeSlotsSingle = ref([]);
+const availableTimeSlotsSingle = ref<TimeSlot[]>([]);
 const classTypeInfoSingle = ref<any>(null);
 const loadingTimeSlotsSingle = ref(false);
 const timeSlotWarningSingle = ref("");
@@ -1346,7 +1347,7 @@ const batchRules = reactive({
         // 如果是自选天班级，验证是否选择了足够的次数
         if (classTypeInfo.value && classTypeInfo.value.class_type === "flexible") {
           const requiredCount = classTypeInfo.value.sessions_per_week || 0;
-          const selectedCount = Object.keys(value).reduce((sum, day) => sum + value[day].length, 0);
+          const selectedCount = Object.keys(value).reduce((sum, day) => sum + (value[day] || []).length, 0);
           if (selectedCount !== requiredCount) {
             callback();
             return;
@@ -1405,11 +1406,6 @@ const uniqueLevels = computed(() => {
   return [...new Set(levels)].sort();
 });
 
-// 计算属性：批量总金额
-const batchTotalAmount = computed(() => {
-  return (batchFormData.total_sessions || 0) * (batchFormData.actual_price || 0);
-});
-
 // 计算年龄
 function calculateAge(birthDate: string | undefined): number {
   if (!birthDate) return 0;
@@ -1421,19 +1417,6 @@ function calculateAge(birthDate: string | undefined): number {
     age--;
   }
   return age;
-}
-
-// 格式化日期时间为 YYYY-MM-DD HH:mm:ss
-function formatDateTime(dateTime: string | undefined): string {
-  if (!dateTime) return "";
-  const date = new Date(dateTime);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  const seconds = String(date.getSeconds()).padStart(2, "0");
-  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 }
 
 // 时间段代码映射
@@ -1508,17 +1491,6 @@ function formatSelectedTimeSlots(
   return result;
 }
 
-// 格式化时间段代码
-function formatTimeSlots(slots: string[]): string {
-  if (!slots || slots.length === 0) return "";
-  return slots
-    .map((slot) => {
-      const timeRange = timeSlotMap[slot] || slot;
-      return `${slot} ${timeRange}`;
-    })
-    .join(", ");
-}
-
 // 获取购买类型文本
 function getPurchaseTypeText(type: string): string {
   const typeMap: Record<string, string> = {
@@ -1531,8 +1503,8 @@ function getPurchaseTypeText(type: string): string {
 }
 
 // 获取购买类型标签样式
-function getPurchaseTypeTagType(type: string): string {
-  const typeMap: Record<string, string> = {
+function getPurchaseTypeTagType(type: string): "primary" | "success" | "warning" | "info" | "danger" {
+  const typeMap: Record<string, "primary" | "success" | "warning" | "info" | "danger"> = {
     new: "primary",
     renewal: "success",
     carryover: "warning",
@@ -1559,8 +1531,8 @@ function getStatusText(status: string): string {
 }
 
 // 获取状态标签样式
-function getStatusTagType(status: string): string {
-  const statusMap: Record<string, string> = {
+function getStatusTagType(status: string): "primary" | "success" | "warning" | "info" | "danger" {
+  const statusMap: Record<string, "primary" | "success" | "warning" | "info" | "danger"> = {
     active: "success",
     ACTIVE: "success",
     completed: "warning",
@@ -1654,7 +1626,7 @@ watch(
     }
     // 加载班级可用时间段，保留已选的时间段
     const currentSelectedSlots =
-      formData.selected_time_slots && formData.selected_time_slots.length > 0
+      formData.selected_time_slots && Object.keys(formData.selected_time_slots).length > 0
         ? formData.selected_time_slots
         : null;
     handleClassChangeSingle(newClassId || 0, currentSelectedSlots);
@@ -1793,7 +1765,7 @@ async function handleOpenDialog(type: "create" | "update" | "detail", id?: numbe
 
         // 保存已选的时间段
 
-        const savedSelectedSlots = formData.selected_time_slots || [];
+        const savedSelectedSlots = formData.selected_time_slots || {};
 
         // 如果有班级ID，加载该班级的可用时间段，并保留已选的时间段
 
@@ -1824,7 +1796,7 @@ async function handleSubmit() {
   const timeSlots: { [key: string]: string[] } = {};
   if (formData.selected_time_slots) {
     Object.keys(formData.selected_time_slots).forEach((key) => {
-      timeSlots[key] = [...formData.selected_time_slots[key]];
+      timeSlots[key] = [...(formData.selected_time_slots![key] || [])];
     });
   }
 
@@ -1874,7 +1846,7 @@ async function handleSubmit() {
       res = await PurchaseAPI.updatePurchase(updateId, submitData);
     }
 
-    if (res.data.code === 0) {
+    if (res && res.data.code === 0) {
       notification.close();
       ElNotification({
         title: operationType === "create" ? "创建成功" : "更新成功",
@@ -1884,7 +1856,7 @@ async function handleSubmit() {
         position: "bottom-right",
       });
       loadingData();
-    } else {
+    } else if (res) {
       notification.close();
       ElNotification({
         title: "操作失败",
@@ -1990,8 +1962,8 @@ async function handleBatchSubmit() {
   // 如果是自选天班级，验证是否选择了足够的次数
   if (classTypeInfo.value && classTypeInfo.value.class_type === "flexible") {
     const requiredCount = classTypeInfo.value.sessions_per_week || 0;
-    const selectedCount = Object.keys(batchFormData.selected_time_slots).reduce(
-      (sum, day) => sum + batchFormData.selected_time_slots[day].length,
+    const selectedCount = Object.keys(batchFormData.selected_time_slots || {}).reduce(
+      (sum, day) => sum + (batchFormData.selected_time_slots![day] || []).length,
       0
     );
     if (selectedCount !== requiredCount) {
@@ -2009,7 +1981,7 @@ async function handleBatchSubmit() {
       const timeSlots: { [key: string]: string[] } = {};
       if (batchFormData.selected_time_slots) {
         Object.keys(batchFormData.selected_time_slots).forEach((key) => {
-          timeSlots[key] = [...batchFormData.selected_time_slots[key]];
+          timeSlots[key] = [...(batchFormData.selected_time_slots![key] || [])];
         });
       }
 
@@ -2093,16 +2065,19 @@ async function handleClassChange(classId: number) {
       // 固定班：默认全选，转换为星期+代码格式
       const converted: { [key: string]: string[] } = {};
       availableTimeSlots.value.forEach((slot) => {
-        if (!converted[slot.day]) {
-          converted[slot.day] = [];
+        const day = slot.day || "";
+        if (day) {
+          if (!converted[day]) {
+            converted[day] = [];
+          }
+          converted[day].push(slot.slot_code || "");
         }
-        converted[slot.day].push(slot.slot_code || "");
       });
       batchFormData.selected_time_slots = converted;
       timeSlotWarning.value = "";
     } else if (data.class_type === "flexible") {
       // 自选天：清空选择，需要用户手动选择
-      batchFormData.selected_time_slots = [];
+      batchFormData.selected_time_slots = {};
       timeSlotWarning.value = `请选择 ${data.sessions_per_week} 个上课时间段`;
     }
   } catch (error: any) {
@@ -2110,7 +2085,7 @@ async function handleClassChange(classId: number) {
     ElMessage.error("加载班级可用时间段失败");
     availableTimeSlots.value = [];
     classTypeInfo.value = null;
-    batchFormData.selected_time_slots = [];
+    batchFormData.selected_time_slots = {};
   } finally {
     loadingTimeSlots.value = false;
   }
@@ -2196,7 +2171,7 @@ function handleTimeSlotChangeSingle(selectedSlots: any) {
 
 async function handleClassChangeSingle(
   classId: number,
-  preserveSelectedSlots: number[] | null = null
+  preserveSelectedSlots: { [key: string]: string[] } | null = null
 ) {
   if (!classId) {
     availableTimeSlotsSingle.value = [];
@@ -2227,10 +2202,13 @@ async function handleClassChangeSingle(
       // 固定班：默认全选，转换为星期+代码格式
       const converted: { [key: string]: string[] } = {};
       availableTimeSlotsSingle.value.forEach((slot) => {
-        if (!converted[slot.day]) {
-          converted[slot.day] = [];
+        const day = slot.day || "";
+        if (day) {
+          if (!converted[day]) {
+            converted[day] = [];
+          }
+          converted[day].push(slot.slot_code || "");
         }
-        converted[slot.day].push(slot.slot_code || "");
       });
       formData.selected_time_slots = converted;
       timeSlotWarningSingle.value = "";
@@ -2249,7 +2227,7 @@ async function handleClassChangeSingle(
     ElMessage.error("加载班级可用时间段失败");
     availableTimeSlotsSingle.value = [];
     classTypeInfoSingle.value = null;
-    formData.selected_time_slots = [];
+    formData.selected_time_slots = {};
   } finally {
     loadingTimeSlotsSingle.value = false;
   }
