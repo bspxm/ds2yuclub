@@ -78,8 +78,8 @@ ds2yuclub/
 |------|----------|
 | Python | ≥ 3.10 |
 | Node.js | ≥ 20.0 |
-| MySQL | ≥ 8.0 |
-| Redis | ≥ 7.0 |
+| PostgreSQL | ≥ 13.0 |
+| Redis | ≥ 6.0 |
 
 ### 后端启动
 
@@ -101,6 +101,22 @@ python main.py run --env=dev
 python main.py revision --env=dev  # 生成迁移
 python main.py upgrade --env=dev   # 应用迁移
 ```
+
+**数据库配置说明**（参考 `backend/env/.env.dev`）：
+
+| 配置项 | 说明 |
+|--------|------|
+| DATABASE_TYPE | 数据库类型，支持 `mysql`、`postgres` |
+| DATABASE_HOST | 数据库服务器地址 |
+| DATABASE_PORT | 数据库端口（PostgreSQL默认5432） |
+| DATABASE_NAME | 数据库名称 |
+
+**Redis配置说明**：
+
+| 配置项 | 说明 |
+|--------|------|
+| REDIS_HOST | Redis服务器地址 |
+| REDIS_PORT | Redis端口（默认6379） |
 
 ### 前端启动
 
@@ -128,8 +144,8 @@ pnpm build
 ### 访问地址
 
 - 前端地址：http://localhost:5180
-- 后端API：http://localhost:8001
-- API文档：http://localhost:8001/docs
+- 后端API：http://localhost:8771
+- API文档：http://localhost:8771/docs
 
 ## 核心功能说明
 
