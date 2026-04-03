@@ -1,554 +1,236 @@
+# 羽毛球培训会员管理系统
+
 <div align="center">
-     <p align="center">
-          <img src="https://gitee.com/tao__tao/FastDocs/raw/main/src/public/logo.png" width="150" height="150" alt="logo" />  
-     </p>
-     <h1>FastApiAdmin <sup style="background-color: #28a745; color: white; padding: 2px 6px; border-radius: 3px; font-size: 0.4em; vertical-align: super; margin-left: 5px;">v2.0.0</h1>
-     <h3>现代化全栈快速开发平台</h3>
-     <p>如果你喜欢这个项目，给个 ⭐️ 支持一下吧！</p>
-     <p align="center">
-          <a href="https://gitee.com/tao__tao/FastapiAdmin.git" target="_blank">
-               <img src="https://gitee.com/tao__tao/FastapiAdmin/badge/star.svg?theme=dark" alt="Gitee Stars">
-          </a>
-          <a href="https://github.com/1014TaoTao/FastapiAdmin.git" target="_blank">
-               <img src="https://img.shields.io/github/stars/1014TaoTao/FastapiAdmin?style=social" alt="GitHub Stars">
-          </a>
-          <a href="https://gitee.com/tao__tao/FastapiAdmin/blob/master/LICENSE" target="_blank">
-               <img src="https://img.shields.io/badge/License-MIT-orange" alt="License">
-          </a>
-          <img src="https://img.shields.io/badge/Python-≥3.10-blue"> 
-          <img src="https://img.shields.io/badge/NodeJS-≥20.0-blue"> 
-          <img src="https://img.shields.io/badge/MySQL-≥8.0-blue"> 
-          <img src="https://img.shields.io/badge/Redis-≥7.0-blue"> 
-          <img src="https://img.shields.io/badge/-HTML5-E34F26?style=flat-square&logo=html5&logoColor=white"/> 
-          <img src="https://img.shields.io/badge/-CSS3-1572B6?style=flat-square&logo=css3"/> 
-          <img src="https://img.shields.io/badge/-JavaScript-563D7C?style=flat-square&logo=bootstrap"/> 
-     </p>
-
-简体中文 | [English](./README.en.md)
-
+  <p align="center">
+    <img src="https://gitee.com/tao__tao/FastDocs/raw/main/src/public/logo.png" width="150" height="150" alt="logo" />
+  </p>
+  <h1>羽毛球培训会员管理系统</h1>
+  <h3>基于 FastApiAdmin 框架的学期制课时结算系统</h3>
+  <p>技术先进、功能完善的羽毛球培训管理解决方案</p>
 </div>
 
-## 📘 项目介绍
+## 项目介绍
 
-**FastApiAdmin** 是一套 **完全开源、高度模块化、技术先进的现代化快速开发平台**，旨在帮助开发者高效搭建高质量的企业级中后台系统。该项目采用 **前后端分离架构**，融合 Python 后端框架 `FastAPI` 和前端主流框架 `Vue3` 实现多端统一开发，提供了一站式开箱即用的开发体验。
+本系统是一套**羽毛球培训会员管理系统**，基于 **FastApiAdmin** 框架构建，采用前后端分离架构，实现学期制课时结算功能。系统支持学员管理、班级管理、课程排课、购买记录、出勤管理、能力评估、比赛管理等核心功能。
 
-> **设计初心**: 以模块化、松耦合为核心，追求丰富的功能模块、简洁易用的接口、详尽的开发文档和便捷的维护方式。通过统一框架和组件，降低技术选型成本，遵循开发规范和设计模式，构建强大的代码分层模型，搭配完善的本地中文化支持，专为团队和企业开发场景量身定制。
+> **设计目标**：为羽毛球培训机构提供数字化管理解决方案，提高运营效率，优化会员体验。
 
-## 🔗 源码仓库
-
-| 平台 | 仓库地址 |
-|------|----------|
-| GitHub | [FastapiAdmin主工程](https://github.com/1014TaoTao/FastapiAdmin.git) \| [FastDocs官网](https://github.com/1014TaoTao/FastDocs.git) \| [FastApp移动端](https://github.com/1014TaoTao/FastApp.git) |
-| Gitee  | [FastapiAdmin主工程](https://gitee.com/tao__tao/FastapiAdmin.git) \| [FastDocs官网](https://gitee.com/tao__tao/FastDocs.git) \| [FastApp移动端](https://gitee.com/tao__tao/FastApp.git) |
-
-## 🎯 核心优势
-
-| 优势 | 描述 |
-| ---- | ---- |
-| 🔥 **现代化技术栈** | 基于 FastAPI + Vue3 + TypeScript 等前沿技术构建 |
-| ⚡ **高性能异步** | 利用 FastAPI 异步特性和 Redis 缓存优化响应速度 |
-| 🔐 **安全可靠** | JWT + OAuth2 认证机制，RBAC 权限控制模型 |
-| 🧱 **模块化设计** | 高度解耦的系统架构，便于扩展和维护 |
-| 🌐 **全栈支持** | Web端 + 移动端(H5) + 后端一体化解决方案 |
-| 🚀 **快速部署** | Docker 一键部署，支持生产环境快速上线 |
-| 📖 **完善文档** | 详细的开发文档和教程，降低学习成本 |
-
-## 📦 工程结构概览
-
-```sh
-FastapiAdmin
-├─ backend               # 后端工程 (FastAPI + Python)
-├─ frontend              # Web前端工程 (Vue3 + Element Plus)
-├─ fastapp               # 移动端工程 (UniApp + Wot Design Uni)
-├─ fastdocs              # 官网文档工程 (VitePress)
-├─ devops                # 部署配置
-├─ docker-compose.yaml   # Docker编排文件
-├─ deploy.sh             # 一键部署脚本
-├─ LICENSE               # 开源协议
-|─ README.en.md          # 英文文档
-└─ README.md             # 中文文档
-```
-
-## 🛠️ 技术栈概览
+## 技术栈
 
 | 类型 | 技术选型 | 描述 |
 |------|----------|------|
-| **后端框架** | FastAPI / Uvicorn / Pydantic 2.0 / Alembic | 现代、高性能的异步框架，强制类型约束，数据迁移 |
-| **ORM** | SQLAlchemy 2.0 | 强大的 ORM 库 |
-| **定时任务** | APScheduler | 轻松实现定时任务 |
-| **权限认证** | PyJWT | 实现 JWT 认证 |
-| **前端框架** | Vue3 / Vite5 / Pinia / TypeScript | 快速开发 Vue3 应用 |
-| **Web UI** | ElementPlus | 企业级 UI 组件库 |
-| **移动端** | UniApp / Wot Design Uni | 跨端移动应用框架 |
-| **数据库** | MySQL / MongoDB | 关系型和文档型数据库支持 |
-| **缓存** | Redis | 高性能缓存数据库 |
-| **文档** | Swagger / Redoc | 自动生成 API 文档 |
-| **部署** | Docker / Nginx / Docker Compose | 容器化部署方案 |
+| **后端框架** | FastAPI / SQLAlchemy 2.0 / Pydantic 2.x | 高性能异步框架，强制类型约束 |
+| **前端框架** | Vue3 / Vite5 / TypeScript / Pinia | 现代前端开发技术栈 |
+| **UI组件** | Element Plus / UnoCSS | 企业级UI组件库 |
+| **数据库** | MySQL 8.0 / PostgreSQL | 关系型数据库支持 |
+| **缓存** | Redis | 高性能缓存 |
+| **ORM** | SQLAlchemy 2.0 (async) | 异步ORM库 |
+| **迁移工具** | Alembic | 数据库版本管理 |
 
-## 📌 内置功能模块
+## 功能模块
 
 | 模块 | 功能 | 描述 |
 |------|------|------|
-| 📊 **仪表盘** | 工作台、分析页 | 系统概览和数据分析 |
-| ⚙️ **系统管理** | 用户、角色、菜单、部门、岗位、字典、配置、公告 | 核心系统管理功能 |
-| 👀 **监控管理** | 在线用户、服务器监控、缓存监控 | 系统运行状态监控 |
-| 📋 **任务管理** | 定时任务 | 异步任务调度管理 |
-| 📝 **日志管理** | 操作日志 | 用户行为审计 |
-| 🧰 **开发工具** | 代码生成、表单构建、接口文档 | 提升开发效率的工具 |
-| 📁 **文件管理** | 文件存储 | 统一文件管理 |
+| 📚 **学员管理** | 学员档案、等级管理 | 学员信息管理、能力等级划分 |
+| 🏫 **班级管理** | 班级创建、排班设置 | 固定天/自选天班级设置 |
+| 📅 **课程管理** | 课程表、教练分配 | 课程安排、教练管理 |
+| 📆 **排课管理** | 课程调度、时间段管理 | V2版本排课功能 |
+| 💰 **购买记录** | 课时购买、套餐管理 | 学期制课时购买与结算 |
+| ✅ **出勤管理** | 签到签退、出勤统计 | 学员上课签到管理 |
+| 📖 **学期管理** | 学期设置、周期管理 | 学期时间设置 |
+| 👥 **能力分组** | 分组管理、教练分配 | 学员能力分组 |
+| 📊 **能力评估** | 九维评估、历史记录 | 技术、步法、战术等多维度评估 |
+| 🏆 **比赛管理** | 赛事管理、积分排名 | 赛事组织、淘汰赛/循环赛 |
+| 📝 **请假管理** | 请假申请、审批流程 | 学员请假申请与审批 |
 
-## 🍪 演示环境
+## 工程结构
 
-- 🌐 官网地址：[https://service.fastapiadmin.com](https://service.fastapiadmin.com)
-- 💻 Web演示：[https://service.fastapiadmin.com/web](https://service.fastapiadmin.com/web)
-- 📱 移动端：[https://service.fastapiadmin.com/app](https://service.fastapiadmin.com/app)
-- 👤 登录账号：`admin` 密码：`123456`
+```
+ds2yuclub/
+├─ backend/                    # 后端工程
+│  └─ app/plugin/
+│     └─ module_badminton/    # 羽毛球业务模块
+│        ├─ student/          # 学员管理
+│        ├─ class_/           # 班级管理
+│        ├─ course/           # 课程管理
+│        ├─ schedule/         # 排课管理
+│        ├─ purchase/         # 购买记录
+│        ├─ attendance/       # 出勤管理
+│        ├─ semester/         # 学期管理
+│        ├─ group/            # 能力分组
+│        ├─ assessment/       # 能力评估
+│        ├─ tournament/       # 比赛管理
+│        └─ leave/           # 请假管理
+├─ frontend/                   # 前端工程
+│  └─ src/
+│     ├─ views/module_badminton/  # 业务页面组件
+│     ├─ api/module_badminton/    # API调用
+│     └─ store/modules/           # Pinia状态管理
+├─ docs/                      # 项目文档
+└─ docker-compose.yaml        # Docker编排
+```
 
-## 🚀 快速开始
+## 快速开始
 
 ### 环境要求
 
-| 类型 | 技术栈 | 版本 |
-|------|--------|------|
-| 后端 | Python | 3.12 ≥ 3.10 |
-| 后端 | FastAPI | 0.109+ |
-| 前端 | Node.js | ≥ 20.0 |
-| 前端 | Vue3 | 3.3+ |
-| 数据库 | MySQL | 8.0+ |
-| 缓存 | Redis | 7.0+ |
-
-### 获取代码
-
-```bash
-# 克隆代码到本地
-git clone https://gitee.com/tao__tao/FastapiAdmin.git
-# 或者
-git clone https://github.com/1014TaoTao/FastapiAdmin.git
-```
-
-> **后端注意**：克隆下的代码需要修改 `backend/env` 目录下的 `.env.dev.example` 文件为 `.env.dev`，修改 `backend/env` 目录下的 `.env.prod.example` 文件为 `.env.prod`，然后根据实际情况修改数据库连接信息、Redis连接信息等。
-> **前端注意**：克隆下的代码需要修改 `frontend` 目录下的 `.env.development.example` 文件为 `.env.development`，修改 `frontend` 目录下的 `.env.production.example` 文件为 `.env.production`，然后根据实际情况修改接口地址等。
+| 类型 | 版本要求 |
+|------|----------|
+| Python | ≥ 3.10 |
+| Node.js | ≥ 20.0 |
+| MySQL | ≥ 8.0 |
+| Redis | ≥ 7.0 |
 
 ### 后端启动
 
 ```bash
-# 进入后端工程目录
+# 进入后端目录
 cd backend
 
 # 安装依赖
-pip3 install -r requirements.txt
+pip install -r requirements.txt
 
-# 启动后端服务：启动之前保证mysql中创建好了数据库、redis服务
-python main.py run
-# 或指定环境
+# 配置环境变量
+cp env/.env.dev.example env/.env.dev
+# 编辑 env/.env.dev 配置数据库和Redis连接
+
+# 启动服务
 python main.py run --env=dev
 
-# 生成迁移文件
-python main.py revision --env=dev
-# 应用迁移
-python main.py upgrade --env=dev
+# 数据库迁移
+python main.py revision --env=dev  # 生成迁移
+python main.py upgrade --env=dev   # 应用迁移
 ```
 
 ### 前端启动
 
 ```bash
-# 进入前端工程目录
+# 进入前端目录
 cd frontend
 
 # 安装依赖
 pnpm install
 
+# 配置环境变量
+cp .env.development.example .env.development
+# 编辑 .env.development 配置接口地址
+
 # 启动开发服务器
-pnpm run dev
+pnpm dev
+
+# 类型检查
+pnpm run type-check
 
 # 构建生产版本
-pnpm run build
-```
-
-### 移动端启动
-
-```bash
-# 进入移动端工程目录
-cd fastapp
-
-# 安装依赖
-pnpm install
-
-# 启动H5开发服务器
-pnpm run dev:h5
-
-# 构建H5生产版本
-pnpm run build:h5
-```
-
-### 文档启动
-
-```bash
-# 进入文档工程目录
-cd fastdocs
-
-# 安装依赖
-pnpm install
-
-# 启动文档开发服务器
-pnpm run docs:dev
-
-# 构建文档生产版本
-pnpm run docs:build
+pnpm build
 ```
 
 ### 访问地址
 
-- 🏠 项目官网：[http://localhost:5180](http://localhost:5180)
-- 🖥️ Web端：[http://localhost:5180/web](http://localhost:5180/web)
-- 📱 移动端：[http://localhost:5180/app](http://localhost:5180/app)
+- 前端地址：http://localhost:5180
+- 后端API：http://localhost:8001
+- API文档：http://localhost:8001/docs
 
-默认账号：
-- 管理员：`admin` / `123456`
+## 核心功能说明
 
-## 🐳 Docker 部署
+### 时间段格式
+
+系统中时间段使用统一的JSON格式存储：
+
+```json
+{
+  "周一": ["A", "B"],
+  "周三": ["C"],
+  "周五": ["D", "E"]
+}
+```
+
+时间段编码对照：
+- A: 08:00-09:30
+- B: 09:30-11:00
+- C: 14:00-15:30
+- D: 15:30-17:00
+- E: 18:00-19:30
+
+### 能力评估维度
+
+系统采用九维能力评估体系：
+1. 技术能力 (technique)
+2. 步法移动 (footwork)
+3. 战术意识 (tactics)
+4. 力量 (power)
+5. 速度 (speed)
+6. 耐力 (stamina)
+7. 进攻能力 (offense)
+8. 防守能力 (defense)
+9. 心理素质 (mental)
+
+### 班级类型
+
+- **固定天班级**：每周固定日期上课
+- **自选天班级**：学员可选择上课日期
+
+## 开发指南
+
+### 后端开发
+
+采用插件化架构，业务模块位于 `backend/app/plugin/module_badminton/`：
+
+```
+module_badminton/
+├─ controller.py    # 控制器（路由定义）
+├─ service.py       # 业务逻辑层
+├─ crud.py          # 数据访问层
+├─ model.py         # ORM模型
+├─ schema.py        # Pydantic验证模型
+└─ enums.py         # 枚举定义
+```
+
+### 前端开发
+
+页面组件位于 `frontend/src/views/module_badminton/`：
+- 使用 Vue3 Composition API
+- TypeScript 类型安全
+- Element Plus 组件库
+- Pinia 状态管理
+
+### API规范
+
+- RESTful API 设计
+- JWT 认证
+- 统一响应格式：`{ code, msg, data }`
+- 权限控制基于 RBAC 模型
+
+## Docker 部署
 
 ```bash
-# 复制部署脚本到服务器并赋予执行权限
-chmod +x deploy.sh
-
-# 执行一键部署
+# 一键部署
 ./deploy.sh
 
-# 常用 Docker 命令
-# 查看运行中的容器
+# 查看容器状态
 docker compose ps
 
-# 查看容器日志
+# 查看日志
 docker logs -f <容器名>
 
 # 停止服务
 docker compose down
 ```
 
-## 🔧 模块展示
+## 项目文档
 
-### web 端
+- [AGENTS.md](./AGENTS.md) - AI助手开发指南
+- [CLAUDE.md](./CLAUDE.md) - Claude Code 配置
+- [单个新增购买记录时间段选择功能说明.md](./单个新增购买记录时间段选择功能说明.md)
+- [时间段选择功能测试说明.md](./时间段选择功能测试说明.md)
 
-| 模块名 <div style="width:60px"/> | 截图 |
-| ----- | --- |
-| 仪表盘   | ![仪表盘](https://gitee.com/tao__tao/FastDocs/raw/main/src/public/dashboard.png) |
-| 代码生成  | ![代码生成](https://gitee.com/tao__tao/FastDocs/raw/main/src/public/gencode.png) |
-| 智能助手  | ![智能助手](https://gitee.com/tao__tao/FastDocs/raw/main/src/public/ai.png) |
+## 许可证
 
-### 移动端
+本项目基于 MIT 许可证开源。
 
-| 登录 <div style="width:60px"/> | 首页 <div style="width:60px"/> | 个人中心 <div style="width:60px"/> |
-|----------|----------|----------|
-| ![移动端登录](https://gitee.com/tao__tao/FastDocs/raw/main/src/public/app_login.png) | ![移动端首页](https://gitee.com/tao__tao/FastDocs/raw/main/src/public/app_home.png) | ![移动端个人中心](https://gitee.com/tao__tao/FastDocs/raw/main/src/public/app_mine.png) |
-| 个人  |
+## 致谢
 
-## 🛠️ 二开教程
-
-### 后端开发
-
-项目采用**插件化架构设计**，二次开发建议在 `backend/app/plugin` 目录下进行，系统会**自动发现并注册**所有符合规范的路由，便于模块管理和升级维护。
-
-#### 插件化架构特性
-
-- **自动路由发现**：系统会自动扫描 `backend/app/plugin/` 目录下所有 `controller.py` 文件
-- **自动路由注册**：所有路由会被自动注册到对应的前缀路径 (module_xxx -> /xxx)
-- **模块化管理**：按功能模块组织代码，便于维护和扩展
-- **支持多层级嵌套**：支持模块内部多层级嵌套结构
-
-#### 插件目录结构
-
-```sh
-backend/app/plugin/
-├── module_application/  # 应用模块（自动映射为 /application）
-│   └── ai/              # AI子模块
-│       ├── controller.py # 控制器文件
-│       ├── model.py      # 数据模型文件
-│       ├── schema.py     # 数据验证文件
-│       ├── service.py    # 业务逻辑文件
-│       └── crud.py       # 数据访问文件
-├── module_example/      # 示例模块（自动映射为 /example）
-│   └── demo/            # 子模块
-│       ├── controller.py # 控制器文件
-│       ├── model.py      # 数据模型文件
-│       ├── schema.py     # 数据验证文件
-│       ├── service.py    # 业务逻辑文件
-│       └── crud.py       # 数据访问文件
-├── module_generator/    # 代码生成模块（自动映射为 /generator）
-└── init_app.py          # 插件初始化文件
-```
-
-#### 自动路由注册机制
-
-系统会**自动发现并注册**所有符合以下条件的路由：
-1. 控制器文件必须命名为 `controller.py`
-2. 路由会自动映射：`module_xxx` -> `/xxx`
-3. 支持多个 `APIRouter` 实例
-4. 自动处理路由去重
-
-#### 二次开发步骤
-
-1. **创建插件模块**：在 `backend/app/plugin/` 目录下创建新的模块目录，如 `module_yourfeature`
-2. **编写数据模型**：在 `model.py` 中定义数据库模型
-3. **编写数据验证**：在 `schema.py` 中定义数据验证模型
-4. **编写数据访问层**：在 `crud.py` 中编写数据库操作逻辑
-5. **编写业务逻辑层**：在 `service.py` 中编写业务逻辑
-6. **编写控制器**：在 `controller.py` 中定义路由和处理函数
-7. **自动注册**：系统会自动扫描并注册所有路由，无需手动配置
-
-#### 控制器示例
-
-```python
-# backend/app/plugin/module_yourfeature/yourcontroller/controller.py
-from fastapi import APIRouter, Depends, Path
-from fastapi.responses import JSONResponse
-
-from app.common.response import SuccessResponse
-from app.core.router_class import OperationLogRoute
-from app.core.dependencies import AuthPermission
-from app.api.v1.module_system.auth.schema import AuthSchema
-from .service import YourFeatureService
-
-# 创建路由实例
-YourFeatureRouter = APIRouter(
-    route_class=OperationLogRoute, 
-    prefix="/yourcontroller", 
-    tags=["你的功能模块"]
-)
-
-@YourFeatureRouter.get("/detail/{id}", summary="获取详情")
-async def get_detail(
-    id: int = Path(..., description="功能ID"),
-    auth: AuthSchema = Depends(AuthPermission(["module_yourfeature:yourcontroller:detail"]))
-) -> JSONResponse:
-    result = await YourFeatureService.detail_service(id=id, auth=auth)
-    return SuccessResponse(data=result)
-
-@YourFeatureRouter.get("/list", summary="获取列表")
-async def get_list(
-    auth: AuthSchema = Depends(AuthPermission(["module_yourfeature:yourcontroller:list"]))
-) -> JSONResponse:
-    result = await YourFeatureService.list_service(auth=auth)
-    return SuccessResponse(data=result)
-```
-
-#### 开发规范
-
-1. **命名规范**：模块名采用 `module_xxx` 格式，控制器名采用驼峰命名法
-2. **权限控制**：所有API接口必须添加权限控制装饰器
-3. **日志记录**：使用 `OperationLogRoute` 类自动记录操作日志
-4. **返回格式**：统一使用 `SuccessResponse` 或 `ErrorResponse` 返回响应
-5. **代码注释**：为所有API接口添加详细的文档字符串
-
-#### 注意事项
-
-- 插件模块名必须以 `module_` 开头
-- 控制器文件必须命名为 `controller.py`
-- 路由会自动映射到对应的前缀路径
-- 无需手动注册路由，系统会自动发现并注册
-
-### 前端部分
-
-1. **配置前端API**：在 `frontend/src/api/` 目录下创建对应的API文件
-2. **编写页面组件**：在 `frontend/src/views/` 目录下创建页面组件
-3. **注册路由**：在 `frontend/src/router/index.ts` 中注册路由
-
-### 移动端部分
-
-1. **配置移动端API**：在 `fastapp/src/api/` 目录下创建对应的API文件
-2. **编写页面组件**：在 `fastapp/src/pages/` 目录下创建页面组件
-3. **注册路由**：在 `fastapp/src/router/index.ts` 中注册路由
-
-### 代码生成器使用
-
-项目内置代码生成器，可以根据数据库表结构自动生成前后端代码，大幅提升开发效率。
-
-#### 生成步骤
-
-1. **登录系统**：使用管理员账号登录系统
-2. **进入代码生成模块**：在左侧菜单中点击"代码生成"
-3. **导入表结构**：选择要生成代码的数据库表
-4. **配置生成参数**：填写模块名称、功能名称等
-5. **生成代码**：点击"生成代码"按钮
-6. **下载或写入**：选择下载代码包或直接写入项目目录
-
-#### 生成文件结构
-
-```sh
-# 后端文件
-backend/app/plugin/module_yourmodule/
-└── yourfeature/
-    ├── controller.py # 控制器文件
-    ├── model.py      # 数据模型文件
-    ├── schema.py     # 数据验证文件
-    ├── service.py    # 业务逻辑文件
-    └── crud.py       # 数据访问文件
-
-# 前端文件
-frontend/src/
-├── api/module_yourmodule/
-│   └── yourfeature.ts # API调用文件
-└── views/module_yourmodule/
-    └── yourfeature/
-        └── index.vue # 页面组件
-```
-
-#### 生成代码示例
-
-```python
-# 生成的控制器代码示例
-from fastapi import APIRouter, Depends
-from fastapi.responses import JSONResponse
-
-from app.common.response import SuccessResponse
-from app.core.router_class import OperationLogRoute
-from app.core.dependencies import AuthPermission
-from app.api.v1.module_system.auth.schema import AuthSchema
-from .service import YourFeatureService
-from .schema import (
-    YourFeatureCreateSchema,
-    YourFeatureUpdateSchema,
-    YourFeatureQueryParam
-)
-
-YourFeatureRouter = APIRouter(
-    route_class=OperationLogRoute, 
-    prefix="/yourfeature", 
-    tags=["你的功能模块"]
-)
-
-@YourFeatureRouter.get("/detail/{id}")
-async def get_detail(
-    id: int, 
-    auth: AuthSchema = Depends(AuthPermission(["module_yourmodule:yourfeature:detail"]))
-) -> JSONResponse:
-    result = await YourFeatureService.detail_service(id=id, auth=auth)
-    return SuccessResponse(data=result)
-```
-
-### 开发工具
-
-- **代码生成器**：自动生成前后端CRUD代码
-- **API文档**：自动生成Swagger/Redoc API文档
-- **数据库迁移**：支持Alembic数据库迁移
-- **日志系统**：内置日志记录和查询功能
-- **监控系统**：内置服务器监控和缓存监控功能
-
-### 开发流程
-
-1. **需求分析**：明确功能需求和业务逻辑
-2. **数据库设计**：设计数据库表结构
-3. **代码生成**：使用代码生成器生成基础代码
-4. **业务逻辑开发**：完善业务逻辑和接口
-5. **前端开发**：开发前端页面和交互
-6. **测试**：进行单元测试和集成测试
-7. **部署**：部署到生产环境
-
-### 开发注意事项
-
-1. **权限控制**：所有API接口必须添加权限控制
-2. **数据验证**：所有输入数据必须进行验证
-3. **异常处理**：统一处理API异常
-4. **日志记录**：关键操作必须记录日志
-5. **性能优化**：注意API性能优化，避免慢查询
-6. **代码规范**：遵循PEP8和项目代码规范
-
-### 部署说明
-
-#### 本地开发
-
-```bash
-# 启动后端服务
-cd backend
-python main.py run --env=dev
-
-# 启动前端服务
-cd frontend
-pnpm run dev
-
-# 启动移动端服务
-cd fastapp
-pnpm run dev:h5
-```
-
-#### Docker部署
-
-```bash
-# 执行一键部署脚本
-./deploy.sh
-
-# 查看运行状态
-docker compose ps
-
-# 查看日志
-docker logs -f <container_name>
-```
-
-### 技术支持
-
-- **官方文档**：https://service.fastapiadmin.com
-- **GitHub**：https://github.com/1014TaoTao/FastapiAdmin
-- **Gitee**：https://gitee.com/tao__tao/FastapiAdmin
-
-### 常见问题
-
-#### Q：如何添加新功能模块？
-A：按照二次开发步骤，在 `backend/app/plugin/` 目录下创建新的模块目录，编写相关代码即可。
-
-#### Q：如何配置数据库？
-A：在 `backend/env/.env.dev` 或 `backend/env/.env.prod` 文件中配置数据库连接信息。
-
-#### Q：如何配置Redis？
-A：在 `backend/env/.env.dev` 或 `backend/env/.env.prod` 文件中配置Redis连接信息。
-
-#### Q：如何生成数据库迁移文件？
-A：使用 `python main.py revision --env=dev` 命令生成迁移文件。
-
-#### Q：如何应用数据库迁移？
-A：使用 `python main.py upgrade --env=dev` 命令应用迁移。
-
-#### Q：如何启动开发服务器？
-A：使用 `python main.py run --env=dev` 命令启动开发服务器。
-
-#### Q：如何构建前端生产版本？
-A：使用 `pnpm run build` 命令构建前端生产版本。
-
-#### Q：如何部署到生产环境？
-A：使用 `./deploy.sh` 脚本一键部署到生产环境。
-
-## ℹ️ 帮助
-
-更多详情请查看 [官方文档](https://service.fastapiadmin.com)
-
-## 👥 贡献者
-
-<a href="https://github.com/1014TaoTao/FastapiAdmin/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=1014TaoTao/FastapiAdmin"/>
-</a>
-
-## 🙏 特别鸣谢
-
-感谢以下开源项目的贡献和支持：
-
-- [FastAPI](https://fastapi.tiangolo.com/)
-- [Pydantic](https://docs.pydantic.dev/)
-- [SQLAlchemy](https://www.sqlalchemy.org/)
-- [APScheduler](https://github.com/agronholm/apscheduler)
-- [Vue3](https://cn.vuejs.org/)
-- [TypeScript](https://www.typescriptlang.org/)
-- [Vite](https://github.com/vitejs/vite)
-- [Element Plus](https://element-plus.org/)
-- [UniApp](https://uniapp.dcloud.net.cn/)
-- [Wot-Design-UI](https://wot-ui.cn/)
-
-## 🎨 社区交流
-
-| 群组二维码 | 微信支付二维码 |
-| --- | --- |
-| ![群组二维码](https://gitee.com/tao__tao/FastDocs/raw/main/src/public/group.jpg) | ![微信支付二维码](https://gitee.com/tao__tao/FastDocs/raw/main/src/public/wechatPay.jpg) |
-
-## ❤️ 支持项目
-
-如果你喜欢这个项目，请给我一个 ⭐️ Star 支持一下吧！非常感谢！
-
-[![Stargazers over time](https://starchart.cc/1014TaoTao/FastapiAdmin.svg?variant=adaptive)](https://starchart.cc/1014TaoTao/FastapiAdmin)
+- [FastApiAdmin](https://github.com/1014TaoTao/FastApiAdmin) - 基础框架
+- [Vue3](https://cn.vuejs.org/) - 前端框架
+- [FastAPI](https://fastapi.tiangolo.com/) - 后端框架
+- [Element Plus](https://element-plus.org/) - UI组件库
