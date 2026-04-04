@@ -1,4 +1,4 @@
-<!-- 赛事管理 -->
+<!-- 赛事管理 - 重构版 -->
 <template>
   <div class="app-container">
     <!-- 搜索区域 -->
@@ -13,16 +13,16 @@
         <el-form-item prop="name" label="赛事名称">
           <el-input v-model="queryFormData.name" placeholder="请输入赛事名称" clearable />
         </el-form-item>
-        <el-form-item prop="format" label="赛制">
+        <el-form-item prop="tournament_type" label="赛制">
           <el-select
-            v-model="queryFormData.format"
+            v-model="queryFormData.tournament_type"
             placeholder="请选择赛制"
             style="width: 150px"
             clearable
           >
-            <el-option value="group_cycle" label="分组循环赛" />
+            <el-option value="round_robin" label="分组循环赛" />
             <el-option value="pure_group" label="纯小组赛" />
-            <el-option value="fixed_zone_promotion" label="定区升降赛" />
+            <el-option value="promotion_relegation" label="定区升降赛" />
             <el-option value="single_elimination" label="小组单败制淘汰赛" />
           </el-select>
         </el-form-item>
@@ -39,16 +39,9 @@
             <el-option value="cancelled" label="已取消" />
           </el-select>
         </el-form-item>
-        <el-form-item v-if="isExpand" prop="location" label="比赛地点">
-          <el-input v-model="queryFormData.location" placeholder="请输入比赛地点" clearable />
-        </el-form-item>
-        <el-form-item v-if="isExpand" prop="start_date" label="开始日期">
-          <DatePicker v-model="startDateRange" @update:model-value="handleStartDateRangeChange" />
-        </el-form-item>
-        <!-- 查询、重置、展开/收起按钮 -->
         <el-form-item>
           <el-button
-            v-hasPerm="['module_badminton:tournament:query']"
+            v-hasPerm="['module_badminton:tournament:list']"
             type="primary"
             icon="search"
             @click="handleQuery"
@@ -56,26 +49,12 @@
             查询
           </el-button>
           <el-button
-            v-hasPerm="['module_badminton:tournament:query']"
+            v-hasPerm="['module_badminton:tournament:list']"
             icon="refresh"
             @click="handleResetQuery"
           >
             重置
           </el-button>
-          <!-- 展开/收起 -->
-          <template v-if="isExpandable">
-            <el-link class="ml-3" type="primary" underline="never" @click="isExpand = !isExpand">
-              {{ isExpand ? "收起" : "展开" }}
-              <el-icon>
-                <template v-if="isExpand">
-                  <ArrowUp />
-                </template>
-                <template v-else>
-                  <ArrowDown />
-                </template>
-              </el-icon>
-            </el-link>
-          </template>
         </el-form-item>
       </el-form>
     </div>
@@ -86,7 +65,7 @@
         <div class="card-header">
           <span>
             赛事管理
-            <el-tooltip content="羽毛球赛事管理">
+            <el-tooltip content="羽毛球赛事管理 - 支持创建比赛、配置参赛队员、生成对阵、录入比分">
               <QuestionFilled class="w-4 h-4 mx-1" />
             </el-tooltip>
           </span>
@@ -100,9 +79,9 @@
             <el-col :span="1.5">
               <el-button
                 v-hasPerm="['module_badminton:tournament:create']"
-                type="success"
+                type="primary"
                 icon="plus"
-                @click="handleOpenDialog('create')"
+                @click="handleAdd"
               >
                 新增赛事
               </el-button>
@@ -113,667 +92,407 @@
                 type="danger"
                 icon="delete"
                 :disabled="selectIds.length === 0"
-                @click="handleDelete(selectIds)"
+                @click="handleBatchDelete"
               >
                 批量删除
               </el-button>
             </el-col>
-            <el-col :span="1.5">
-              <el-dropdown v-hasPerm="['module_badminton:tournament:patch']" trigger="click">
-                <el-button type="default" :disabled="selectIds.length === 0" icon="ArrowDown">
-                  更多
-                </el-button>
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item icon="Check" @click="handleMoreClick('ongoing')">
-                      批量开始
-                    </el-dropdown-item>
-                    <el-dropdown-item icon="CircleClose" @click="handleMoreClick('completed')">
-                      批量结束
-                    </el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
-            </el-col>
-          </el-row>
-        </div>
-        <div class="data-table__toolbar--right">
-          <el-row :gutter="10">
-            <el-col :span="1.5">
-              <el-tooltip content="搜索显示/隐藏">
-                <el-button
-                  v-hasPerm="['*:*:*']"
-                  type="info"
-                  icon="search"
-                  circle
-                  @click="visible = !visible"
-                />
-              </el-tooltip>
-            </el-col>
-            <el-col :span="1.5">
-              <el-tooltip content="刷新">
-                <el-button
-                  v-hasPerm="['module_badminton:tournament:query']"
-                  type="primary"
-                  icon="refresh"
-                  circle
-                  @click="handleRefresh"
-                />
-              </el-tooltip>
-            </el-col>
-            <el-col :span="1.5">
-              <el-popover placement="bottom" trigger="click">
-                <template #reference>
-                  <el-button type="danger" icon="operation" circle></el-button>
-                </template>
-                <el-scrollbar max-height="350px">
-                  <template v-for="column in tableColumns" :key="column.prop">
-                    <el-checkbox v-if="column.prop" v-model="column.show" :label="column.label" />
-                  </template>
-                </el-scrollbar>
-              </el-popover>
-            </el-col>
           </el-row>
         </div>
       </div>
 
-      <!-- 表格区域 -->
-      <div class="data-table__content-wrapper">
-        <el-table
-          ref="tableRef"
-          v-loading="loading"
-          :data="pageTableData"
-          highlight-current-row
-          class="data-table__content"
-          border
-          stripe
-          @selection-change="handleSelectionChange"
-        >
-          <template #empty>
-            <el-empty :image-size="80" description="暂无数据" />
+      <!-- 数据表格 -->
+      <el-table
+        ref="dataTableRef"
+        v-loading="loading"
+        :data="tournamentList"
+        border
+        highlight-current-row
+        @selection-change="handleSelectionChange"
+      >
+        <el-table-column type="selection" width="55" align="center" />
+        <el-table-column prop="name" label="赛事名称" min-width="150" show-overflow-tooltip />
+        <el-table-column prop="tournament_type" label="赛制" width="120">
+          <template #default="{ row }">
+            <el-tag>{{ getFormatLabel(row.tournament_type) }}</el-tag>
           </template>
-          <el-table-column
-            v-if="tableColumns.find((col) => col.prop === 'selection')?.show"
-            type="selection"
-            min-width="55"
-            align="center"
-          />
-          <el-table-column
-            v-if="tableColumns.find((col) => col.prop === 'index')?.show"
-            fixed
-            label="序号"
-            min-width="60"
-          >
-            <template #default="scope">
-              {{ (queryFormData.page_no - 1) * queryFormData.page_size + scope.$index + 1 }}
-            </template>
-          </el-table-column>
-          <el-table-column
-            v-if="tableColumns.find((col) => col.prop === 'name')?.show"
-            label="赛事名称"
-            prop="name"
-            min-width="150"
-          />
-          <el-table-column
-            v-if="tableColumns.find((col) => col.prop === 'format')?.show"
-            label="赛制"
-            prop="format"
-            min-width="120"
-          >
-            <template #default="scope">
-              <el-tag>
-                {{ getFormatText(scope.row.format) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column
-            v-if="tableColumns.find((col) => col.prop === 'status')?.show"
-            label="状态"
-            prop="status"
-            min-width="100"
-          >
-            <template #default="scope">
-              <el-tag :type="getStatusTagType(scope.row.status)">
-                {{ getStatusText(scope.row.status) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column
-            v-if="tableColumns.find((col) => col.prop === 'start_date')?.show"
-            label="开始日期"
-            prop="start_date"
-            min-width="120"
-          />
-          <el-table-column
-            v-if="tableColumns.find((col) => col.prop === 'end_date')?.show"
-            label="结束日期"
-            prop="end_date"
-            min-width="120"
-          />
-          <el-table-column
-            v-if="tableColumns.find((col) => col.prop === 'location')?.show"
-            label="比赛地点"
-            prop="location"
-            min-width="150"
-          />
-          <el-table-column
-            v-if="tableColumns.find((col) => col.prop === 'participant_count')?.show"
-            label="参赛人数"
-            prop="participant_count"
-            min-width="100"
-          />
-          <el-table-column
-            v-if="tableColumns.find((col) => col.prop === 'created_time')?.show"
-            label="创建时间"
-            prop="created_time"
-            min-width="180"
-          />
-          <el-table-column
-            v-if="tableColumns.find((col) => col.prop === 'operation')?.show"
-            fixed="right"
-            label="操作"
-            align="center"
-            min-width="180"
-          >
-            <template #default="scope">
-              <el-button
-                v-hasPerm="['module_badminton:tournament:detail']"
-                type="info"
-                size="small"
-                link
-                icon="document"
-                @click="handleOpenDialog('detail', scope.row.id)"
-              >
-                详情
-              </el-button>
-              <el-button
-                v-hasPerm="['module_badminton:tournament:update']"
-                type="primary"
-                size="small"
-                link
-                icon="edit"
-                @click="handleOpenDialog('update', scope.row.id)"
-              >
-                编辑
-              </el-button>
-              <el-button
-                v-hasPerm="['module_badminton:tournament:delete']"
-                type="danger"
-                size="small"
-                link
-                icon="delete"
-                @click="handleDelete([scope.row.id])"
-              >
-                删除
-              </el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </div>
+        </el-table-column>
+        <el-table-column prop="status" label="状态" width="100">
+          <template #default="{ row }">
+            <el-tag :type="getStatusType(row.status)">{{ getStatusLabel(row.status) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="start_date" label="开始日期" width="120" />
+        <el-table-column prop="location" label="比赛地点" width="120" show-overflow-tooltip />
+        <el-table-column prop="participant_count" label="参赛人数" width="100" align="center" />
+        <el-table-column label="操作" width="280" fixed="right">
+          <template #default="{ row }">
+            <el-button
+              v-hasPerm="['module_badminton:tournament:list']"
+              type="primary"
+              link
+              icon="view"
+              @click="handleManage(row)"
+            >
+              管理
+            </el-button>
+            <el-button
+              v-hasPerm="['module_badminton:tournament:update']"
+              type="primary"
+              link
+              icon="edit"
+              @click="handleEdit(row)"
+            >
+              编辑
+            </el-button>
+            <el-button
+              v-hasPerm="['module_badminton:tournament:delete']"
+              type="danger"
+              link
+              icon="delete"
+              @click="handleDelete(row)"
+            >
+              删除
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
 
-      <!-- 分页区域 -->
-      <template #footer>
-        <pagination
-          v-model:total="total"
-          v-model:page="queryFormData.page_no"
-          v-model:limit="queryFormData.page_size"
-          @pagination="loadingData"
+      <!-- 分页 -->
+      <div class="pagination-container">
+        <el-pagination
+          v-model:current-page="queryFormData.page_no"
+          v-model:page-size="queryFormData.page_size"
+          :page-sizes="[10, 20, 50, 100]"
+          :total="total"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="handleSizeChange"
+          @current-change="handleCurrentChange"
         />
-      </template>
+      </div>
     </el-card>
 
-    <!-- 弹窗区域 -->
+    <!-- 赛事管理对话框 -->
     <el-dialog
-      v-model="dialogVisible.visible"
-      :title="dialogVisible.title"
-      width="800px"
-      @close="handleCloseDialog"
+      v-model="manageDialogVisible"
+      :title="`赛事管理 - ${currentTournament?.name || ''}`"
+      width="95%"
+      top="5vh"
+      destroy-on-close
     >
-      <!-- 详情 -->
-      <template v-if="dialogVisible.type === 'detail'">
-        <el-descriptions :column="2" border>
-          <ElDescriptionsItem label="赛事名称" :span="2">
-            {{ detailFormData.name }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="赛制">
-            <el-tag>
-              {{ getFormatText(detailFormData.format) }}
-            </el-tag>
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="状态">
-            <el-tag :type="getStatusTagType(detailFormData.status)">
-              {{ getStatusText(detailFormData.status) }}
-            </el-tag>
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="开始日期">
-            {{ detailFormData.start_date }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="结束日期">
-            {{ detailFormData.end_date }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="比赛地点">
-            {{ detailFormData.location || "未设置" }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="参赛人数">
-            {{ detailFormData.participant_count || 0 }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="规则说明" :span="2">
-            {{ detailFormData.rules_description || "无" }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="备注" :span="2">
-            {{ detailFormData.description || "无" }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="创建人">
-            {{ detailFormData.created_by?.name || "系统" }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="更新人">
-            {{ detailFormData.updated_by?.name || "系统" }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="创建时间">
-            {{ detailFormData.created_time }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="更新时间">
-            {{ detailFormData.updated_time }}
-          </ElDescriptionsItem>
-        </el-descriptions>
-      </template>
-      <!-- 新增、编辑表单 -->
-      <template v-else>
-        <el-form
-          ref="dataFormRef"
-          :model="formData"
-          :rules="rules"
-          label-suffix=":"
-          label-width="auto"
-          label-position="right"
-          inline
-        >
-          <el-form-item label="赛事名称" prop="name">
-            <el-input v-model="formData.name" placeholder="请输入赛事名称" :maxlength="100" />
-          </el-form-item>
-          <el-form-item label="赛制" prop="format">
-            <el-select v-model="formData.format" placeholder="请选择赛制">
-              <el-option value="group_cycle" label="分组循环赛" />
-              <el-option value="pure_group" label="纯小组赛" />
-              <el-option value="fixed_zone_promotion" label="定区升降赛" />
-              <el-option value="single_elimination" label="小组单败制淘汰赛" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="状态" prop="status">
-            <el-radio-group v-model="formData.status">
-              <el-radio value="planned">计划中</el-radio>
-              <el-radio value="ongoing">进行中</el-radio>
-              <el-radio value="completed">已结束</el-radio>
-              <el-radio value="cancelled">已取消</el-radio>
-            </el-radio-group>
-          </el-form-item>
-          <el-form-item label="开始日期" prop="start_date">
-            <el-date-picker
-              v-model="formData.start_date"
-              type="date"
-              placeholder="请选择开始日期"
-              style="width: 100%"
-              value-format="YYYY-MM-DD"
-            />
-          </el-form-item>
-          <el-form-item label="结束日期">
-            <el-date-picker
-              v-model="formData.end_date"
-              type="date"
-              placeholder="请选择结束日期"
-              style="width: 100%"
-              value-format="YYYY-MM-DD"
-            />
-          </el-form-item>
-          <el-form-item label="比赛地点">
-            <el-input v-model="formData.location" placeholder="请输入比赛地点" :maxlength="200" />
-          </el-form-item>
-          <el-form-item label="规则说明">
-            <el-input
-              v-model="formData.rules_description"
-              :rows="3"
-              :maxlength="500"
-              show-word-limit
-              type="textarea"
-              placeholder="请输入规则说明"
-            />
-          </el-form-item>
-          <el-form-item label="备注">
-            <el-input
-              v-model="formData.description"
-              :rows="3"
-              :maxlength="500"
-              show-word-limit
-              type="textarea"
-              placeholder="请输入备注"
-            />
-          </el-form-item>
-        </el-form>
-      </template>
+      <div v-if="currentTournament" class="tournament-manager">
+        <!-- 标签页 -->
+        <el-tabs v-model="activeTab" @tab-change="handleTabChange">
+          <!-- 参赛队员管理 -->
+          <el-tab-pane label="参赛队员" name="participants">
+            <div class="tab-content">
+              <div class="toolbar">
+                <el-button
+                  type="primary"
+                  icon="plus"
+                  @click="handleAddParticipant"
+                >
+                  添加参赛队员
+                </el-button>
+                <el-button
+                  type="success"
+                  icon="refresh"
+                  :disabled="participants.length < 2"
+                  @click="handleGenerateMatches"
+                >
+                  生成对阵表
+                </el-button>
+              </div>
+              <el-table :data="participants" border>
+                <el-table-column prop="seed_rank" label="种子排名" width="90" align="center">
+                  <template #default="{ row }">
+                    <el-tag v-if="row.seed_rank" type="warning">{{ row.seed_rank }}</el-tag>
+                    <span v-else>-</span>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="student_name" label="姓名" width="100" />
+                <el-table-column prop="age" label="年龄" width="70" align="center" />
+                <el-table-column prop="group_name" label="组别" width="100" />
+                <el-table-column prop="level" label="水平" width="90" />
+                <el-table-column prop="matches_played" label="比赛场次" width="90" align="center" />
+                <el-table-column prop="wins" label="胜" width="60" align="center" />
+                <el-table-column prop="losses" label="负" width="60" align="center" />
+                <el-table-column label="操作" width="150">
+                  <template #default="{ row }">
+                    <el-button type="primary" link @click="handleSetSeed(row)">设置种子</el-button>
+                    <el-button type="danger" link @click="handleRemoveParticipant(row)">移除</el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </div>
+          </el-tab-pane>
 
+          <!-- 羽球在线风格小组赛 -->
+          <el-tab-pane label="小组赛" name="groupStage">
+            <div class="tab-content">
+              <div class="toolbar">
+                <el-button type="primary" icon="refresh" @click="loadGroupStageData">刷新</el-button>
+              </div>
+              <GroupStageView
+                v-if="groupStageData"
+                :data="groupStageData"
+                @record-score="handleGroupStageScore"
+              />
+              <el-empty v-else description="暂无小组赛数据" />
+            </div>
+          </el-tab-pane>
+
+          <!-- 对阵卡片 -->
+          <el-tab-pane label="对阵" name="matches">
+            <div class="tab-content">
+              <div class="toolbar">
+                <el-button type="primary" icon="refresh" @click="loadMatches">刷新</el-button>
+              </div>
+              <CardView
+                :matches="matches"
+                @match-click="handleMatchClick"
+              />
+            </div>
+          </el-tab-pane>
+
+
+        </el-tabs>
+      </div>
+    </el-dialog>
+
+    <!-- 添加/编辑赛事对话框 -->
+    <el-dialog
+      v-model="dialogVisible"
+      :title="dialogTitle"
+      width="600px"
+      @close="resetForm"
+    >
+      <el-form ref="formRef" :model="formData" :rules="rules" label-width="100px">
+        <el-form-item label="赛事名称" prop="name">
+          <el-input v-model="formData.name" placeholder="请输入赛事名称" />
+        </el-form-item>
+        <el-form-item label="赛制" prop="tournament_type">
+          <el-select v-model="formData.tournament_type" placeholder="请选择赛制" style="width: 100%">
+            <el-option value="round_robin" label="分组循环赛（带淘汰赛）" />
+            <el-option value="pure_group" label="纯小组赛" />
+            <el-option value="promotion_relegation" label="定区升降赛" />
+            <el-option value="single_elimination" label="小组单败制淘汰赛" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="开始日期" prop="start_date">
+          <el-date-picker
+            v-model="formData.start_date"
+            type="date"
+            placeholder="选择开始日期"
+            style="width: 100%"
+            value-format="YYYY-MM-DD"
+          />
+        </el-form-item>
+        <el-form-item label="结束日期" prop="end_date">
+          <el-date-picker
+            v-model="formData.end_date"
+            type="date"
+            placeholder="选择结束日期"
+            style="width: 100%"
+            value-format="YYYY-MM-DD"
+          />
+        </el-form-item>
+        <el-form-item label="比赛地点" prop="location">
+          <el-input v-model="formData.location" placeholder="请输入比赛地点" />
+        </el-form-item>
+        <el-form-item label="最大人数" prop="max_participants">
+          <el-input-number v-model="formData.max_participants" :min="2" :max="128" />
+        </el-form-item>
+        <el-form-item label="分组数量" prop="num_groups">
+          <el-input-number v-model="formData.num_groups" :min="1" :max="16" />
+        </el-form-item>
+        <el-form-item label="每组人数" prop="group_size">
+          <el-input-number v-model="formData.group_size" :min="2" :max="8" />
+        </el-form-item>
+        <el-form-item label="备注" prop="description">
+          <el-input v-model="formData.description" type="textarea" :rows="3" placeholder="请输入备注" />
+        </el-form-item>
+      </el-form>
       <template #footer>
-        <div class="dialog-footer">
-          <el-button @click="handleCloseDialog">取消</el-button>
-          <el-button v-if="dialogVisible.type !== 'detail'" type="primary" @click="handleSubmit">
-            确定
-          </el-button>
-          <el-button v-else type="primary" @click="handleCloseDialog">确定</el-button>
-        </div>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleSubmit">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 参赛队员选择对话框 -->
+    <ParticipantSelect
+      v-model:visible="participantSelectVisible"
+      :tournament-id="currentTournament?.id || 0"
+      :existing-participants="participants.map((p) => p.student_id)"
+      @submit="handleParticipantSubmit"
+    />
+
+    <!-- 比分录入对话框 -->
+    <ScoreDialog
+      v-model:visible="scoreDialogVisible"
+      :match="selectedMatch"
+      @submit="handleScoreSubmit"
+    />
+
+    <!-- 种子排名设置对话框 -->
+    <el-dialog v-model="seedDialogVisible" title="设置种子排名" width="300px">
+      <el-form>
+        <el-form-item label="种子排名">
+          <el-input-number v-model="seedRank" :min="1" :max="participants.length" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="seedDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleSeedSubmit">确定</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-defineOptions({
-  name: "Tournament",
-  inheritAttrs: false,
-});
-
 import { ref, reactive, onMounted } from "vue";
-import { ElMessageBox, ElNotification } from "element-plus";
-import { QuestionFilled, ArrowUp, ArrowDown } from "@element-plus/icons-vue";
-import { formatToDateTime } from "@/utils/dateUtil";
-import DatePicker from "@/components/DatePicker/index.vue";
-import TournamentAPI, {
-  TournamentTable,
-  TournamentForm,
-  TournamentPageQuery,
-} from "@/api/module_badminton/tournament";
+import { ElMessage, ElMessageBox } from "element-plus";
+import { QuestionFilled } from "@element-plus/icons-vue";
+import TournamentAPI, { TournamentAPIExtended } from "@/api/module_badminton/tournament";
+import type { TournamentTable, TournamentForm, TournamentMatch, TournamentParticipant } from "@/api/module_badminton/tournament";
 
+// 组件导入
+import CardView from "./components/CardView.vue";
+import ParticipantSelect from "./components/ParticipantSelect.vue";
+import ScoreDialog from "./components/ScoreDialog.vue";
+import GroupStageView from "./components/GroupStageView.vue";
+
+// 搜索区域显示控制
 const visible = ref(true);
+
+// 查询表单
 const queryFormRef = ref();
-const dataFormRef = ref();
-const total = ref(0);
-const selectIds = ref<number[]>([]);
-const selectionRows = ref<TournamentTable[]>([]);
-const loading = ref(false);
-const isExpand = ref(false);
-const isExpandable = ref(true);
-
-// 分页表单
-const pageTableData = ref<TournamentTable[]>([]);
-
-// 表格列配置
-const tableColumns = ref([
-  { prop: "selection", label: "选择框", show: true },
-  { prop: "index", label: "序号", show: true },
-  { prop: "name", label: "赛事名称", show: true },
-  { prop: "format", label: "赛制", show: true },
-  { prop: "status", label: "状态", show: true },
-  { prop: "start_date", label: "开始日期", show: true },
-  { prop: "end_date", label: "结束日期", show: true },
-  { prop: "location", label: "比赛地点", show: true },
-  { prop: "participant_count", label: "参赛人数", show: true },
-  { prop: "created_time", label: "创建时间", show: true },
-  { prop: "operation", label: "操作", show: true },
-]);
-
-// 详情表单
-const detailFormData = ref<Partial<TournamentTable>>({});
-// 日期范围临时变量
-const startDateRange = ref<[Date, Date] | []>([]);
-
-// 处理开始日期范围变化
-function handleStartDateRangeChange(range: [Date, Date]) {
-  startDateRange.value = range;
-  if (range && range.length === 2) {
-    queryFormData.start_date = [formatToDateTime(range[0]), formatToDateTime(range[1])];
-  } else {
-    queryFormData.start_date = undefined;
-  }
-}
-
-// 分页查询参数
-const queryFormData = reactive<TournamentPageQuery>({
+const queryFormData = reactive({
   page_no: 1,
   page_size: 10,
-  name: undefined,
-  format: undefined,
-  status: undefined,
-  location: undefined,
-  start_date: undefined,
-  end_date: undefined,
-  created_time: undefined,
-  updated_time: undefined,
-  created_id: undefined,
-  updated_id: undefined,
-});
-
-// 编辑表单
-const formData = reactive<TournamentForm>({
-  id: undefined,
   name: "",
-  format: "group_cycle",
-  status: "planned",
-  start_date: "",
-  end_date: undefined,
-  location: undefined,
-  rules_description: undefined,
-  description: undefined,
+  tournament_type: "",
+  status: "",
 });
 
-// 弹窗状态
-const dialogVisible = reactive({
-  title: "",
-  visible: false,
-  type: "create" as "create" | "update" | "detail",
+// 数据列表
+const loading = ref(false);
+const tournamentList = ref<TournamentTable[]>([]);
+const total = ref(0);
+const selectIds = ref<number[]>([]);
+
+// 对话框
+const dialogVisible = ref(false);
+const dialogTitle = ref("");
+const formRef = ref();
+
+// 日期格式化函数
+function formatDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+const formData = reactive<TournamentForm>({
+  name: "",
+  tournament_type: "round_robin", // 默认：分组循环赛
+  start_date: formatDate(new Date()),
+  end_date: formatDate(new Date()),
+  location: "",
+  max_participants: 16,
+  num_groups: 4,
+  group_size: 4,
+  description: "",
 });
 
-// 表单验证规则
-const rules = reactive({
+const rules = {
   name: [{ required: true, message: "请输入赛事名称", trigger: "blur" }],
-  format: [{ required: true, message: "请选择赛制", trigger: "blur" }],
-  status: [{ required: true, message: "请选择状态", trigger: "blur" }],
-  start_date: [{ required: true, message: "请选择开始日期", trigger: "blur" }],
-});
-
-// 获取赛制文本
-const getFormatText = (format?: string) => {
-  switch (format) {
-    case "group_cycle":
-      return "分组循环赛";
-    case "pure_group":
-      return "纯小组赛";
-    case "fixed_zone_promotion":
-      return "定区升降赛";
-    case "single_elimination":
-      return "小组单败制淘汰赛";
-    default:
-      return format || "未知";
-  }
+  tournament_type: [{ required: true, message: "请选择赛制", trigger: "change" }],
+  start_date: [{ required: true, message: "请选择开始日期", trigger: "change" }],
+  end_date: [{ required: true, message: "请选择结束日期", trigger: "change" }],
 };
 
-// 获取状态标签类型
-const getStatusTagType = (status?: string) => {
-  switch (status) {
-    case "planned":
-      return "info";
-    case "ongoing":
-      return "warning";
-    case "completed":
-      return "success";
-    case "cancelled":
-      return "danger";
-    default:
-      return "info";
-  }
-};
+// 赛事管理
+const manageDialogVisible = ref(false);
+const currentTournament = ref<TournamentTable | null>(null);
+const activeTab = ref("participants");
+const participants = ref<TournamentParticipant[]>([]);
+const matches = ref<TournamentMatch[]>([]);
+const groupStageData = ref<any>(null);
 
-// 获取状态文本
-const getStatusText = (status?: string) => {
-  switch (status) {
-    case "planned":
-      return "计划中";
-    case "ongoing":
-      return "进行中";
-    case "completed":
-      return "已结束";
-    case "cancelled":
-      return "已取消";
-    default:
-      return "未知";
-  }
-};
+// 参赛队员选择
+const participantSelectVisible = ref(false);
 
-// 加载表格数据
+// 比分录入
+const scoreDialogVisible = ref(false);
+const selectedMatch = ref<TournamentMatch | null>(null);
+
+// 种子排名设置
+const seedDialogVisible = ref(false);
+const seedRank = ref(1);
+const selectedParticipant = ref<TournamentParticipant | null>(null);
+
+// 加载赛事列表
 async function loadingData() {
   loading.value = true;
   try {
-    const response = await TournamentAPI.getTournamentList(queryFormData);
-    pageTableData.value = response.data.data.items || [];
-    total.value = response.data.data.total || 0;
-  } catch (error: any) {
+    const res = await TournamentAPI.getTournamentList(queryFormData);
+    const items = res.data?.data || [];
+    tournamentList.value = items;
+    total.value = items.length;
+  } catch (error) {
     console.error(error);
   } finally {
     loading.value = false;
   }
 }
 
-// 查询（重置页码后获取数据）
-async function handleQuery() {
+// 查询
+function handleQuery() {
   queryFormData.page_no = 1;
   loadingData();
 }
 
 // 重置查询
-async function handleResetQuery() {
-  queryFormRef.value.resetFields();
-  queryFormData.page_no = 1;
-  // 重置日期范围选择器
-  startDateRange.value = [];
-  queryFormData.start_date = undefined;
+function handleResetQuery() {
+  queryFormRef.value?.resetFields();
+  handleQuery();
+}
+
+// 分页
+function handleSizeChange(size: number) {
+  queryFormData.page_size = size;
   loadingData();
 }
 
-// 定义初始表单数据常量
-const initialFormData: TournamentForm = {
-  id: undefined,
-  name: "",
-  format: "group_cycle",
-  status: "planned",
-  start_date: "",
-  end_date: undefined,
-  location: undefined,
-  rules_description: undefined,
-  description: undefined,
-};
-
-// 重置表单
-async function resetForm() {
-  if (dataFormRef.value) {
-    dataFormRef.value.resetFields();
-    dataFormRef.value.clearValidate();
-  }
-  // 完全重置 formData 为初始状态
-  Object.assign(formData, initialFormData);
+function handleCurrentChange(page: number) {
+  queryFormData.page_no = page;
+  loadingData();
 }
 
-// 行复选框选中项变化
-async function handleSelectionChange(selection: any) {
-  selectIds.value = selection.map((item: any) => item.id);
-  selectionRows.value = selection;
+// 选择
+function handleSelectionChange(selection: TournamentTable[]) {
+  selectIds.value = selection.map((item) => item.id);
 }
 
-// 关闭弹窗
-async function handleCloseDialog() {
-  dialogVisible.visible = false;
+// 新增
+function handleAdd() {
+  dialogTitle.value = "新增赛事";
   resetForm();
+  dialogVisible.value = true;
 }
 
-// 打开弹窗
-async function handleOpenDialog(type: "create" | "update" | "detail", id?: number) {
-  // 每次打开弹窗前先重置表单
-  resetForm();
-  dialogVisible.type = type;
-  if (id) {
-    const response = await TournamentAPI.getTournamentDetail(id);
-    if (type === "detail") {
-      dialogVisible.title = "赛事详情";
-      Object.assign(detailFormData.value, response.data.data);
-    } else if (type === "update") {
-      dialogVisible.title = "修改赛事";
-      Object.assign(formData, response.data.data);
-    }
-  } else {
-    dialogVisible.title = "新增赛事";
-    formData.id = undefined;
-  }
-  dialogVisible.visible = true;
+// 编辑
+function handleEdit(row: TournamentTable) {
+  dialogTitle.value = "编辑赛事";
+  Object.assign(formData, row);
+  dialogVisible.value = true;
 }
 
-// 提交表单
-async function handleSubmit() {
-  if (!dataFormRef.value) return;
-
-  const valid = await dataFormRef.value.validate().catch(() => false);
-  if (!valid) return;
-
-  // 保存表单数据副本
-  const submitData = { ...formData };
-  delete submitData.id;
-
-  // 保存操作类型和ID
-  const operationType = formData.id ? "update" : "create";
-  const updateId = formData.id;
-
-  // 立即关闭窗口
-  handleCloseDialog();
-
-  // 显示持久化通知
-  const notification = ElNotification({
-    title: operationType === "create" ? "创建" : "更新",
-    message: "后台保存中...",
-    type: "info",
-    duration: 0,
-    position: "bottom-right",
-  });
-
-  // 在后台保存
-  try {
-    let res;
-    if (operationType === "create") {
-      res = await TournamentAPI.createTournament(submitData);
-    } else if (operationType === "update" && updateId) {
-      res = await TournamentAPI.updateTournament(updateId, submitData);
-    }
-
-    if (res && res.data.code === 0) {
-      notification.close();
-      ElNotification({
-        title: operationType === "create" ? "创建成功" : "更新成功",
-        message: operationType === "create" ? "创建成功" : "更新成功",
-        type: "success",
-        duration: 3000,
-        position: "bottom-right",
-      });
-      handleResetQuery();
-    } else {
-      notification.close();
-      ElNotification({
-        title: "操作失败",
-        message: res?.data?.msg || "操作失败",
-        type: "error",
-        duration: 3000,
-        position: "bottom-right",
-      });
-    }
-  } catch (error: any) {
-    console.error("提交失败:", error);
-    notification.close();
-    ElNotification({
-      title: "提交失败",
-      message: "网络错误或服务器异常",
-      type: "error",
-      duration: 3000,
-      position: "bottom-right",
-    });
-  }
-}
-
-// 删除、批量删除
-async function handleDelete(ids: number[]) {
-  ElMessageBox.confirm("确认删除该赛事数据?", "警告", {
+// 删除
+function handleDelete(row: TournamentTable) {
+  ElMessageBox.confirm(`确认删除赛事"${row.name}"?`, "警告", {
     confirmButtonText: "确定",
     cancelButtonText: "取消",
     type: "warning",
@@ -781,47 +500,304 @@ async function handleDelete(ids: number[]) {
     .then(async () => {
       try {
         loading.value = true;
-        await TournamentAPI.deleteTournament(ids);
-        handleResetQuery();
-      } catch (error: any) {
+        await TournamentAPI.deleteTournament([row.id]);
+        ElMessage.success("删除成功");
+        loadingData();
+      } catch (error) {
         console.error(error);
       } finally {
         loading.value = false;
       }
     })
-    .catch(() => {
-      ElMessageBox.close();
-    });
+    .catch(() => {});
 }
 
-// 批量开始/结束
-async function handleMoreClick(status: string) {
-  if (selectIds.value.length) {
-    ElMessageBox.confirm(`确认${status === "ongoing" ? "开始" : "结束"}该赛事?`, "警告", {
-      confirmButtonText: "确定",
-      cancelButtonText: "取消",
-      type: "warning",
+// 批量删除
+function handleBatchDelete() {
+  ElMessageBox.confirm(`确认删除选中的${selectIds.value.length}个赛事?`, "警告", {
+    confirmButtonText: "确定",
+    cancelButtonText: "取消",
+    type: "warning",
+  })
+    .then(async () => {
+      try {
+        loading.value = true;
+        await TournamentAPI.deleteTournament(selectIds.value);
+        ElMessage.success("删除成功");
+        loadingData();
+      } catch (error) {
+        console.error(error);
+      } finally {
+        loading.value = false;
+      }
     })
-      .then(async () => {
-        try {
-          loading.value = true;
-          await TournamentAPI.batchSetTournamentStatus({ ids: selectIds.value, status });
-          handleResetQuery();
-        } catch (error: any) {
-          console.error(error);
-        } finally {
-          loading.value = false;
-        }
-      })
-      .catch(() => {
-        ElMessageBox.close();
-      });
+    .catch(() => {});
+}
+
+// 提交表单
+async function handleSubmit() {
+  try {
+    await formRef.value?.validate();
+    loading.value = true;
+
+    // 确保日期格式为 YYYY-MM-DD
+    const submitData = {
+      ...formData,
+      start_date: typeof formData.start_date === 'string' ? formData.start_date : formatDate(new Date(formData.start_date)),
+      end_date: typeof formData.end_date === 'string' ? formData.end_date : formatDate(new Date(formData.end_date)),
+    };
+
+    if (formData.id) {
+      await TournamentAPI.updateTournament(formData.id, submitData);
+      ElMessage.success("更新成功");
+    } else {
+      await TournamentAPI.createTournament(submitData);
+      ElMessage.success("创建成功");
+    }
+
+    dialogVisible.value = false;
+    loadingData();
+  } catch (error) {
+    console.error(error);
+  } finally {
+    loading.value = false;
   }
 }
 
-// 列表刷新
-async function handleRefresh() {
-  await loadingData();
+// 重置表单
+function resetForm() {
+  formRef.value?.resetFields();
+  Object.assign(formData, {
+    id: undefined,
+    name: "",
+    tournament_type: "round_robin",
+    start_date: formatDate(new Date()),
+    end_date: formatDate(new Date()),
+    location: "",
+    max_participants: 16,
+    num_groups: 4,
+    group_size: 4,
+    description: "",
+  });
+}
+
+// 赛事管理
+async function handleManage(row: TournamentTable) {
+  currentTournament.value = row;
+  manageDialogVisible.value = true;
+  activeTab.value = "participants";
+  await loadParticipants();
+}
+
+// 加载参赛队员
+async function loadParticipants() {
+  if (!currentTournament.value) return;
+  try {
+    const res = await TournamentAPIExtended.getParticipants(currentTournament.value.id);
+    participants.value = res.data?.data || [];
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// 加载对阵
+async function loadMatches() {
+  if (!currentTournament.value) return;
+  try {
+    const res = await TournamentAPIExtended.getMatches(currentTournament.value.id);
+    console.log('对阵API原始响应:', res);
+    console.log('对阵API data.data:', res.data?.data);
+    matches.value = res.data?.data || [];
+    console.log('最终对阵数据:', matches.value, '数量:', matches.value.length);
+  } catch (error) {
+    console.error('加载对阵失败:', error);
+  }
+}
+
+// 添加参赛队员
+function handleAddParticipant() {
+  participantSelectVisible.value = true;
+}
+
+// 提交参赛队员
+async function handleParticipantSubmit(selectedParticipants: any[]) {
+  if (!currentTournament.value) return;
+  try {
+    const studentIds = selectedParticipants.map((p) => p.student_id);
+    await TournamentAPIExtended.batchAddParticipants(currentTournament.value.id, studentIds);
+    ElMessage.success("添加成功");
+    await loadParticipants();
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// 移除参赛队员
+async function handleRemoveParticipant(row: TournamentParticipant) {
+  if (!currentTournament.value) return;
+  try {
+    await TournamentAPIExtended.removeParticipant(currentTournament.value.id, row.id);
+    ElMessage.success("移除成功");
+    await loadParticipants();
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// 设置种子排名
+function handleSetSeed(row: TournamentParticipant) {
+  selectedParticipant.value = row;
+  seedRank.value = row.seed_rank || 1;
+  seedDialogVisible.value = true;
+}
+
+// 提交种子排名
+async function handleSeedSubmit() {
+  if (!currentTournament.value || !selectedParticipant.value) return;
+  try {
+    await TournamentAPIExtended.updateParticipant(
+      currentTournament.value.id,
+      selectedParticipant.value.id,
+      seedRank.value
+    );
+    ElMessage.success("设置成功");
+    seedDialogVisible.value = false;
+    await loadParticipants();
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// 生成对阵表
+async function handleGenerateMatches() {
+  if (!currentTournament.value) return;
+  try {
+    const res = await TournamentAPIExtended.generateMatches(currentTournament.value.id, true);
+    // 使用生成的对阵更新本地数据
+    matches.value = res.data?.data || [];
+    ElMessage.success("对阵表生成成功");
+    activeTab.value = "matches";
+    // 同时从服务器加载最新对阵，确保数据一致
+    await loadMatches();
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// 监听标签页切换
+function handleTabChange(tabName: string) {
+  console.log('标签页切换:', tabName);
+  if (tabName === "matches") {
+    loadMatches();
+  } else if (tabName === "groupStage") {
+    loadGroupStageData();
+  }
+}
+
+// 加载小组赛数据
+async function loadGroupStageData() {
+  if (!currentTournament.value) return;
+  try {
+    const res = await TournamentAPIExtended.getGroupStageData(currentTournament.value.id);
+    groupStageData.value = res.data?.data || null;
+    console.log('小组赛数据:', groupStageData.value);
+  } catch (error) {
+    console.error('加载小组赛数据失败:', error);
+  }
+}
+
+// 处理小组赛比分录入
+function handleGroupStageScore(scheduleItem: any) {
+  // 转换小组赛赛程项为 TournamentMatch 格式
+  selectedMatch.value = {
+    id: scheduleItem.match_id,
+    player1: { id: scheduleItem.player1_id, name: scheduleItem.player1_name },
+    player2: { id: scheduleItem.player2_id, name: scheduleItem.player2_name },
+    scores: scheduleItem.sets || [], // 传递已有的比分数据
+    status: scheduleItem.completed ? "COMPLETED" : "SCHEDULED",
+  } as any;
+  scoreDialogVisible.value = true;
+}
+
+// 点击比赛
+function handleMatchClick(match: TournamentMatch) {
+  selectedMatch.value = match;
+  scoreDialogVisible.value = true;
+}
+
+// 提交比分
+async function handleScoreSubmit(data: { matchId: number; sets: any[] }) {
+  if (!currentTournament.value) return;
+  try {
+    await TournamentAPIExtended.recordScore(currentTournament.value.id, data.matchId, {
+      sets: data.sets,
+    });
+    ElMessage.success("比分录入成功");
+    await loadMatches();
+    await loadGroupStageData(); // 刷新小组赛数据
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// 格式化
+function getFormatLabel(tournamentType: string): string {
+  const map: Record<string, string> = {
+    // 大写格式（数据库视图返回）
+    ROUND_ROBIN: "分组循环赛",
+    PURE_GROUP: "纯小组赛",
+    PROMOTION_RELEGATION: "定区升降赛",
+    SINGLE_ELIMINATION: "小组单败制淘汰赛",
+    // 小写格式（兼容旧数据）
+    round_robin: "分组循环赛",
+    pure_group: "纯小组赛",
+    promotion_relegation: "定区升降赛",
+    single_elimination: "小组单败制淘汰赛",
+  };
+  return map[tournamentType] || tournamentType;
+}
+
+function getStatusLabel(status: string): string {
+  const map: Record<string, string> = {
+    // 大写格式（数据库视图返回）
+    DRAFT: "草稿",
+    REGISTRATION: "报名中",
+    ACTIVE: "进行中",
+    COMPLETED: "已结束",
+    CANCELLED: "已取消",
+    // 小写格式（兼容旧数据）
+    draft: "草稿",
+    registration: "报名中",
+    active: "进行中",
+    completed: "已结束",
+    cancelled: "已取消",
+  };
+  return map[status] || status;
+}
+
+function getStatusType(status: string): string {
+  const map: Record<string, string> = {
+    // 大写格式
+    DRAFT: "info",
+    REGISTRATION: "warning",
+    ACTIVE: "success",
+    COMPLETED: "success",
+    CANCELLED: "danger",
+    // 小写格式（兼容）
+    draft: "info",
+    registration: "warning",
+    active: "success",
+    completed: "success",
+    cancelled: "danger",
+  };
+  return map[status] || "info";
+}
+
+function getRankType(rank: number): string {
+  if (rank === 1) return "danger";
+  if (rank === 2) return "warning";
+  if (rank === 3) return "success";
+  return "info";
 }
 
 onMounted(() => {
@@ -830,21 +806,46 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* 使表格容器使用flex布局自动填充剩余空间 */
+.app-container {
+  padding: 20px;
+}
+
+.search-container {
+  margin-bottom: 20px;
+}
+
 .data-table {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
+  margin-bottom: 20px;
 }
 
-.data-table__content-wrapper {
-  flex: 1;
-  overflow: hidden;
+.card-header {
   display: flex;
-  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
 }
 
-.data-table__content {
-  flex: 1;
+.data-table__toolbar {
+  margin-bottom: 16px;
+}
+
+.pagination-container {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.tournament-manager {
+  min-height: 500px;
+}
+
+.tab-content {
+  padding: 16px 0;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
 }
 </style>

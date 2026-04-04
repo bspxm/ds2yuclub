@@ -1,13 +1,3 @@
-from ..student.model import AbilityAssessmentModel
-from ..student.schema import AbilityAssessmentCreateSchema, AbilityAssessmentUpdateSchema, AbilityAssessmentQueryParam
-from ..student.crud import AbilityAssessmentCRUD
-from ..student.service import AbilityAssessmentService
+from .controller import AssessmentRouter
 
-__all__ = [
-    "AbilityAssessmentModel",
-    "AbilityAssessmentCreateSchema",
-    "AbilityAssessmentUpdateSchema",
-    "AbilityAssessmentQueryParam",
-    "AbilityAssessmentCRUD",
-    "AbilityAssessmentService"
-]
+__all__ = ["AssessmentRouter"]

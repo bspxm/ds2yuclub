@@ -63,6 +63,9 @@ class RoundRobinEngine(TournamentEngine):
             num_groups = max(1, len(participants) // ideal_group_size)
             if len(participants) % ideal_group_size > 0:
                 num_groups += 1
+        # 确保分组数量合理：每组至少2人
+        if num_groups > len(participants) // 2:
+            num_groups = max(1, len(participants) // 2)
 
         # 确定每组人数
         group_size = self.config.group_size

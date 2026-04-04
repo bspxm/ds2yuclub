@@ -5,7 +5,7 @@
         v-for="match in matches"
         :key="match.id"
         class="match-card"
-        :class="{ completed: match.status === 'completed' }"
+        :class="{ completed: isCompleted(match.status) }"
         @click="emit('matchClick', match)"
       >
         <div class="card-header">
@@ -13,47 +13,30 @@
           <span class="match-num">第{{ match.match_number }}场</span>
         </div>
 
-        <div class="players">
-          <div class="player-row" :class="{ winner: isWinner(match, match.player1?.id) }">
-            <span class="player-name">{{ match.player1?.name || "TBD" }}</span>
-            <span v-if="match.status === 'completed'" class="score">
-              {{ match.scores?.[0]?.player1 || "-" }}
+        <div class="card-content">
+          <!-- 第一行：对阵双方名字 -->
+          <div class="players-row">
+            <span :class="['player-name', { winner: isWinner(match, match.player1?.id) }]">
+              {{ match.player1?.name || "TBD" }}
             </span>
-          </div>
-          <div class="vs-divider">
             <span class="vs">VS</span>
-          </div>
-          <div class="player-row" :class="{ winner: isWinner(match, match.player2?.id) }">
-            <span class="player-name">{{ match.player2?.name || "TBD" }}</span>
-            <span v-if="match.status === 'completed'" class="score">
-              {{ match.scores?.[0]?.player2 || "-" }}
+            <span :class="['player-name', { winner: isWinner(match, match.player2?.id) }]">
+              {{ match.player2?.name || "TBD" }}
             </span>
           </div>
-        </div>
 
-        <div v-if="match.scores && match.scores.length > 1" class="score-detail">
-          {{ getScoreText(match) }}
-        </div>
+          <!-- 第二行：局分 -->
+          <div class="sets-score" v-if="match.scores && match.scores.length > 0">
+            <span class="sets-text">{{ getSetsScore(match) }}</span>
+          </div>
+          <div class="sets-score pending" v-else>
+            <span class="sets-text">-</span>
+          </div>
 
-        <div class="card-footer">
-          <el-tag
-            :type="
-              match.status === 'completed'
-                ? 'success'
-                : match.status === 'active'
-                  ? 'warning'
-                  : 'info'
-            "
-            size="small"
-          >
-            {{
-              match.status === "completed"
-                ? "已完成"
-                : match.status === "active"
-                  ? "进行中"
-                  : "待开始"
-            }}
-          </el-tag>
+          <!-- 第三行：详细比分 -->
+          <div class="detail-score" v-if="match.scores && match.scores.length > 0">
+            <span class="detail-text">{{ getDetailScore(match) }}</span>
+          </div>
         </div>
       </div>
     </div>
@@ -71,7 +54,7 @@ interface Match {
   status: string;
   player1: { id: number; name: string } | null;
   player2: { id: number; name: string } | null;
-  scores?: { player1: number; player2: number }[];
+  scores?: { player1: number; player2: number; winner?: number }[];
   winner_id?: number;
 }
 
@@ -83,15 +66,36 @@ const emit = defineEmits<{
   (e: "matchClick", match: Match): void;
 }>();
 
-function getScoreText(match: Match): string {
-  if (!match.scores || match.scores.length === 0) {
-    return "";
+
+
+function getSetsScore(match: Match): string {
+  if (!match.scores || match.scores.length === 0) return "-";
+
+  let p1Wins = 0;
+  let p2Wins = 0;
+
+  for (const set of match.scores) {
+    if (set.player1 > set.player2) {
+      p1Wins++;
+    } else if (set.player2 > set.player1) {
+      p2Wins++;
+    }
   }
-  return match.scores.map((s) => `${s.player1}:${s.player2}`).join(" ");
+
+  return `${p1Wins}:${p2Wins}`;
+}
+
+function getDetailScore(match: Match): string {
+  if (!match.scores || match.scores.length === 0) return "";
+
+  return match.scores.map(s => `${s.player1}:${s.player2}`).join(", ");
 }
 
 function getRoundText(roundType: string): string {
   const map: Record<string, string> = {
+    GROUP_STAGE: "小组赛",
+    KNOCKOUT: "淘汰赛",
+    PROMOTION_RELEGATION: "升降赛",
     group_stage: "小组赛",
     knockout: "淘汰赛",
     promotion_relegation: "升降赛",
@@ -103,6 +107,10 @@ function isWinner(match: Match, playerId: number | undefined): boolean {
   if (playerId === undefined) return false;
   return match.winner_id === playerId;
 }
+
+function isCompleted(status: string): boolean {
+  return status === "COMPLETED" || status === "completed";
+}
 </script>
 
 <style scoped>
@@ -112,7 +120,7 @@ function isWinner(match: Match, playerId: number | undefined): boolean {
 
 .cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 16px;
 }
 
@@ -138,7 +146,7 @@ function isWinner(match: Match, playerId: number | undefined): boolean {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
+  padding: 10px 12px;
   background: #f5f7fa;
   border-bottom: 1px solid #e4e7ed;
 }
@@ -150,61 +158,75 @@ function isWinner(match: Match, playerId: number | undefined): boolean {
 }
 
 .match-num {
-  font-size: 12px;
-  color: #999;
+  font-size: 11px;
+  color: #909399;
 }
 
-.players {
-  padding: 16px;
+.card-content {
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.player-row {
+/* 第一行：对阵双方名字 */
+.players-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 0;
-}
-
-.player-row.winner {
-  background: #f0f9ff;
-  margin: 0 -16px;
-  padding: 8px 16px;
+  gap: 8px;
 }
 
 .player-name {
-  font-size: 15px;
+  flex: 1;
+  font-size: 14px;
   font-weight: 500;
-  color: #333;
-}
-
-.score {
-  font-size: 18px;
-  font-weight: bold;
-  color: #409eff;
-}
-
-.vs-divider {
+  color: #606266;
   text-align: center;
-  padding: 4px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.player-name.winner {
+  color: #67c23a;
+  font-weight: bold;
 }
 
 .vs {
+  font-size: 11px;
   color: #c0c4cc;
-  font-size: 12px;
+  font-weight: normal;
+  flex-shrink: 0;
 }
 
-.score-detail {
+/* 第二行：局分 */
+.sets-score {
   text-align: center;
-  padding: 8px 16px;
-  background: #fafafa;
-  font-size: 12px;
-  color: #666;
-  border-top: 1px solid #eee;
+  padding: 6px 0;
+  background: #f5f7fa;
+  border-radius: 4px;
 }
 
-.card-footer {
-  padding: 12px 16px;
-  border-top: 1px solid #f0f0f0;
+.sets-score.pending {
+  background: #f5f7fa;
+}
+
+.sets-text {
+  font-size: 20px;
+  font-weight: bold;
+  color: #303133;
+}
+
+/* 第三行：详细比分 */
+.detail-score {
   text-align: center;
+  padding-top: 4px;
+}
+
+.detail-text {
+  font-size: 12px;
+  color: #909399;
+  letter-spacing: 0.5px;
 }
 </style>

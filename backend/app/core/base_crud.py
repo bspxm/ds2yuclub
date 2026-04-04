@@ -40,7 +40,9 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         self.model = model
         self.auth = auth
 
-    async def get(self, preload: list[str | Any] | None = None, **kwargs) -> ModelType | None:
+    async def get(
+        self, preload: list[str | Any] | None = None, **kwargs
+    ) -> ModelType | None:
         """
         根据条件获取单个对象
 
@@ -69,7 +71,12 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         except Exception as e:
             raise CustomException(msg=f"获取查询失败: {e!s}")
 
-    async def list(self, search: dict | None = None, order_by: list[dict[str, str]] | None = None, preload: list[str | Any] | None = None) -> Sequence[ModelType]:
+    async def list(
+        self,
+        search: dict | None = None,
+        order_by: list[dict[str, str]] | None = None,
+        preload: list[str | Any] | None = None,
+    ) -> Sequence[ModelType]:
         """
         根据条件获取对象列表
 
@@ -86,8 +93,10 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         """
         try:
             conditions = await self.__build_conditions(**search) if search else []
-            order = order_by or [{'id': 'asc'}]
-            sql = select(self.model).where(*conditions).order_by(*self.__order_by(order))
+            order = order_by or [{"id": "asc"}]
+            sql = (
+                select(self.model).where(*conditions).order_by(*self.__order_by(order))
+            )
             # 应用可配置的预加载选项
             for opt in self.__loader_options(preload):
                 sql = sql.options(opt)
@@ -97,7 +106,13 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         except Exception as e:
             raise CustomException(msg=f"列表查询失败: {e!s}")
 
-    async def tree_list(self, search: dict | None = None, order_by: builtins.list[dict[str, str]] | None = None, children_attr: str = 'children', preload: builtins.list[str | Any] | None = None) -> Sequence[ModelType]:
+    async def tree_list(
+        self,
+        search: dict | None = None,
+        order_by: builtins.list[dict[str, str]] | None = None,
+        children_attr: str = "children",
+        preload: builtins.list[str | Any] | None = None,
+    ) -> Sequence[ModelType]:
         """
         获取树形结构数据列表
 
@@ -115,8 +130,10 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         """
         try:
             conditions = await self.__build_conditions(**search) if search else []
-            order = order_by or [{'id': 'asc'}]
-            sql = select(self.model).where(*conditions).order_by(*self.__order_by(order))
+            order = order_by or [{"id": "asc"}]
+            sql = (
+                select(self.model).where(*conditions).order_by(*self.__order_by(order))
+            )
 
             # 处理预加载选项
             final_preload = preload
@@ -137,7 +154,15 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         except Exception as e:
             raise CustomException(msg=f"树形列表查询失败: {e!s}")
 
-    async def page(self, offset: int, limit: int, order_by: builtins.list[dict[str, str]], search: dict, out_schema: type[OutSchemaType] | None = None, preload: builtins.list[str | Any] | None = None) -> dict:
+    async def page(
+        self,
+        offset: int,
+        limit: int,
+        order_by: builtins.list[dict[str, str]],
+        search: dict,
+        out_schema: type[OutSchemaType] | None = None,
+        preload: builtins.list[str | Any] | None = None,
+    ) -> dict:
         """
         获取分页数据
 
@@ -157,8 +182,10 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         """
         try:
             conditions = await self.__build_conditions(**search) if search else []
-            order = order_by or [{'id': 'asc'}]
-            sql = select(self.model).where(*conditions).order_by(*self.__order_by(order))
+            order = order_by or [{"id": "asc"}]
+            sql = (
+                select(self.model).where(*conditions).order_by(*self.__order_by(order))
+            )
             # 应用预加载选项
             for opt in self.__loader_options(preload):
                 sql = sql.options(opt)
@@ -195,7 +222,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
                 "page_size": limit or 10,
                 "total": total,
                 "has_next": offset + limit < total,
-                "items": items
+                "items": items,
             }
         except Exception as e:
             raise CustomException(msg=f"分页查询失败: {e!s}")
@@ -246,7 +273,11 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         - CustomException: 更新失败时抛出异常
         """
         try:
-            obj_dict = data if isinstance(data, dict) else data.model_dump(exclude_unset=True, exclude={"id"})
+            obj_dict = (
+                data
+                if isinstance(data, dict)
+                else data.model_dump(exclude_unset=True, exclude={"id"})
+            )
             obj = await self.get(id=id)
             if not obj:
                 raise CustomException(msg="更新对象不存在")
@@ -344,10 +375,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         """
         过滤数据权限（仅用于Select）。
         """
-        filter = Permission(
-            model=self.model,
-            auth=self.auth
-        )
+        filter = Permission(model=self.model, auth=self.auth)
         return await filter.filter_query(sql)
 
     async def __build_conditions(self, **kwargs) -> builtins.list[ColumnElement]:
@@ -383,7 +411,11 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
                     conditions.append(attr.like(f"%{val}%"))
                 elif seq == "in" and val:
                     conditions.append(attr.in_(val))
-                elif seq == "between" and isinstance(val, (list, tuple)) and len(val) == 2:
+                elif (
+                    seq == "between"
+                    and isinstance(val, (list, tuple))
+                    and len(val) == 2
+                ):
                     conditions.append(attr.between(val[0], val[1]))
                 elif seq == "!=" or (seq == "ne" and val):
                     conditions.append(attr != val)
@@ -401,7 +433,9 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
                 conditions.append(attr == value)
         return conditions
 
-    def __order_by(self, order_by: builtins.list[dict[str, str]]) -> builtins.list[ColumnElement]:
+    def __order_by(
+        self, order_by: builtins.list[dict[str, str]]
+    ) -> builtins.list[ColumnElement]:
         """
         获取排序字段
 
@@ -418,10 +452,14 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         for order in order_by:
             for field, direction in order.items():
                 column = getattr(self.model, field)
-                columns.append(desc(column) if direction.lower() == 'desc' else asc(column))
+                columns.append(
+                    desc(column) if direction.lower() == "desc" else asc(column)
+                )
         return columns
 
-    def __loader_options(self, preload: builtins.list[str | Any] | None = None) -> builtins.list[Any]:
+    def __loader_options(
+        self, preload: builtins.list[str | Any] | None = None
+    ) -> builtins.list[Any]:
         """
         构建预加载选项
 
@@ -433,7 +471,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         """
         options = []
         # 获取模型定义的默认加载选项
-        model_loader_options = getattr(self.model, '__loader_options__', [])
+        model_loader_options = getattr(self.model, "__loader_options__", [])
 
         # 合并所有需要预加载的选项
         all_preloads = set(model_loader_options)
@@ -456,5 +494,6 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
                 options.append(opt)
 
         return options
+
 
 BaseCRUD = CRUDBase  # 向后兼容别名

@@ -31,38 +31,38 @@ class RelationTypeEnum(enum.Enum):
 class TournamentTypeEnum(enum.Enum):
     """赛事类型枚举（对应4种赛制）"""
 
-    ROUND_ROBIN = "round_robin"  # 分组循环赛（带淘汰赛）
-    PURE_GROUP = "pure_group"  # 纯小组赛
-    PROMOTION_RELEGATION = "promotion_relegation"  # 定区升降赛
-    SINGLE_ELIMINATION = "single_elimination"  # 小组单败制淘汰赛
+    ROUND_ROBIN = "ROUND_ROBIN"  # 分组循环赛（带淘汰赛）
+    PURE_GROUP = "PURE_GROUP"  # 纯小组赛
+    PROMOTION_RELEGATION = "PROMOTION_RELEGATION"  # 定区升降赛
+    SINGLE_ELIMINATION = "SINGLE_ELIMINATION"  # 小组单败制淘汰赛
 
 
 class TournamentStatusEnum(enum.Enum):
     """赛事状态枚举"""
 
-    DRAFT = "draft"  # 草稿
-    REGISTRATION = "registration"  # 报名中
-    ACTIVE = "active"  # 进行中
-    COMPLETED = "completed"  # 已结束
-    CANCELLED = "cancelled"  # 已取消
+    DRAFT = "DRAFT"  # 草稿
+    REGISTRATION = "REGISTRATION"  # 报名中
+    ACTIVE = "ACTIVE"  # 进行中
+    COMPLETED = "COMPLETED"  # 已结束
+    CANCELLED = "CANCELLED"  # 已取消
 
 
 class MatchStatusEnum(enum.Enum):
     """比赛状态枚举"""
 
-    SCHEDULED = "scheduled"  # 已安排
-    ACTIVE = "active"  # 进行中
-    COMPLETED = "completed"  # 已完成
-    CANCELLED = "cancelled"  # 已取消
-    WALKOVER = "walkover"  # 弃权
+    SCHEDULED = "SCHEDULED"  # 已安排
+    IN_PROGRESS = "IN_PROGRESS"  # 进行中
+    COMPLETED = "COMPLETED"  # 已完成
+    CANCELLED = "CANCELLED"  # 已取消
+    WALKOVER = "WALKOVER"  # 弃权
 
 
 class RoundTypeEnum(enum.Enum):
     """轮次类型枚举"""
 
-    GROUP_STAGE = "group_stage"  # 小组赛
-    KNOCKOUT = "knockout"  # 淘汰赛
-    PROMOTION_RELEGATION = "promotion_relegation"  # 定区升降赛
+    GROUP_STAGE = "GROUP_STAGE"  # 小组赛
+    KNOCKOUT = "KNOCKOUT"  # 淘汰赛
+    PROMOTION_RELEGATION = "PROMOTION_RELEGATION"  # 定区升降赛
 
 
 class CourseTypeEnum(enum.Enum):

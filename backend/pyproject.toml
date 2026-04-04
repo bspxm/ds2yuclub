@@ -37,6 +37,8 @@ dependencies = [
     "pydantic-validation-decorator==0.1.4",
     "pyjwt==2.9.0",
     "pymysql==1.1.2",
+    "pyright>=1.1.408",
+    "python-lsp-server[all]>=1.14.0",
     "python-multipart==0.0.9",
     "redis==7.1.0",
     "rich==13.9.4",

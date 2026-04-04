@@ -1,6 +1,6 @@
 import request from "@/utils/request";
 
-const API_PATH = "/badminton/tournaments";
+const API_PATH = "/badminton/tournament";
 
 const TournamentAPI = {
   // 创建赛事
@@ -12,9 +12,9 @@ const TournamentAPI = {
     });
   },
 
-  // 获取赛事列表
+  // 获取赛事列表（后端返回数组，非分页）
   getTournamentList(params?: TournamentPageQuery) {
-    return request<ApiResponse<PageResult<TournamentTable[]>>>({
+    return request<ApiResponse<TournamentTable[]>>({
       url: `${API_PATH}`,
       method: "get",
       params,
@@ -54,7 +54,6 @@ const TournamentAPI = {
   },
 
   updateTournament(id: number, body: TournamentForm) {
-    console.warn("updateTournament: 后端API未实现");
     return request<ApiResponse<TournamentTable>>({
       url: `${API_PATH}/${id}`,
       method: "put",
@@ -63,7 +62,6 @@ const TournamentAPI = {
   },
 
   deleteTournament(ids: number[]) {
-    console.warn("deleteTournament: 后端API未实现");
     return request<ApiResponse>({
       url: `${API_PATH}`,
       method: "delete",
@@ -85,7 +83,7 @@ const TournamentAPI = {
 export interface TournamentTable extends BaseType {
   id: number;
   name: string;
-  tournament_type?: string;
+  tournament_type: string; // round_robin, pure_group, promotion_relegation, single_elimination
   status: string;
   start_date: string;
   end_date?: string;
@@ -99,7 +97,6 @@ export interface TournamentTable extends BaseType {
   location?: string;
   created_by?: CommonType;
   updated_by?: CommonType;
-  format?: string;
   participant_count?: number;
   rules_description?: string;
 }
@@ -108,7 +105,6 @@ export interface TournamentPageQuery extends PageQuery {
   name?: string;
   tournament_type?: string;
   status?: string;
-  format?: string;
   location?: string;
   start_date?: [string, string] | undefined;
   end_date?: [string, string] | undefined;
@@ -122,11 +118,10 @@ export interface TournamentPageQuery extends PageQuery {
 export interface TournamentForm extends BaseFormType {
   id?: number;
   name: string;
-  tournament_type?: string;
-  format?: string;
+  tournament_type: string; // 必填：round_robin, pure_group, promotion_relegation, single_elimination
   status?: string;
-  start_date: string;
-  end_date?: string;
+  start_date: string; // 格式：YYYY-MM-DD
+  end_date: string; // 必填：YYYY-MM-DD
   registration_deadline?: string;
   max_participants?: number;
   group_size?: number;
@@ -136,6 +131,7 @@ export interface TournamentForm extends BaseFormType {
   description?: string;
   location?: string;
   rules_description?: string;
+  format?: string; // 兼容旧字段
 }
 
 // 赛制类型
@@ -150,6 +146,7 @@ export interface TournamentParticipant {
   id: number;
   student_id: number;
   student_name: string;
+  name?: string; // 兼容字段，后端返回name或student_name
   seed_rank?: number;
   final_rank?: number;
   matches_played: number;
@@ -266,6 +263,17 @@ const TournamentAPIExtended = {
     if (groupId) params.group_id = groupId;
     return request<ApiResponse<TournamentRanking[]>>({
       url: `${API_PATH}/${tournamentId}/rankings`,
+      method: "get",
+      params,
+    });
+  },
+
+  // 获取小组赛详细数据（羽球在线风格）
+  getGroupStageData(tournamentId: number, groupId?: number) {
+    const params: Record<string, any> = {};
+    if (groupId) params.group_id = groupId;
+    return request<ApiResponse<any>>({
+      url: `${API_PATH}/${tournamentId}/group-stage-data`,
       method: "get",
       params,
     });

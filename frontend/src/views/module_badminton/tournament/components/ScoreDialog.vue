@@ -46,6 +46,7 @@ const props = defineProps<{
     id: number;
     player1: { id: number; name: string };
     player2: { id: number; name: string };
+    scores?: { player1: number; player2: number }[];
   } | null;
 }>();
 
@@ -61,8 +62,6 @@ const dialogVisible = computed({
 
 const scores = ref<SetScore[]>([
   { player1: 0, player2: 0 },
-  { player1: 0, player2: 0 },
-  { player1: 0, player2: 0 },
 ]);
 
 const currentSet = ref(1);
@@ -70,12 +69,17 @@ const currentSet = ref(1);
 watch(
   () => props.visible,
   (val) => {
-    if (val) {
-      scores.value = [
-        { player1: 0, player2: 0 },
-        { player1: 0, player2: 0 },
-        { player1: 0, player2: 0 },
-      ];
+    if (val && props.match) {
+      // 如果有已有比分数据，加载它
+      if (props.match.scores && props.match.scores.length > 0) {
+        scores.value = props.match.scores.map((s: any) => ({
+          player1: typeof s.player1 === 'number' ? s.player1 : 0,
+          player2: typeof s.player2 === 'number' ? s.player2 : 0,
+        }));
+      } else {
+        // 默认只显示一局
+        scores.value = [{ player1: 0, player2: 0 }];
+      }
       currentSet.value = 1;
     }
   }

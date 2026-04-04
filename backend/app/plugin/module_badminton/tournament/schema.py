@@ -114,3 +114,9 @@ class ParticipantUpdateSchema(BaseModel):
     """参赛队员更新模型"""
 
     seed_rank: Optional[int] = Field(None, description="种子排名")
+
+
+class BatchAddParticipantsSchema(BaseModel):
+    """批量添加参赛队员模型"""
+
+    student_ids: list[int] = Field(..., description="学员ID列表")

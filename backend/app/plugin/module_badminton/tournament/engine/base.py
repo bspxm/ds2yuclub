@@ -18,9 +18,9 @@ class TournamentType(str, Enum):
 class RoundType(str, Enum):
     """轮次类型枚举"""
 
-    GROUP_STAGE = "group_stage"
-    KNOCKOUT = "knockout"
-    PROMOTION_RELEGATION = "promotion_relegation"
+    GROUP_STAGE = "GROUP_STAGE"
+    KNOCKOUT = "KNOCKOUT"
+    PROMOTION_RELEGATION = "PROMOTION_RELEGATION"
 
 
 class MatchFormat(str, Enum):

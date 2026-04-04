@@ -23,6 +23,7 @@ from .schema import (
     TournamentCreateSchema,
     TournamentUpdateSchema,
     MatchScoreSchema,
+    BatchAddParticipantsSchema,
 )
 from .service import (
     TournamentService,
@@ -35,18 +36,71 @@ TournamentRouter = APIRouter(
 )
 
 
+@TournamentRouter.post("", summary="创建赛事", description="创建新赛事")
+async def tournament_create(
+    data: TournamentCreateSchema,
+    auth: AuthSchema = Depends(AuthPermission(["module_badminton:tournament:create"])),
+) -> JSONResponse:
+    """创建赛事"""
+    result = await TournamentService.create_service(auth, data)
+    return SuccessResponse(data=result, msg="赛事创建成功")
+
+
+@TournamentRouter.get("", summary="赛事列表", description="获取赛事列表")
+async def tournament_list(
+    auth: AuthSchema = Depends(AuthPermission(["module_badminton:tournament:list"])),
+) -> JSONResponse:
+    """赛事列表"""
+    result = await TournamentService.list_service(auth)
+    return SuccessResponse(data=result, msg="赛事列表获取成功")
+
+
+@TournamentRouter.get("/active", summary="进行中赛事", description="获取进行中的赛事")
+async def tournament_active(
+    auth: AuthSchema = Depends(AuthPermission(["module_badminton:tournament:list"])),
+) -> JSONResponse:
+    """进行中赛事"""
+    result = await TournamentService.get_active_service(auth)
+    return SuccessResponse(data=result, msg="进行中赛事获取成功")
+
+
+@TournamentRouter.put(
+    "/{tournament_id}",
+    summary="更新赛事",
+    description="更新赛事信息",
+)
+async def tournament_update(
+    tournament_id: int,
+    data: TournamentUpdateSchema,
+    auth: AuthSchema = Depends(AuthPermission(["module_badminton:tournament:update"])),
+) -> JSONResponse:
+    """更新赛事"""
+    result = await TournamentService.update_service(auth, tournament_id, data)
+    return SuccessResponse(data=result, msg="赛事更新成功")
+
+
+@TournamentRouter.delete("", summary="删除赛事", description="批量删除赛事")
+async def tournament_delete(
+    data: list[int],
+    auth: AuthSchema = Depends(AuthPermission(["module_badminton:tournament:delete"])),
+) -> JSONResponse:
+    """删除赛事"""
+    await TournamentService.delete_service(auth, data)
+    return SuccessResponse(msg="赛事删除成功")
+
+
 @TournamentRouter.post(
-    "/participants/batch",
+    "/{tournament_id}/participants/batch",
     summary="批量添加参赛队员",
     description="为赛事批量添加参赛队员",
 )
 async def batch_add_participants(
     tournament_id: int,
-    student_ids: list[int],
+    data: BatchAddParticipantsSchema,
     auth: AuthSchema = Depends(AuthPermission(["module_badminton:tournament:create"])),
 ) -> JSONResponse:
     result = await TournamentParticipantService.batch_add_service(
-        tournament_id, student_ids, auth
+        tournament_id, data.student_ids, auth
     )
     return SuccessResponse(data=result, msg="参赛队员添加成功")
 
@@ -133,6 +187,22 @@ async def get_matches(
 
 
 @TournamentRouter.get(
+    "/{tournament_id}/group-stage-data",
+    summary="获取小组赛数据",
+    description="获取羽球在线风格的小组赛数据（对阵矩阵、积分排名、赛程）",
+)
+async def get_group_stage_data(
+    tournament_id: int,
+    group_id: Optional[int] = Query(None, description="分组ID"),
+    auth: AuthSchema = Depends(AuthPermission(["module_badminton:tournament:list"])),
+) -> JSONResponse:
+    result = await TournamentMatchService.get_group_stage_data_service(
+        tournament_id, group_id, auth
+    )
+    return SuccessResponse(data=result, msg="小组赛数据获取成功")
+
+
+@TournamentRouter.get(
     "/{tournament_id}/matches/{match_id}",
     summary="获取比赛详情",
     description="获取单场比赛的详细信息",
@@ -187,3 +257,35 @@ async def get_h2h(
 ) -> JSONResponse:
     result = await TournamentService.get_h2h_service(student_id_1, student_id_2, auth)
     return SuccessResponse(data=result, msg="H2H记录获取成功")
+
+
+@TournamentRouter.get(
+    "/types",
+    summary="获取支持的赛制类型",
+    description="获取系统支持的比赛赛制类型",
+)
+async def get_tournament_types() -> JSONResponse:
+    """获取赛制类型"""
+    types = [
+        {
+            "value": TournamentType.ROUND_ROBIN.value,
+            "label": "分组循环赛（带淘汰赛）",
+            "description": "小组循环赛 + 交叉淘汰赛，保证多场比赛机会",
+        },
+        {
+            "value": TournamentType.PURE_GROUP.value,
+            "label": "纯小组赛",
+            "description": "仅小组循环赛决定名次，适合快速排位",
+        },
+        {
+            "value": TournamentType.PROMOTION_RELEGATION.value,
+            "label": "定区升降赛",
+            "description": "位置挑战赛，趣味性强，位置实时变动",
+        },
+        {
+            "value": TournamentType.SINGLE_ELIMINATION.value,
+            "label": "小组单败制淘汰赛",
+            "description": "循环赛确定种子排名 + 淘汰赛决出所有名次",
+        },
+    ]
+    return SuccessResponse(data=types, msg="赛制类型获取成功")

@@ -22,7 +22,23 @@
       @selection-change="handleSelectionChange"
     >
       <el-table-column type="selection" width="55" />
-      <el-table-column prop="name" label="姓名" />
+      <el-table-column prop="name" label="姓名" width="100" />
+      <el-table-column label="年龄" width="70" align="center">
+        <template #default="{ row }">
+          {{ getAge(row.birth_date) }}
+        </template>
+      </el-table-column>
+      <el-table-column label="组别" width="100">
+        <template #default="{ row }">
+          {{ row.group_name || "-" }}
+        </template>
+      </el-table-column>
+      <el-table-column label="水平" width="100">
+        <template #default="{ row }">
+          <el-tag v-if="row.level" size="small" type="primary">{{ row.level }}</el-tag>
+          <span v-else>-</span>
+        </template>
+      </el-table-column>
     </el-table>
 
     <template #footer>
@@ -40,6 +56,9 @@ import StudentAPI from "@/api/module_badminton/student";
 interface Student {
   id?: number;
   name?: string;
+  birth_date?: string;
+  level?: string;
+  group_name?: string;
 }
 
 interface SelectedParticipant {
@@ -75,7 +94,9 @@ async function loadStudents() {
   try {
     const res = await StudentAPI.getStudentList({ page_no: 1, page_size: 100 });
     const items = res.data?.data?.items || [];
-    allStudents.value = items.filter((s: any) => !props.existingParticipants.includes(s.id));
+    // 确保 existingParticipants 和 student id 都是数字类型进行比较
+    const existingIds = props.existingParticipants.map(id => Number(id));
+    allStudents.value = items.filter((s: any) => !existingIds.includes(Number(s.id)));
     students.value = allStudents.value;
   } catch (error) {
     console.error(error);
@@ -89,14 +110,29 @@ function handleSearch(query: string) {
   if (!query) {
     students.value = allStudents.value;
   } else {
+    const lowerQuery = query.toLowerCase();
     students.value = allStudents.value.filter((s) =>
-      s.name?.toLowerCase().includes(query.toLowerCase())
+      s.name?.toLowerCase().includes(lowerQuery) ||
+      s.group_name?.toLowerCase().includes(lowerQuery) ||
+      s.level?.toLowerCase().includes(lowerQuery)
     );
   }
 }
 
-function handleSelectionChange(ids: number[]) {
-  selectedIds.value = ids;
+function getAge(birthDate: string | undefined): string {
+  if (!birthDate) return "-";
+  const today = new Date();
+  const birth = new Date(birthDate);
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
+  return age > 0 ? String(age) : "-";
+}
+
+function handleSelectionChange(rows: Student[]) {
+  selectedIds.value = rows.map((r) => r.id).filter(Boolean) as number[];
 }
 
 function handleSubmit() {

@@ -96,10 +96,18 @@ function getRoundText(roundType: string): string {
 
 function getStatusText(status: string): string {
   const map: Record<string, string> = {
+    // 大写格式（数据库返回）
+    SCHEDULED: "待开始",
+    IN_PROGRESS: "进行中",
+    COMPLETED: "已完成",
+    CANCELLED: "已取消",
+    WALKOVER: "弃权",
+    // 小写格式（兼容旧数据）
     scheduled: "待开始",
     active: "进行中",
     completed: "已完成",
     cancelled: "已取消",
+    walkover: "弃权",
   };
   return map[status] || status;
 }

@@ -1,6 +1,6 @@
 import request from "@/utils/request";
 
-const API_PATH = "/badminton/classes";
+const API_PATH = "/badminton/class_";
 
 const ClassAPI = {
   // 创建班级

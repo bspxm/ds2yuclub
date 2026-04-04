@@ -1,6 +1,9 @@
 <template>
   <div class="bracket-view" :class="viewType">
-    <div class="bracket-container">
+    <div v-if="matches.length === 0" class="empty-state">
+      <el-empty description="暂无对阵数据，请先生成对阵表" />
+    </div>
+    <div v-else class="bracket-container">
       <div v-for="[roundNum, roundMatches] in rounds" :key="roundNum" class="round">
         <div class="round-header">
           {{ getRoundName(roundNum, roundMatches.length) }}
@@ -11,22 +14,22 @@
             :key="match.id"
             class="match-card"
             :class="{
-              completed: match.status === 'completed',
-              clickable: match.status !== 'completed',
+              completed: isCompleted(match.status),
+              clickable: !isCompleted(match.status),
             }"
             @click="emit('matchClick', match)"
           >
             <div class="player" :class="{ winner: isWinner(match, match.player1?.id) }">
               <span class="player-name">{{ match.player1?.name || "TBD" }}</span>
-              <span v-if="match.status === 'completed'" class="score">
-                {{ match.scores?.[0]?.player1 || "-" }}
+              <span v-if="match.scores && match.scores.length > 0" class="score">
+                {{ getSetScores(match) }}
               </span>
             </div>
             <div class="divider"></div>
             <div class="player" :class="{ winner: isWinner(match, match.player2?.id) }">
               <span class="player-name">{{ match.player2?.name || "TBD" }}</span>
-              <span v-if="match.status === 'completed'" class="score">
-                {{ match.scores?.[0]?.player2 || "-" }}
+              <span v-if="match.scores && match.scores.length > 0" class="score">
+                {{ getSetScores(match) }}
               </span>
             </div>
           </div>
@@ -92,6 +95,15 @@ function isWinner(match: Match, playerId: number | undefined): boolean {
   if (playerId === undefined) return false;
   return match.winner_id === playerId;
 }
+
+function isCompleted(status: string): boolean {
+  return status === "COMPLETED" || status === "completed";
+}
+
+function getSetScores(match: Match): string {
+  if (!match.scores || match.scores.length === 0) return "";
+  return match.scores.map((s) => `${s.player1}:${s.player2}`).join(" ");
+}
 </script>
 
 <style scoped>
@@ -99,6 +111,10 @@ function isWinner(match: Match, playerId: number | undefined): boolean {
   width: 100%;
   overflow-x: auto;
   padding: 16px;
+}
+
+.empty-state {
+  padding: 40px;
 }
 
 .bracket-container {
