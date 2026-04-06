@@ -170,7 +170,7 @@ class TournamentParticipantCRUD(CRUDBase[TournamentParticipantModel, dict, dict]
     async def get_by_tournament_crud(self, tournament_id: int) -> list[dict]:
         """获取赛事所有参赛者 - 使用统计视图优化查询"""
         from sqlalchemy import text
-        
+
         sql = text("""
             SELECT 
                 id,
@@ -189,10 +189,10 @@ class TournamentParticipantCRUD(CRUDBase[TournamentParticipantModel, dict, dict]
             WHERE tournament_id = :tournament_id
             ORDER BY seed_rank NULLS LAST, id
         """)
-        
+
         result = await self.auth.db.execute(sql, {"tournament_id": tournament_id})
         rows = result.mappings().all()
-        
+
         return [dict(row) for row in rows]
 
     async def update_statistics_crud(
@@ -326,3 +326,29 @@ class TournamentMatchCRUD(CRUDBase[TournamentMatchModel, dict, dict]):
                 "status": status_value,
             }
         return None
+
+
+class TournamentGroupCRUD(CRUDBase[TournamentGroupModel, dict, dict]):
+    """赛事分组数据层"""
+
+    def __init__(self, auth: AuthSchema) -> None:
+        super().__init__(model=TournamentGroupModel, auth=auth)
+
+    async def create_group_crud(
+        self,
+        tournament_id: int,
+        group_order: int,
+        group_name: str,
+    ) -> Optional[TournamentGroupModel]:
+        """创建分组"""
+        data = {
+            "tournament_id": tournament_id,
+            "group_order": group_order,
+            "group_name": group_name,
+        }
+        result = await self.create(data=data)
+        if not result:
+            logger.error(
+                f"[create_group_crud] 分组创建失败: tournament_id={tournament_id}, group_order={group_order}"
+            )
+        return result

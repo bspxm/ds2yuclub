@@ -20,10 +20,10 @@
             style="width: 150px"
             clearable
           >
-            <el-option value="round_robin" label="分组循环赛" />
-            <el-option value="pure_group" label="纯小组赛" />
-            <el-option value="promotion_relegation" label="定区升降赛" />
-            <el-option value="single_elimination" label="小组单败制淘汰赛" />
+            <el-option value="ROUND_ROBIN" label="分组循环赛" />
+            <el-option value="PURE_GROUP" label="纯小组赛" />
+            <el-option value="PROMOTION_RELEGATION" label="定区升降赛" />
+            <el-option value="SINGLE_ELIMINATION" label="单败制淘汰赛" />
           </el-select>
         </el-form-item>
         <el-form-item prop="status" label="状态">
@@ -187,11 +187,7 @@
           <el-tab-pane label="参赛队员" name="participants">
             <div class="tab-content">
               <div class="toolbar">
-                <el-button
-                  type="primary"
-                  icon="plus"
-                  @click="handleAddParticipant"
-                >
+                <el-button type="primary" icon="plus" @click="handleAddParticipant">
                   添加参赛队员
                 </el-button>
                 <el-button
@@ -220,7 +216,9 @@
                 <el-table-column label="操作" width="150">
                   <template #default="{ row }">
                     <el-button type="primary" link @click="handleSetSeed(row)">设置种子</el-button>
-                    <el-button type="danger" link @click="handleRemoveParticipant(row)">移除</el-button>
+                    <el-button type="danger" link @click="handleRemoveParticipant(row)">
+                      移除
+                    </el-button>
                   </template>
                 </el-table-column>
               </el-table>
@@ -228,17 +226,42 @@
           </el-tab-pane>
 
           <!-- 羽球在线风格小组赛 -->
-          <el-tab-pane label="小组赛" name="groupStage">
+          <el-tab-pane v-if="isGroupStageTournament" label="小组赛" name="groupStage">
             <div class="tab-content">
               <div class="toolbar">
-                <el-button type="primary" icon="refresh" @click="loadGroupStageData">刷新</el-button>
+                <el-button type="primary" icon="refresh" @click="loadGroupStageData">
+                  刷新
+                </el-button>
               </div>
               <GroupStageView
-                v-if="groupStageData"
-                :data="groupStageData"
+                v-if="groupStageData?.groups"
+                :groups="groupStageData.groups"
                 @record-score="handleGroupStageScore"
               />
               <el-empty v-else description="暂无小组赛数据" />
+            </div>
+          </el-tab-pane>
+
+          <!-- 单败淘汰赛 -->
+          <el-tab-pane v-if="isKnockoutTournament" label="淘汰赛" name="knockout">
+            <div class="tab-content">
+              <div class="toolbar">
+                <el-button type="primary" icon="refresh" @click="loadKnockoutData">刷新</el-button>
+                <el-button
+                  v-if="!knockoutData"
+                  type="success"
+                  icon="trophy"
+                  @click="generateKnockout"
+                >
+                  生成对阵表
+                </el-button>
+              </div>
+      <KnockoutBracketView
+                v-if="knockoutData && knockoutData.matches && knockoutData.matches.length > 0"
+                :matches="knockoutData.matches"
+                @match-click="handleKnockoutMatchClick"
+              />
+              <el-empty v-else description="暂无淘汰赛数据，请先生成对阵表" />
             </div>
           </el-tab-pane>
 
@@ -248,35 +271,29 @@
               <div class="toolbar">
                 <el-button type="primary" icon="refresh" @click="loadMatches">刷新</el-button>
               </div>
-              <CardView
-                :matches="matches"
-                @match-click="handleMatchClick"
-              />
+              <CardView :matches="matches" @match-click="handleMatchClick" />
             </div>
           </el-tab-pane>
-
-
         </el-tabs>
       </div>
     </el-dialog>
 
     <!-- 添加/编辑赛事对话框 -->
-    <el-dialog
-      v-model="dialogVisible"
-      :title="dialogTitle"
-      width="600px"
-      @close="resetForm"
-    >
+    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="600px" @close="resetForm">
       <el-form ref="formRef" :model="formData" :rules="rules" label-width="100px">
         <el-form-item label="赛事名称" prop="name">
           <el-input v-model="formData.name" placeholder="请输入赛事名称" />
         </el-form-item>
         <el-form-item label="赛制" prop="tournament_type">
-          <el-select v-model="formData.tournament_type" placeholder="请选择赛制" style="width: 100%">
-            <el-option value="round_robin" label="分组循环赛（带淘汰赛）" />
-            <el-option value="pure_group" label="纯小组赛" />
-            <el-option value="promotion_relegation" label="定区升降赛" />
-            <el-option value="single_elimination" label="小组单败制淘汰赛" />
+          <el-select
+            v-model="formData.tournament_type"
+            placeholder="请选择赛制"
+            style="width: 100%"
+          >
+            <el-option value="ROUND_ROBIN" label="分组循环赛（带淘汰赛）" />
+            <el-option value="PURE_GROUP" label="纯小组赛" />
+            <el-option value="PROMOTION_RELEGATION" label="定区升降赛" />
+            <el-option value="SINGLE_ELIMINATION" label="单败制淘汰赛" />
           </el-select>
         </el-form-item>
         <el-form-item label="开始日期" prop="start_date">
@@ -300,17 +317,16 @@
         <el-form-item label="比赛地点" prop="location">
           <el-input v-model="formData.location" placeholder="请输入比赛地点" />
         </el-form-item>
-        <el-form-item label="最大人数" prop="max_participants">
-          <el-input-number v-model="formData.max_participants" :min="2" :max="128" />
-        </el-form-item>
-        <el-form-item label="分组数量" prop="num_groups">
-          <el-input-number v-model="formData.num_groups" :min="1" :max="16" />
-        </el-form-item>
         <el-form-item label="每组人数" prop="group_size">
           <el-input-number v-model="formData.group_size" :min="2" :max="8" />
         </el-form-item>
         <el-form-item label="备注" prop="description">
-          <el-input v-model="formData.description" type="textarea" :rows="3" placeholder="请输入备注" />
+          <el-input
+            v-model="formData.description"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入备注"
+          />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -324,6 +340,8 @@
       v-model:visible="participantSelectVisible"
       :tournament-id="currentTournament?.id || 0"
       :existing-participants="participants.map((p) => p.student_id)"
+      :max-participants="(currentTournament?.num_groups || 1) * (currentTournament?.group_size || 4)"
+      :group-size="currentTournament?.group_size || 4"
       @submit="handleParticipantSubmit"
     />
 
@@ -350,17 +368,23 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from "vue";
+import { ref, reactive, onMounted, computed } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { QuestionFilled } from "@element-plus/icons-vue";
 import TournamentAPI, { TournamentAPIExtended } from "@/api/module_badminton/tournament";
-import type { TournamentTable, TournamentForm, TournamentMatch, TournamentParticipant } from "@/api/module_badminton/tournament";
+import type {
+  TournamentTable,
+  TournamentForm,
+  TournamentMatch,
+  TournamentParticipant,
+} from "@/api/module_badminton/tournament";
 
 // 组件导入
 import CardView from "./components/CardView.vue";
 import ParticipantSelect from "./components/ParticipantSelect.vue";
 import ScoreDialog from "./components/ScoreDialog.vue";
 import GroupStageView from "./components/GroupStageView.vue";
+import KnockoutBracketView from "./components/KnockoutBracketView.vue";
 
 // 搜索区域显示控制
 const visible = ref(true);
@@ -389,18 +413,17 @@ const formRef = ref();
 // 日期格式化函数
 function formatDate(date: Date): string {
   const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
 
 const formData = reactive<TournamentForm>({
   name: "",
-  tournament_type: "round_robin", // 默认：分组循环赛
+  tournament_type: "ROUND_ROBIN", // 默认：分组循环赛（大写）
   start_date: formatDate(new Date()),
   end_date: formatDate(new Date()),
   location: "",
-  max_participants: 16,
   num_groups: 4,
   group_size: 4,
   description: "",
@@ -420,6 +443,19 @@ const activeTab = ref("participants");
 const participants = ref<TournamentParticipant[]>([]);
 const matches = ref<TournamentMatch[]>([]);
 const groupStageData = ref<any>(null);
+const knockoutData = ref<any>(null);
+
+// 计算属性：判断是否为小组赛赛制
+const isGroupStageTournament = computed(() => {
+  const type = currentTournament.value?.tournament_type?.toUpperCase();
+  return type === "ROUND_ROBIN" || type === "PURE_GROUP";
+});
+
+// 计算属性：判断是否为淘汰赛赛制
+const isKnockoutTournament = computed(() => {
+  const type = currentTournament.value?.tournament_type?.toUpperCase();
+  return type === "SINGLE_ELIMINATION";
+});
 
 // 参赛队员选择
 const participantSelectVisible = ref(false);
@@ -543,8 +579,14 @@ async function handleSubmit() {
     // 确保日期格式为 YYYY-MM-DD
     const submitData = {
       ...formData,
-      start_date: typeof formData.start_date === 'string' ? formData.start_date : formatDate(new Date(formData.start_date)),
-      end_date: typeof formData.end_date === 'string' ? formData.end_date : formatDate(new Date(formData.end_date)),
+      start_date:
+        typeof formData.start_date === "string"
+          ? formData.start_date
+          : formatDate(new Date(formData.start_date)),
+      end_date:
+        typeof formData.end_date === "string"
+          ? formData.end_date
+          : formatDate(new Date(formData.end_date)),
     };
 
     if (formData.id) {
@@ -570,11 +612,10 @@ function resetForm() {
   Object.assign(formData, {
     id: undefined,
     name: "",
-    tournament_type: "round_robin",
+    tournament_type: "ROUND_ROBIN",
     start_date: formatDate(new Date()),
     end_date: formatDate(new Date()),
     location: "",
-    max_participants: 16,
     num_groups: 4,
     group_size: 4,
     description: "",
@@ -605,12 +646,12 @@ async function loadMatches() {
   if (!currentTournament.value) return;
   try {
     const res = await TournamentAPIExtended.getMatches(currentTournament.value.id);
-    console.log('对阵API原始响应:', res);
-    console.log('对阵API data.data:', res.data?.data);
+    console.log("对阵API原始响应:", res);
+    console.log("对阵API data.data:", res.data?.data);
     matches.value = res.data?.data || [];
-    console.log('最终对阵数据:', matches.value, '数量:', matches.value.length);
+    console.log("最终对阵数据:", matches.value, "数量:", matches.value.length);
   } catch (error) {
-    console.error('加载对阵失败:', error);
+    console.error("加载对阵失败:", error);
   }
 }
 
@@ -686,11 +727,13 @@ async function handleGenerateMatches() {
 
 // 监听标签页切换
 function handleTabChange(tabName: string) {
-  console.log('标签页切换:', tabName);
+  console.log("标签页切换:", tabName);
   if (tabName === "matches") {
     loadMatches();
   } else if (tabName === "groupStage") {
     loadGroupStageData();
+  } else if (tabName === "knockout") {
+    loadKnockoutData();
   }
 }
 
@@ -700,10 +743,60 @@ async function loadGroupStageData() {
   try {
     const res = await TournamentAPIExtended.getGroupStageData(currentTournament.value.id);
     groupStageData.value = res.data?.data || null;
-    console.log('小组赛数据:', groupStageData.value);
+    console.log("小组赛数据:", groupStageData.value);
   } catch (error) {
-    console.error('加载小组赛数据失败:', error);
+    console.error("加载小组赛数据失败:", error);
   }
+}
+
+// 加载淘汰赛数据
+async function loadKnockoutData() {
+  if (!currentTournament.value) return;
+  try {
+    const res = await TournamentAPIExtended.getKnockoutData(currentTournament.value.id);
+    knockoutData.value = res.data?.data || null;
+    console.log("淘汰赛数据:", knockoutData.value);
+  } catch (error) {
+    console.error("加载淘汰赛数据失败:", error);
+  }
+}
+
+// 生成淘汰赛对阵表
+async function generateKnockout() {
+  if (!currentTournament.value) return;
+  try {
+    const participantIds = participants.value.map((p) => p.id);
+    if (participantIds.length < 2) {
+      ElMessage.warning("参赛人数不足，无法生成淘汰赛");
+      return;
+    }
+    const res = await TournamentAPIExtended.generateKnockout(
+      currentTournament.value.id,
+      participantIds
+    );
+    knockoutData.value = res.data?.data || null;
+    ElMessage.success("淘汰赛对阵表生成成功");
+  } catch (error) {
+    console.error(error);
+    ElMessage.error("生成淘汰赛对阵表失败");
+  }
+}
+
+// 处理淘汰赛比分录入
+function handleKnockoutMatchClick(match: any) {
+  selectedMatch.value = {
+    id: match.id,
+    player1: match.player1,
+    player2: match.player2,
+    scores: match.scores
+      ? match.scores.split(", ").map((s: string) => {
+          const [p1, p2] = s.split("-").map(Number);
+          return { player1: p1, player2: p2 };
+        })
+      : [],
+    status: match.status,
+  };
+  scoreDialogVisible.value = true;
 }
 
 // 处理小组赛比分录入
@@ -726,33 +819,42 @@ function handleMatchClick(match: TournamentMatch) {
 }
 
 // 提交比分
-async function handleScoreSubmit(data: { matchId: number; sets: any[] }) {
+async function handleScoreSubmit(data: { matchId: number; sets: any[]; winnerId?: number }) {
   if (!currentTournament.value) return;
   try {
-    await TournamentAPIExtended.recordScore(currentTournament.value.id, data.matchId, {
-      sets: data.sets,
-    });
-    ElMessage.success("比分录入成功");
-    await loadMatches();
-    await loadGroupStageData(); // 刷新小组赛数据
+    if (activeTab.value === 'knockout' && data.winnerId) {
+      // 淘汰赛且有胜者，使用淘汰赛API并自动晋级
+      await TournamentAPIExtended.recordKnockoutScore(
+        currentTournament.value.id,
+        data.matchId,
+        { sets: data.sets },
+        data.winnerId
+      );
+      ElMessage.success("比分录入成功，胜者已晋级");
+      await loadKnockoutData(); // 刷新淘汰赛数据
+    } else {
+      // 小组赛或无胜者，使用普通API
+      await TournamentAPIExtended.recordScore(currentTournament.value.id, data.matchId, {
+        sets: data.sets,
+      });
+      ElMessage.success("比分录入成功");
+      await loadMatches();
+      await loadGroupStageData(); // 刷新小组赛数据
+    }
   } catch (error) {
     console.error(error);
+    ElMessage.error("比分录入失败");
   }
 }
 
 // 格式化
 function getFormatLabel(tournamentType: string): string {
   const map: Record<string, string> = {
-    // 大写格式（数据库视图返回）
+    // 大写格式（数据库枚举）
     ROUND_ROBIN: "分组循环赛",
     PURE_GROUP: "纯小组赛",
     PROMOTION_RELEGATION: "定区升降赛",
-    SINGLE_ELIMINATION: "小组单败制淘汰赛",
-    // 小写格式（兼容旧数据）
-    round_robin: "分组循环赛",
-    pure_group: "纯小组赛",
-    promotion_relegation: "定区升降赛",
-    single_elimination: "小组单败制淘汰赛",
+    SINGLE_ELIMINATION: "单败制淘汰赛",
   };
   return map[tournamentType] || tournamentType;
 }

@@ -14,8 +14,14 @@ from app.core.exceptions import CustomException
 from app.core.logger import logger
 
 from .model import *
-from .crud import TournamentCRUD, TournamentParticipantCRUD, TournamentMatchCRUD
+from .crud import (
+    TournamentCRUD,
+    TournamentParticipantCRUD,
+    TournamentMatchCRUD,
+    TournamentGroupCRUD,
+)
 from .schema import *
+from .knockout_service import KnockoutService
 from ..enums import TournamentStatusEnum
 
 from app.api.v1.module_system.auth.schema import AuthSchema
@@ -137,13 +143,25 @@ class TournamentService:
     @classmethod
     async def delete_service(cls, auth: AuthSchema, ids: list[int]) -> None:
         """删除赛事"""
+        from sqlalchemy import text
+
         for tournament_id in ids:
-            tournament = await TournamentCRUD(auth).get_by_id_crud(tournament_id)
-            if not tournament:
+            # 使用原生SQL快速查询状态和存在性
+            result = await auth.db.execute(
+                text("SELECT id, status FROM badminton_tournament WHERE id = :id"),
+                {"id": tournament_id},
+            )
+            row = result.fetchone()
+            if not row:
                 raise CustomException(msg="赛事不存在")
-            if tournament.status != TournamentStatusEnum.DRAFT:
+            if row.status != "DRAFT":
                 raise CustomException(msg="非草稿状态的赛事不能删除")
-        await TournamentCRUD(auth).delete_crud(ids)
+
+        # 使用原生SQL删除，数据库级联会自动处理关联数据
+        await auth.db.execute(
+            text("DELETE FROM badminton_tournament WHERE id = ANY(:ids)"), {"ids": ids}
+        )
+        await auth.db.commit()
 
     @classmethod
     async def get_rankings_service(
@@ -156,7 +174,6 @@ class TournamentService:
         if not tournament:
             raise CustomException(msg="赛事不存在")
 
-        from .engine.base import Participant, Match, calculate_ranking_score
         from collections import defaultdict
 
         participants = tournament.participants
@@ -268,9 +285,12 @@ class TournamentParticipantService:
 
         # 使用直接SQL查询，不加载关联
         result = await auth.db.execute(
-            select(TournamentModel.id, TournamentModel.status).where(
-                TournamentModel.id == tournament_id
-            )
+            select(
+                TournamentModel.id,
+                TournamentModel.status,
+                TournamentModel.num_groups,
+                TournamentModel.group_size,
+            ).where(TournamentModel.id == tournament_id)
         )
         tournament = result.first()
 
@@ -279,6 +299,25 @@ class TournamentParticipantService:
 
         if tournament.status != TournamentStatusEnum.DRAFT:
             raise CustomException(msg="赛事已开始，不能添加参赛队员")
+
+        # 验证参赛人数是否超过容量
+        max_participants = (tournament.num_groups or 1) * (tournament.group_size or 4)
+
+        # 获取当前参赛人数
+        current_count_result = await auth.db.execute(
+            text(
+                "SELECT COUNT(*) FROM badminton_tournament_participant WHERE tournament_id = :tid"
+            ),
+            {"tid": tournament_id},
+        )
+        current_count = current_count_result.scalar() or 0
+
+        # 计算添加后总人数
+        new_count = current_count + len(student_ids)
+        if new_count > max_participants:
+            raise CustomException(
+                msg=f"参赛人数超出限制：当前{current_count}人，最大容量{max_participants}人（{tournament.num_groups}组×{tournament.group_size}人/组）"
+            )
 
         results = []
         for student_id in student_ids:
@@ -383,103 +422,164 @@ class TournamentMatchService:
             raise CustomException(msg="没有参赛队员")
 
         logger.info(
-            f"[generate_matches_service] 赛事名称={tournament.name}, 参赛人数={len(tournament.participants)}"
+            f"[generate_matches_service] 赛事名称={tournament.name}, 类型={tournament.tournament_type.value}, 参赛人数={len(tournament.participants)}"
         )
 
-        from .engine.base import (
-            TournamentEngineFactory,
-            TournamentType,
-            MatchFormat,
-            Participant,
-            Group,
-        )
-
-        tournament_type_map = {
-            "round_robin": TournamentType.ROUND_ROBIN,
-            "pure_group": TournamentType.PURE_GROUP,
-            "promotion_relegation": TournamentType.PROMOTION_RELEGATION,
-            "single_elimination": TournamentType.SINGLE_ELIMINATION,
-        }
-
-        engine_type = tournament_type_map.get(
-            tournament.tournament_type.value, TournamentType.ROUND_ROBIN
-        )
-
-        format_map = {
-            "best_of_three_21": MatchFormat.BEST_OF_THREE_21,
-            "best_of_five_21": MatchFormat.BEST_OF_FIVE_21,
-            "one_game_31": MatchFormat.ONE_GAME_31,
-            "one_game_15": MatchFormat.ONE_GAME_15,
-        }
-        match_format = format_map.get(
-            tournament.match_format, MatchFormat.BEST_OF_THREE_21
-        )
-
-        engine = TournamentEngineFactory.create_engine(
-            engine_type,
-            match_format=match_format,
-            points_per_game=tournament.points_per_game or 21,
-            group_size=tournament.group_size,
-            num_groups=tournament.num_groups,
-            use_seeding=use_seeding,
-        )
-        logger.info(
-            f"[generate_matches_service] 引擎创建成功，engine_type={engine_type}, match_format={match_format}"
-        )
-
-        participants = [
-            Participant(
-                id=p.id,
-                name=p.student.name if p.student else f"Player {p.student_id}",
-                seed_rank=p.seed_rank,
-            )
-            for p in tournament.participants
+        # 过滤掉没有关联学员的参赛者
+        valid_participants = [
+            p for p in tournament.participants if p.student_id is not None
         ]
-        logger.info(f"[generate_matches_service] 参赛者数量={len(participants)}")
+        if len(valid_participants) != len(tournament.participants):
+            logger.warning(
+                f"[generate_matches_service] 过滤掉 {len(tournament.participants) - len(valid_participants)} 个无效参赛者"
+            )
 
-        groups = engine.create_groups(participants)
-        logger.info(f"[generate_matches_service] 分组创建成功，分组数量={len(groups)}")
+        if len(valid_participants) < 2:
+            raise CustomException(msg="有效参赛人数不足")
 
-        matches = engine.generate_matches(groups)
-        logger.info(f"[generate_matches_service] 引擎生成对阵数量={len(matches)}")
+        # 单败淘汰赛使用淘汰赛服务
+        if tournament.tournament_type.value == "SINGLE_ELIMINATION":
+            logger.info("[generate_matches_service] 使用淘汰赛服务生成对阵表")
+            participant_ids = [p.id for p in valid_participants]
+            result = await KnockoutService.generate_bracket(
+                tournament_id=tournament_id, participant_ids=participant_ids, auth=auth
+            )
+            return result.get("matches", [])
 
+        # 小组循环赛
+        elif tournament.tournament_type.value in ["ROUND_ROBIN", "PURE_GROUP"]:
+            logger.info("[generate_matches_service] 使用循环赛算法生成对阵表")
+            # 清除旧的分组和比赛数据
+            await cls._cleanup_old_group_data(tournament_id, auth)
+            return await cls._generate_round_robin_matches(
+                tournament_id, tournament, auth
+            )
+
+        # 其他赛制暂不支持
+        else:
+            logger.warning(
+                f"[generate_matches_service] 暂不支持的赛制类型: {tournament.tournament_type.value}"
+            )
+            return []
+
+    @classmethod
+    async def _cleanup_old_group_data(
+        cls, tournament_id: int, auth: AuthSchema
+    ) -> None:
+        """清除旧的分组和比赛数据，重置参赛者的group_id"""
+        from sqlalchemy import text
+
+        # 重置参赛者的 group_id
+        await auth.db.execute(
+            text(
+                "UPDATE badminton_tournament_participant SET group_id = NULL WHERE tournament_id = :tid"
+            ),
+            {"tid": tournament_id},
+        )
+        # 删除旧的比赛
+        await auth.db.execute(
+            text("DELETE FROM badminton_tournament_match WHERE tournament_id = :tid"),
+            {"tid": tournament_id},
+        )
+        # 删除旧的分组
+        await auth.db.execute(
+            text("DELETE FROM badminton_tournament_group WHERE tournament_id = :tid"),
+            {"tid": tournament_id},
+        )
+        await auth.db.flush()
+        logger.info(f"[cleanup_old_group_data] 已清除赛事 {tournament_id} 的旧分组数据")
+
+    @classmethod
+    async def _generate_round_robin_matches(
+        cls, tournament_id: int, tournament, auth: AuthSchema
+    ) -> list[dict]:
+        """生成小组循环赛对阵表"""
+        from itertools import combinations
+
+        participants = tournament.participants
+        num_participants = len(participants)
+
+        # 分组 - 根据 group_size 自动计算分组数
+        group_size = tournament.group_size or 4
+        num_groups = (num_participants + group_size - 1) // group_size
+
+        # 分离种子选手和非种子选手
+        seeded = [p for p in participants if p.seed_rank is not None]
+        unseeded = [p for p in participants if p.seed_rank is None]
+
+        # 种子选手按排名排序
+        seeded_sorted = sorted(seeded, key=lambda p: p.seed_rank)
+
+        # 非种子选手随机打乱
+        import random
+
+        random.shuffle(unseeded)
+
+        # 初始化分组
+        groups = [[] for _ in range(num_groups)]
+
+        # 先分配种子选手：每组分配一个种子（按种子排名顺序）
+        for i, p in enumerate(seeded_sorted):
+            group_idx = i % num_groups
+            groups[group_idx].append(p)
+
+        # 再分配非种子选手：蛇形分配到各组
+        for i, p in enumerate(unseeded):
+            group_idx = i % num_groups
+            if i // num_groups % 2 == 1:
+                group_idx = num_groups - 1 - group_idx
+            groups[group_idx].append(p)
+
+        # 先创建分组，并更新参赛者的 group_id
+        group_crud = TournamentGroupCRUD(auth)
+        participant_crud = TournamentParticipantCRUD(auth)
+        group_id_map = {}
+        for group_idx, group in enumerate(groups):
+            group_model = await group_crud.create_group_crud(
+                tournament_id=tournament_id,
+                group_order=group_idx + 1,
+                group_name=f"第{group_idx + 1}组",
+            )
+            group_id_map[group_idx] = group_model.id
+
+            # 更新该组参赛者的 group_id
+            for p in group:
+                await participant_crud.update(p.id, {"group_id": group_model.id})
+
+        # 生成每组内循环赛对阵
         match_crud = TournamentMatchCRUD(auth)
         created_matches = []
-        for m in matches:
-            round_type_value = (
-                m.round_type.value if hasattr(m.round_type, "value") else m.round_type
-            )
-            match_model = await match_crud.create_match_crud(
-                tournament_id=tournament_id,
-                round_type=round_type_value,
-                round_number=m.round_number,
-                match_number=m.match_number,
-                player1_id=m.player1_id,
-                player2_id=m.player2_id,
-            )
-            if match_model:
-                created_matches.append(
-                    {
-                        "id": match_model.id,
-                        "round_number": match_model.round_number,
-                        "match_number": match_model.match_number,
-                        "player1_id": match_model.player1_id,
-                        "player2_id": match_model.player2_id,
-                        "round_type": match_model.round_type.value
-                        if hasattr(match_model.round_type, "value")
-                        else match_model.round_type,
-                        "status": match_model.status.value
-                        if hasattr(match_model.status, "value")
-                        else match_model.status,
-                    }
+        match_number = 1
+
+        for group_idx, group in enumerate(groups):
+            # 组内两两对战
+            for p1, p2 in combinations(group, 2):
+                match_model = await match_crud.create_match_crud(
+                    tournament_id=tournament_id,
+                    round_type="GROUP_STAGE",
+                    round_number=1,
+                    match_number=match_number,
+                    player1_id=p1.id,
+                    player2_id=p2.id,
+                    group_id=group_id_map[group_idx],
                 )
-            else:
-                logger.error(
-                    f"[generate_matches_service] 数据库对阵创建失败: round={m.round_number}, match={m.match_number}"
-                )
+                if match_model:
+                    created_matches.append(
+                        {
+                            "id": match_model.id,
+                            "round_number": match_model.round_number,
+                            "match_number": match_model.match_number,
+                            "player1_id": match_model.player1_id,
+                            "player2_id": match_model.player2_id,
+                            "round_type": "GROUP_STAGE",
+                            "status": match_model.status.value,
+                            "group_id": group_id_map[group_idx],
+                        }
+                    )
+                    match_number += 1
 
         logger.info(
-            f"[generate_matches_service] 总共创建了{len(created_matches)}个数据库对阵记录"
+            f"[generate_matches_service] 循环赛生成完成，共{len(created_matches)}场比赛"
         )
         return created_matches
 
@@ -673,267 +773,317 @@ class TournamentMatchService:
         group_id: Optional[int],
         auth: AuthSchema,
     ) -> dict:
-        """获取羽球在线风格的小组赛数据"""
+        """获取羽球在线风格的小组赛数据 - 按小组组织"""
         from sqlalchemy import text
 
-        # 1. 获取分组内的所有选手
-        participants_sql = text("""
+        # 1. 获取赛事的所有分组
+        groups_sql = text("""
             SELECT 
-                p.id,
-                p.student_id,
-                s.name as student_name,
-                p.seed_rank
-            FROM badminton_tournament_participant p
-            JOIN badminton_student s ON p.student_id = s.id
-            WHERE p.tournament_id = :tournament_id
-            AND p.is_withdrawn = false
-            ORDER BY p.seed_rank NULLS LAST, p.id
+                g.id,
+                g.group_name,
+                g.group_order
+            FROM badminton_tournament_group g
+            WHERE g.tournament_id = :tournament_id
+            ORDER BY g.group_order
         """)
 
-        result = await auth.db.execute(
-            participants_sql, {"tournament_id": tournament_id}
-        )
-        participants = result.mappings().all()
+        result = await auth.db.execute(groups_sql, {"tournament_id": tournament_id})
+        db_groups = result.mappings().all()
 
-        if not participants:
-            return {"matrix": [], "rankings": [], "schedule": []}
+        if not db_groups:
+            return {"groups": []}
 
-        participant_ids = [p["id"] for p in participants]
-        participant_map = {p["id"]: p for p in participants}
+        # 2. 获取每个分组内的选手
+        groups_data = []
+        for group in db_groups:
+            # 如果指定了特定分组，只返回该分组数据
+            if group_id and group["id"] != group_id:
+                continue
 
-        # 2. 获取所有已完成的比赛
-        matches_sql = text("""
-            SELECT 
-                m.id,
-                m.player1_id,
-                m.player2_id,
-                m.scores,
-                m.winner_id,
-                m.scheduled_time
-            FROM badminton_tournament_match m
-            WHERE m.tournament_id = :tournament_id
-            AND m.round_type = 'GROUP_STAGE'
-            AND m.player1_id = ANY(:participant_ids)
-            AND m.player2_id = ANY(:participant_ids)
-            ORDER BY m.scheduled_time
-        """)
+            group_participants_sql = text("""
+                SELECT 
+                    p.id,
+                    p.student_id,
+                    s.name as student_name,
+                    p.seed_rank
+                FROM badminton_tournament_participant p
+                JOIN badminton_student s ON p.student_id = s.id
+                WHERE p.group_id = :group_id
+                AND p.is_withdrawn = false
+                ORDER BY p.seed_rank NULLS LAST, p.id
+            """)
 
-        result = await auth.db.execute(
-            matches_sql,
-            {"tournament_id": tournament_id, "participant_ids": participant_ids},
-        )
-        matches = result.mappings().all()
+            result = await auth.db.execute(
+                group_participants_sql, {"group_id": group["id"]}
+            )
+            participants = result.mappings().all()
 
-        # 3. 构建对阵矩阵
-        matrix = []
-        for p1 in participants:
-            row = {
-                "participant_id": p1["id"],
-                "student_name": p1["student_name"],
-                "results": [],
-            }
-            for p2 in participants:
-                if p1["id"] == p2["id"]:
-                    row["results"].append(None)  # 对角线
-                else:
-                    # 查找两人之间的比赛
-                    match = None
-                    for m in matches:
-                        if (
-                            m["player1_id"] == p1["id"] and m["player2_id"] == p2["id"]
-                        ) or (
-                            m["player1_id"] == p2["id"] and m["player2_id"] == p1["id"]
-                        ):
-                            match = m
-                            break
+            if not participants:
+                groups_data.append(
+                    {
+                        "id": group["id"],
+                        "name": group["group_name"],
+                        "data": {"matrix": [], "rankings": [], "schedule": []},
+                    }
+                )
+                continue
 
-                    if match and match["scores"]:
-                        scores = match["scores"]
-                        if isinstance(scores, dict) and "sets" in scores:
-                            # 计算总局数
-                            p1_sets = 0
-                            p2_sets = 0
-                            # 构建每局详细比分字符串
-                            set_scores = []
-                            for s in scores["sets"]:
-                                p1_score = s.get("player1", 0)
-                                p2_score = s.get("player2", 0)
-                                set_scores.append(f"{p1_score}:{p2_score}")
-                                if p1_score > p2_score:
-                                    p1_sets += 1
-                                elif p2_score > p1_score:
-                                    p2_sets += 1
+            participant_ids = [p["id"] for p in participants]
+            participant_map = {p["id"]: p for p in participants}
 
-                            # 确定方向和胜负平
-                            is_draw = p1_sets == p2_sets
-                            # 根据方向调整比分显示
-                            if match["player1_id"] == p1["id"]:
-                                # p1是player1，显示原始比分
-                                detail_score = ", ".join(set_scores)
-                                row["results"].append(
-                                    {
-                                        "win": p1_sets > p2_sets and not is_draw,
-                                        "draw": is_draw,
-                                        "score": f"{p1_sets}:{p2_sets}",
-                                        "detail_score": detail_score,
-                                        "sets": scores["sets"],
-                                    }
-                                )
-                            else:
-                                # p1是player2，需要反转每局比分显示
-                                reversed_scores = []
+            # 3. 获取该分组的所有比赛
+            matches_sql = text("""
+                SELECT 
+                    m.id,
+                    m.player1_id,
+                    m.player2_id,
+                    m.scores,
+                    m.winner_id,
+                    m.scheduled_time
+                FROM badminton_tournament_match m
+                WHERE m.group_id = :group_id
+                AND m.round_type = 'GROUP_STAGE'
+                ORDER BY m.scheduled_time
+            """)
+
+            result = await auth.db.execute(matches_sql, {"group_id": group["id"]})
+            matches = result.mappings().all()
+
+            # 4. 构建该分组的对阵矩阵
+            matrix = []
+            for p1 in participants:
+                row = {
+                    "participant_id": p1["id"],
+                    "student_name": p1["student_name"],
+                    "results": [],
+                }
+                for p2 in participants:
+                    if p1["id"] == p2["id"]:
+                        row["results"].append(None)  # 对角线
+                    else:
+                        # 查找两人之间的比赛
+                        match = None
+                        for m in matches:
+                            if (
+                                m["player1_id"] == p1["id"]
+                                and m["player2_id"] == p2["id"]
+                            ) or (
+                                m["player1_id"] == p2["id"]
+                                and m["player2_id"] == p1["id"]
+                            ):
+                                match = m
+                                break
+
+                        if match and match["scores"]:
+                            scores = match["scores"]
+                            if isinstance(scores, dict) and "sets" in scores:
+                                # 计算总局数
+                                p1_sets = 0
+                                p2_sets = 0
+                                # 构建每局详细比分字符串
+                                set_scores = []
                                 for s in scores["sets"]:
-                                    p1_score = s.get("player2", 0)
-                                    p2_score = s.get("player1", 0)
-                                    reversed_scores.append(f"{p1_score}:{p2_score}")
-                                detail_score = ", ".join(reversed_scores)
-                                row["results"].append(
-                                    {
-                                        "win": p2_sets > p1_sets and not is_draw,
-                                        "draw": is_draw,
-                                        "score": f"{p2_sets}:{p1_sets}",
-                                        "detail_score": detail_score,
-                                        "sets": scores["sets"],
-                                    }
-                                )
+                                    p1_score = s.get("player1", 0)
+                                    p2_score = s.get("player2", 0)
+                                    set_scores.append(f"{p1_score}:{p2_score}")
+                                    if p1_score > p2_score:
+                                        p1_sets += 1
+                                    elif p2_score > p1_score:
+                                        p2_sets += 1
+
+                                # 确定方向和胜负平
+                                is_draw = p1_sets == p2_sets
+                                # 根据方向调整比分显示
+                                if match["player1_id"] == p1["id"]:
+                                    # p1是player1，显示原始比分
+                                    detail_score = ", ".join(set_scores)
+                                    row["results"].append(
+                                        {
+                                            "win": p1_sets > p2_sets and not is_draw,
+                                            "draw": is_draw,
+                                            "score": f"{p1_sets}:{p2_sets}",
+                                            "detail_score": detail_score,
+                                            "sets": scores["sets"],
+                                        }
+                                    )
+                                else:
+                                    # p1是player2，需要反转每局比分显示
+                                    reversed_scores = []
+                                    for s in scores["sets"]:
+                                        p1_score = s.get("player2", 0)
+                                        p2_score = s.get("player1", 0)
+                                        reversed_scores.append(f"{p1_score}:{p2_score}")
+                                    detail_score = ", ".join(reversed_scores)
+                                    row["results"].append(
+                                        {
+                                            "win": p2_sets > p1_sets and not is_draw,
+                                            "draw": is_draw,
+                                            "score": f"{p2_sets}:{p1_sets}",
+                                            "detail_score": detail_score,
+                                            "sets": scores["sets"],
+                                        }
+                                    )
+                            else:
+                                row["results"].append(None)
                         else:
                             row["results"].append(None)
-                    else:
-                        row["results"].append(None)
-            matrix.append(row)
+                matrix.append(row)
 
-        # 4. 计算积分排名
-        rankings = []
-        for p in participants:
-            stats = {
-                "participant_id": p["id"],
-                "student_name": p["student_name"],
-                "total_points": 0,  # 总分（胜场数）
-                "matches_played": 0,  # 场数（只计算有比分的）
-                "wins": 0,
-                "losses": 0,
-                "draws": 0,  # 平局数
-                "sets_won": 0,  # 胜负局
-                "sets_lost": 0,
-                "points_scored": 0,  # 胜负分
-                "points_conceded": 0,
-            }
+            # 5. 计算该分组的积分排名
+            rankings = []
+            for p in participants:
+                stats = {
+                    "participant_id": p["id"],
+                    "student_name": p["student_name"],
+                    "total_points": 0,  # 总分（胜场数）
+                    "matches_played": 0,  # 场数（只计算有比分的）
+                    "wins": 0,
+                    "losses": 0,
+                    "draws": 0,  # 平局数
+                    "sets_won": 0,  # 胜负局
+                    "sets_lost": 0,
+                    "points_scored": 0,  # 胜负分
+                    "points_conceded": 0,
+                }
 
-            for m in matches:
-                if m["player1_id"] == p["id"] or m["player2_id"] == p["id"]:
-                    # 只统计有比分的比赛
-                    if (
-                        m["scores"]
-                        and isinstance(m["scores"], dict)
-                        and "sets" in m["scores"]
-                        and len(m["scores"]["sets"]) > 0
-                    ):
-                        stats["matches_played"] += 1
-                        is_player1 = m["player1_id"] == p["id"]
+                for m in matches:
+                    if m["player1_id"] == p["id"] or m["player2_id"] == p["id"]:
+                        # 只统计有比分的比赛
+                        if (
+                            m["scores"]
+                            and isinstance(m["scores"], dict)
+                            and "sets" in m["scores"]
+                            and len(m["scores"]["sets"]) > 0
+                        ):
+                            stats["matches_played"] += 1
+                            is_player1 = m["player1_id"] == p["id"]
 
-                        for s in m["scores"]["sets"]:
-                            p1_score = s.get("player1", 0)
-                            p2_score = s.get("player2", 0)
+                            for s in m["scores"]["sets"]:
+                                p1_score = s.get("player1", 0)
+                                p2_score = s.get("player2", 0)
+
+                                if is_player1:
+                                    stats["points_scored"] += p1_score
+                                    stats["points_conceded"] += p2_score
+                                    if p1_score > p2_score:
+                                        stats["sets_won"] += 1
+                                    elif p2_score > p1_score:
+                                        stats["sets_lost"] += 1
+                                    # 平局时sets_won和sets_lost都不增加
+                                else:
+                                    stats["points_scored"] += p2_score
+                                    stats["points_conceded"] += p1_score
+                                    if p2_score > p1_score:
+                                        stats["sets_won"] += 1
+                                    elif p1_score > p2_score:
+                                        stats["sets_lost"] += 1
+
+                            # 判断胜负平
+                            p1_sets = sum(
+                                1
+                                for s in m["scores"]["sets"]
+                                if s.get("player1", 0) > s.get("player2", 0)
+                            )
+                            p2_sets = sum(
+                                1
+                                for s in m["scores"]["sets"]
+                                if s.get("player2", 0) > s.get("player1", 0)
+                            )
 
                             if is_player1:
-                                stats["points_scored"] += p1_score
-                                stats["points_conceded"] += p2_score
-                                if p1_score > p2_score:
-                                    stats["sets_won"] += 1
-                                elif p2_score > p1_score:
-                                    stats["sets_lost"] += 1
-                                # 平局时sets_won和sets_lost都不增加
+                                if p1_sets > p2_sets:
+                                    stats["wins"] += 1
+                                    stats["total_points"] += 1
+                                elif p2_sets > p1_sets:
+                                    stats["losses"] += 1
+                                else:
+                                    stats["draws"] += 1
+                                    stats["total_points"] += 0.5  # 平局得0.5分
                             else:
-                                stats["points_scored"] += p2_score
-                                stats["points_conceded"] += p1_score
-                                if p2_score > p1_score:
-                                    stats["sets_won"] += 1
-                                elif p1_score > p2_score:
-                                    stats["sets_lost"] += 1
+                                if p2_sets > p1_sets:
+                                    stats["wins"] += 1
+                                    stats["total_points"] += 1
+                                elif p1_sets > p2_sets:
+                                    stats["losses"] += 1
+                                else:
+                                    stats["draws"] += 1
+                                    stats["total_points"] += 0.5  # 平局得0.5分
 
-                        # 判断胜负平
+                rankings.append(stats)
+
+            # 按总分、胜负局差、胜负分差排序
+            rankings.sort(
+                key=lambda x: (
+                    -x["total_points"],
+                    -(x["sets_won"] - x["sets_lost"]),
+                    -(x["points_scored"] - x["points_conceded"]),
+                )
+            )
+
+            # 6. 构建该分组的赛程列表
+            schedule = []
+            for m in matches:
+                p1 = participant_map.get(m["player1_id"], {})
+                p2 = participant_map.get(m["player2_id"], {})
+
+                score_str = "-"
+                if (
+                    m["scores"]
+                    and isinstance(m["scores"], dict)
+                    and "sets" in m["scores"]
+                ):
+                    sets = m["scores"]["sets"]
+                    if sets:
+                        # 计算总局数比分
                         p1_sets = sum(
-                            1
-                            for s in m["scores"]["sets"]
-                            if s.get("player1", 0) > s.get("player2", 0)
+                            1 for s in sets if s.get("player1", 0) > s.get("player2", 0)
                         )
                         p2_sets = sum(
-                            1
-                            for s in m["scores"]["sets"]
-                            if s.get("player2", 0) > s.get("player1", 0)
+                            1 for s in sets if s.get("player2", 0) > s.get("player1", 0)
+                        )
+                        score_str = f"{p1_sets}:{p2_sets}"
+
+                # 构建详细比分数据
+                sets_data = []
+                if (
+                    m["scores"]
+                    and isinstance(m["scores"], dict)
+                    and "sets" in m["scores"]
+                ):
+                    for s in m["scores"]["sets"]:
+                        sets_data.append(
+                            {
+                                "player1": s.get("player1", 0),
+                                "player2": s.get("player2", 0),
+                            }
                         )
 
-                        if is_player1:
-                            if p1_sets > p2_sets:
-                                stats["wins"] += 1
-                                stats["total_points"] += 1
-                            elif p2_sets > p1_sets:
-                                stats["losses"] += 1
-                            else:
-                                stats["draws"] += 1
-                                stats["total_points"] += 0.5  # 平局得0.5分
-                        else:
-                            if p2_sets > p1_sets:
-                                stats["wins"] += 1
-                                stats["total_points"] += 1
-                            elif p1_sets > p2_sets:
-                                stats["losses"] += 1
-                            else:
-                                stats["draws"] += 1
-                                stats["total_points"] += 0.5  # 平局得0.5分
+                schedule.append(
+                    {
+                        "match_id": m["id"],
+                        "player1_id": m["player1_id"],
+                        "player1_name": p1.get("student_name", "Unknown"),
+                        "player2_id": m["player2_id"],
+                        "player2_name": p2.get("student_name", "Unknown"),
+                        "score": score_str,
+                        "sets": sets_data,
+                        "scheduled_time": m["scheduled_time"].isoformat()
+                        if m["scheduled_time"]
+                        else None,
+                        "completed": m["winner_id"] is not None,
+                    }
+                )
 
-            rankings.append(stats)
-
-        # 按总分、胜负局差、胜负分差排序
-        rankings.sort(
-            key=lambda x: (
-                -x["total_points"],
-                -(x["sets_won"] - x["sets_lost"]),
-                -(x["points_scored"] - x["points_conceded"]),
-            )
-        )
-
-        # 5. 构建赛程列表
-        schedule = []
-        for m in matches:
-            p1 = participant_map.get(m["player1_id"], {})
-            p2 = participant_map.get(m["player2_id"], {})
-
-            score_str = "-"
-            if m["scores"] and isinstance(m["scores"], dict) and "sets" in m["scores"]:
-                sets = m["scores"]["sets"]
-                if sets:
-                    # 计算总局数比分
-                    p1_sets = sum(
-                        1 for s in sets if s.get("player1", 0) > s.get("player2", 0)
-                    )
-                    p2_sets = sum(
-                        1 for s in sets if s.get("player2", 0) > s.get("player1", 0)
-                    )
-                    score_str = f"{p1_sets}:{p2_sets}"
-
-            # 构建详细比分数据
-            sets_data = []
-            if m["scores"] and isinstance(m["scores"], dict) and "sets" in m["scores"]:
-                for s in m["scores"]["sets"]:
-                    sets_data.append(
-                        {"player1": s.get("player1", 0), "player2": s.get("player2", 0)}
-                    )
-
-            schedule.append(
+            groups_data.append(
                 {
-                    "match_id": m["id"],
-                    "player1_id": m["player1_id"],
-                    "player1_name": p1.get("student_name", "Unknown"),
-                    "player2_id": m["player2_id"],
-                    "player2_name": p2.get("student_name", "Unknown"),
-                    "score": score_str,
-                    "sets": sets_data,
-                    "scheduled_time": m["scheduled_time"].isoformat()
-                    if m["scheduled_time"]
-                    else None,
-                    "completed": m["winner_id"] is not None,
+                    "id": group["id"],
+                    "name": group["group_name"],
+                    "data": {
+                        "matrix": matrix,
+                        "rankings": rankings,
+                        "schedule": schedule,
+                    },
                 }
             )
 
-        return {"matrix": matrix, "rankings": rankings, "schedule": schedule}
+        return {"groups": groups_data}

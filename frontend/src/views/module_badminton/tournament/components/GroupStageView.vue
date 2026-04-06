@@ -1,5 +1,17 @@
 <template>
   <div class="group-stage-view">
+    <!-- 小组切换下拉框 -->
+    <div class="group-selector">
+      <el-select v-model="selectedGroup" placeholder="选择小组" size="large">
+        <el-option
+          v-for="group in groups"
+          :key="group.id"
+          :label="group.name"
+          :value="group.id"
+        />
+      </el-select>
+    </div>
+
     <!-- 对阵矩阵 -->
     <div class="matrix-section">
       <h3 class="section-title">对阵矩阵</h3>
@@ -8,16 +20,16 @@
           <thead>
             <tr>
               <th class="corner-cell"></th>
-              <th v-for="(col, idx) in data.matrix" :key="idx" class="header-cell">
+              <th v-for="(col, idx) in currentGroupData.matrix" :key="idx" class="header-cell">
                 {{ col.student_name }}
               </th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(row, rowIdx) in data.matrix" :key="rowIdx">
+            <tr v-for="(row, rowIdx) in currentGroupData.matrix" :key="rowIdx">
               <td class="row-header">{{ row.student_name }}</td>
-              <td 
-                v-for="(result, colIdx) in row.results" 
+              <td
+                v-for="(result, colIdx) in row.results"
                 :key="colIdx"
                 :class="['matrix-cell', getResultClass(result)]"
               >
@@ -26,8 +38,12 @@
                     <span :class="['score', result.win ? 'win' : result.draw ? 'draw' : 'loss']">
                       {{ result.score }}
                     </span>
-                    <span class="detail-score" v-if="result.detail_score">{{ result.detail_score }}</span>
-                    <span class="result-text">{{ result.win ? '胜' : result.draw ? '平' : '负' }}</span>
+                    <span v-if="result.detail_score" class="detail-score">
+                      {{ result.detail_score }}
+                    </span>
+                    <span class="result-text">
+                      {{ result.win ? "胜" : result.draw ? "平" : "负" }}
+                    </span>
                   </div>
                 </template>
                 <template v-else-if="rowIdx === colIdx">
@@ -46,7 +62,7 @@
     <!-- 积分排名 -->
     <div class="rankings-section">
       <h3 class="section-title">积分排名</h3>
-      <el-table :data="data.rankings" stripe>
+      <el-table :data="currentGroupData.rankings" stripe>
         <el-table-column type="index" label="名次" width="60" align="center">
           <template #default="{ $index }">
             <span :class="['rank-num', 'rank-' + ($index + 1)]">{{ $index + 1 }}</span>
@@ -61,23 +77,20 @@
         <el-table-column prop="matches_played" label="场数" width="60" align="center" />
         <el-table-column label="胜负赛" width="100" align="center">
           <template #default="{ row }">
-            {{ row.wins }}-{{ row.losses }}<span v-if="row.draws > 0" class="draw-count">({{ row.draws }}平)</span>
+            {{ row.wins }}-{{ row.losses }}
+            <span v-if="row.draws > 0" class="draw-count">({{ row.draws }}平)</span>
           </template>
         </el-table-column>
         <el-table-column label="胜负局" width="80" align="center">
-          <template #default="{ row }">
-            {{ row.sets_won }}-{{ row.sets_lost }}
-          </template>
+          <template #default="{ row }">{{ row.sets_won }}-{{ row.sets_lost }}</template>
         </el-table-column>
         <el-table-column label="胜负分" min-width="100" align="center">
-          <template #default="{ row }">
-            {{ row.points_scored }}-{{ row.points_conceded }}
-          </template>
+          <template #default="{ row }">{{ row.points_scored }}-{{ row.points_conceded }}</template>
         </el-table-column>
         <el-table-column label="净胜分" width="80" align="center">
           <template #default="{ row }">
             <span :class="row.points_scored - row.points_conceded > 0 ? 'positive' : 'negative'">
-              {{ row.points_scored - row.points_conceded > 0 ? '+' : '' }}
+              {{ row.points_scored - row.points_conceded > 0 ? "+" : "" }}
               {{ row.points_scored - row.points_conceded }}
             </span>
           </template>
@@ -88,7 +101,7 @@
     <!-- 赛程列表 -->
     <div class="schedule-section">
       <h3 class="section-title">赛程</h3>
-      <el-table :data="data.schedule" stripe>
+      <el-table :data="currentGroupData.schedule" stripe>
         <el-table-column label="时间" width="150">
           <template #default="{ row }">
             {{ formatTime(row.scheduled_time) }}
@@ -112,7 +125,7 @@
         </el-table-column>
         <el-table-column label="详细比分" min-width="120" align="center">
           <template #default="{ row }">
-            <span class="detail-score-list" v-if="row.sets && row.sets.length > 0">
+            <span v-if="row.sets && row.sets.length > 0" class="detail-score-list">
               <span v-for="(set, idx) in row.sets" :key="idx" class="set-score">
                 {{ set.player1 }}:{{ set.player2 }}
               </span>
@@ -122,13 +135,8 @@
         </el-table-column>
         <el-table-column label="操作" width="100" align="center">
           <template #default="{ row }">
-            <el-button 
-              type="primary" 
-              link 
-              size="small"
-              @click="$emit('recordScore', row)"
-            >
-              {{ row.completed ? '修改' : '录入' }}
+            <el-button type="primary" link size="small" @click="$emit('recordScore', row)">
+              {{ row.completed ? "修改" : "录入" }}
             </el-button>
           </template>
         </el-table-column>
@@ -138,6 +146,8 @@
 </template>
 
 <script setup lang="ts">
+import { ref, computed, watch } from "vue";
+
 interface MatrixResult {
   win: boolean;
   draw?: boolean;
@@ -177,39 +187,63 @@ interface ScheduleItem {
   completed: boolean;
 }
 
-interface GroupStageData {
+interface GroupData {
   matrix: MatrixRow[];
   rankings: Ranking[];
   schedule: ScheduleItem[];
 }
 
+interface Group {
+  id: number;
+  name: string;
+  data: GroupData;
+}
+
 const props = defineProps<{
-  data: GroupStageData;
+  groups: Group[];
 }>();
 
 const emit = defineEmits<{
-  (e: 'recordScore', match: ScheduleItem): void;
+  (e: "recordScore", match: ScheduleItem): void;
 }>();
 
+const selectedGroup = ref<number>(0);
+
+// 当 groups 数据加载后，自动选中第一个小组
+watch(
+  () => props.groups,
+  (groups) => {
+    if (groups.length > 0 && !groups.find((g) => g.id === selectedGroup.value)) {
+      selectedGroup.value = groups[0].id;
+    }
+  },
+  { immediate: true }
+);
+
+const currentGroupData = computed(() => {
+  const group = props.groups.find((g) => g.id === selectedGroup.value);
+  return group?.data || { matrix: [], rankings: [], schedule: [] };
+});
+
 function getResultClass(result: MatrixResult | null): string {
-  if (!result) return 'empty';
-  if (result.win) return 'win-cell';
-  if (result.draw) return 'draw-cell';
-  return 'loss-cell';
+  if (!result) return "empty";
+  if (result.win) return "win-cell";
+  if (result.draw) return "draw-cell";
+  return "loss-cell";
 }
 
 function getWinnerClass(match: ScheduleItem, player: number): string {
-  if (!match.completed) return '';
-  const [p1Score, p2Score] = match.score.split(':').map(Number);
-  if (player === 1 && p1Score > p2Score) return 'winner';
-  if (player === 2 && p2Score > p1Score) return 'winner';
-  return '';
+  if (!match.completed) return "";
+  const [p1Score, p2Score] = match.score.split(":").map(Number);
+  if (player === 1 && p1Score > p2Score) return "winner";
+  if (player === 2 && p2Score > p1Score) return "winner";
+  return "";
 }
 
 function formatTime(timeStr: string | null): string {
-  if (!timeStr) return '-';
+  if (!timeStr) return "-";
   const date = new Date(timeStr);
-  return `${date.getMonth() + 1}月${date.getDate()}日 ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  return `${date.getMonth() + 1}月${date.getDate()}日 ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
 </script>
 
@@ -218,12 +252,17 @@ function formatTime(timeStr: string | null): string {
   padding: 20px;
 }
 
+.group-selector {
+  margin-bottom: 24px;
+  text-align: center;
+}
+
 .section-title {
   font-size: 18px;
   font-weight: bold;
   margin-bottom: 16px;
   padding-bottom: 8px;
-  border-bottom: 2px solid #409eff;
+  border-bottom: 2px solid var(--el-color-primary);
 }
 
 .matrix-section,
@@ -244,19 +283,19 @@ function formatTime(timeStr: string | null): string {
 
 .matrix-table th,
 .matrix-table td {
-  border: 1px solid #ebeef5;
+  border: 1px solid var(--el-border-color-lighter);
   padding: 12px 8px;
   text-align: center;
   min-width: 80px;
 }
 
 .matrix-table th {
-  background-color: #f5f7fa;
+  background-color: var(--el-fill-color-light);
   font-weight: bold;
 }
 
 .corner-cell {
-  background-color: #f5f7fa;
+  background-color: var(--el-fill-color-light);
 }
 
 .header-cell {
@@ -268,7 +307,7 @@ function formatTime(timeStr: string | null): string {
 }
 
 .row-header {
-  background-color: #f5f7fa;
+  background-color: var(--el-fill-color-light);
   font-weight: bold;
   text-align: left;
   max-width: 100px;
@@ -283,15 +322,15 @@ function formatTime(timeStr: string | null): string {
 }
 
 .win-cell {
-  background-color: #f0f9ff;
+  background-color: var(--el-color-primary-light-9);
 }
 
 .loss-cell {
-  background-color: #fef0f0;
+  background-color: var(--el-color-danger-light-9);
 }
 
 .draw-cell {
-  background-color: #fdf6ec;
+  background-color: var(--el-color-warning-light-9);
 }
 
 .score-container {
@@ -307,32 +346,32 @@ function formatTime(timeStr: string | null): string {
 }
 
 .score.win {
-  color: #67c23a;
+  color: var(--el-color-success);
 }
 
 .score.loss {
-  color: #f56c6c;
+  color: var(--el-color-danger);
 }
 
 .score.draw {
-  color: #e6a23c;
+  color: var(--el-color-warning);
 }
 
 .detail-score {
   font-size: 11px;
-  color: #606266;
+  color: var(--el-text-color-regular);
   font-weight: normal;
   line-height: 1.2;
 }
 
 .result-text {
   font-size: 12px;
-  color: #909399;
+  color: var(--el-text-color-secondary);
 }
 
 .draw-count {
   font-size: 11px;
-  color: #e6a23c;
+  color: var(--el-color-warning);
   margin-left: 2px;
 }
 
@@ -345,22 +384,22 @@ function formatTime(timeStr: string | null): string {
 
 .set-score {
   font-size: 12px;
-  color: #606266;
-  background-color: #f5f7fa;
+  color: var(--el-text-color-regular);
+  background-color: var(--el-fill-color-light);
   padding: 2px 6px;
   border-radius: 4px;
 }
 
 .no-score {
-  color: #c0c4cc;
+  color: var(--el-text-color-placeholder);
 }
 
 .diagonal {
-  color: #c0c4cc;
+  color: var(--el-text-color-placeholder);
 }
 
 .pending {
-  color: #c0c4cc;
+  color: var(--el-text-color-placeholder);
 }
 
 .rank-num {
@@ -374,18 +413,21 @@ function formatTime(timeStr: string | null): string {
 }
 
 .rank-1 {
-  background-color: #ffd700;
+  background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
   color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .rank-2 {
-  background-color: #c0c0c0;
+  background: linear-gradient(135deg, #c0c0c0 0%, #e0e0e0 100%);
   color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .rank-3 {
-  background-color: #cd7f32;
+  background: linear-gradient(135deg, #cd7f32 0%, #daa520 100%);
   color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .player-name {
@@ -393,12 +435,12 @@ function formatTime(timeStr: string | null): string {
 }
 
 .positive {
-  color: #67c23a;
+  color: var(--el-color-success);
   font-weight: bold;
 }
 
 .negative {
-  color: #f56c6c;
+  color: var(--el-color-danger);
   font-weight: bold;
 }
 
@@ -414,12 +456,12 @@ function formatTime(timeStr: string | null): string {
 }
 
 .match-players .player.winner {
-  color: #67c23a;
+  color: var(--el-color-success);
   font-weight: bold;
 }
 
 .match-players .vs {
-  color: #909399;
+  color: var(--el-text-color-secondary);
   font-size: 12px;
 }
 
@@ -428,10 +470,10 @@ function formatTime(timeStr: string | null): string {
 }
 
 .match-score.completed {
-  color: #409eff;
+  color: var(--el-color-primary);
 }
 
 .match-score.pending {
-  color: #c0c4cc;
+  color: var(--el-text-color-placeholder);
 }
 </style>
