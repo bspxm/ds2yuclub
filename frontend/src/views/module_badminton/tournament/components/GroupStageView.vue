@@ -3,12 +3,7 @@
     <!-- 小组切换下拉框 -->
     <div class="group-selector">
       <el-select v-model="selectedGroup" placeholder="选择小组" size="large">
-        <el-option
-          v-for="group in groups"
-          :key="group.id"
-          :label="group.name"
-          :value="group.id"
-        />
+        <el-option v-for="group in groups" :key="group.id" :label="group.name" :value="group.id" />
       </el-select>
     </div>
 
@@ -75,11 +70,19 @@
         </el-table-column>
         <el-table-column prop="total_points" label="总分" width="60" align="center" />
         <el-table-column prop="matches_played" label="场数" width="60" align="center" />
-        <el-table-column label="胜负赛" width="100" align="center">
+        <el-table-column
+          v-if="tournamentType !== 'CHAMPIONSHIP'"
+          label="胜负赛"
+          width="100"
+          align="center"
+        >
           <template #default="{ row }">
             {{ row.wins }}-{{ row.losses }}
             <span v-if="row.draws > 0" class="draw-count">({{ row.draws }}平)</span>
           </template>
+        </el-table-column>
+        <el-table-column v-else label="胜负" width="80" align="center">
+          <template #default="{ row }">{{ row.wins }}-{{ row.losses }}</template>
         </el-table-column>
         <el-table-column label="胜负局" width="80" align="center">
           <template #default="{ row }">{{ row.sets_won }}-{{ row.sets_lost }}</template>
@@ -201,6 +204,7 @@ interface Group {
 
 const props = defineProps<{
   groups: Group[];
+  tournamentType?: string;
 }>();
 
 const emit = defineEmits<{

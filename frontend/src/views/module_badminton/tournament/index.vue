@@ -24,6 +24,7 @@
             <el-option value="PURE_GROUP" label="纯小组赛" />
             <el-option value="PROMOTION_RELEGATION" label="定区升降赛" />
             <el-option value="SINGLE_ELIMINATION" label="单败制淘汰赛" />
+            <el-option value="CHAMPIONSHIP" label="锦标赛" />
           </el-select>
         </el-form-item>
         <el-form-item prop="status" label="状态">
@@ -236,6 +237,7 @@
               <GroupStageView
                 v-if="groupStageData?.groups"
                 :groups="groupStageData.groups"
+                :tournament-type="currentTournament?.tournament_type"
                 @record-score="handleGroupStageScore"
               />
               <el-empty v-else description="暂无小组赛数据" />
@@ -256,12 +258,85 @@
                   生成对阵表
                 </el-button>
               </div>
-      <KnockoutBracketView
+              <KnockoutBracketView
                 v-if="knockoutData && knockoutData.matches && knockoutData.matches.length > 0"
                 :matches="knockoutData.matches"
                 @match-click="handleKnockoutMatchClick"
               />
               <el-empty v-else description="暂无淘汰赛数据，请先生成对阵表" />
+            </div>
+          </el-tab-pane>
+
+          <!-- 锦标赛淘汰赛（小组赛后生成） -->
+          <el-tab-pane v-if="isChampionshipTournament" label="淘汰赛" name="championshipKnockout">
+            <div class="tab-content">
+              <div class="toolbar">
+                <el-button type="primary" icon="refresh" @click="loadChampionshipStatus">
+                  刷新状态
+                </el-button>
+                <el-button
+                  v-if="
+                    championshipStatus?.group_stage?.is_completed &&
+                    !championshipStatus?.knockout?.is_generated
+                  "
+                  type="success"
+                  icon="trophy"
+                  @click="handleGenerateChampionshipKnockout"
+                >
+                  生成淘汰赛对阵
+                </el-button>
+              </div>
+
+              <!-- 状态概览 -->
+              <el-descriptions
+                v-if="championshipStatus"
+                :column="2"
+                border
+                style="margin-bottom: 16px"
+              >
+                <el-descriptions-item label="小组赛进度">
+                  {{ championshipStatus.group_stage.completed }}/{{
+                    championshipStatus.group_stage.total
+                  }}
+                  <el-tag
+                    v-if="championshipStatus.group_stage.is_completed"
+                    type="success"
+                    size="small"
+                  >
+                    已完成
+                  </el-tag>
+                </el-descriptions-item>
+                <el-descriptions-item label="淘汰赛">
+                  <el-tag v-if="!championshipStatus.knockout.is_generated" type="info" size="small">
+                    未生成
+                  </el-tag>
+                  <el-tag
+                    v-else-if="championshipStatus.knockout.is_completed"
+                    type="success"
+                    size="small"
+                  >
+                    已完成
+                  </el-tag>
+                  <el-tag v-else type="warning" size="small">进行中</el-tag>
+                </el-descriptions-item>
+              </el-descriptions>
+
+              <template v-if="championshipStatus?.knockout?.is_generated">
+                <KnockoutBracketView
+                  v-if="knockoutData && knockoutData.matches && knockoutData.matches.length > 0"
+                  :matches="knockoutData.matches"
+                  @match-click="handleKnockoutMatchClick"
+                />
+                <el-empty v-else description="加载淘汰赛数据..." />
+              </template>
+              <el-alert
+                v-else-if="championshipStatus && !championshipStatus.group_stage.is_completed"
+                title="小组赛尚未全部完成，请先完成所有小组赛再生成淘汰赛对阵"
+                type="warning"
+                :closable="false"
+                show-icon
+              />
+              <el-empty v-else description="请点击上方按钮生成淘汰赛对阵" />
             </div>
           </el-tab-pane>
 
@@ -294,6 +369,7 @@
             <el-option value="PURE_GROUP" label="纯小组赛" />
             <el-option value="PROMOTION_RELEGATION" label="定区升降赛" />
             <el-option value="SINGLE_ELIMINATION" label="单败制淘汰赛" />
+            <el-option value="CHAMPIONSHIP" label="锦标赛（分组循环+交叉淘汰）" />
           </el-select>
         </el-form-item>
         <el-form-item label="开始日期" prop="start_date">
@@ -320,6 +396,48 @@
         <el-form-item label="每组人数" prop="group_size">
           <el-input-number v-model="formData.group_size" :min="2" :max="8" />
         </el-form-item>
+        <!-- 锦标赛专属参数 -->
+        <template v-if="formData.tournament_type === 'CHAMPIONSHIP'">
+          <el-form-item label="晋级人数" prop="advance_count">
+            <el-select
+              v-model="formData.advance_count"
+              placeholder="选择淘汰赛晋级人数"
+              style="width: 100%"
+            >
+              <el-option :value="4" label="4人" />
+              <el-option :value="8" label="8人" />
+              <el-option :value="16" label="16人" />
+              <el-option :value="32" label="32人" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="前几晋级" prop="advance_top_n">
+            <el-input-number
+              v-model="formData.advance_top_n"
+              :min="1"
+              :max="formData.group_size ? formData.group_size - 1 : 7"
+            />
+          </el-form-item>
+          <el-form-item label="赛事信息">
+            <div class="championship-info">
+              <el-descriptions :column="2" border size="small">
+                <el-descriptions-item label="分组数">
+                  {{
+                    formData.advance_count && formData.advance_top_n
+                      ? formData.advance_count / formData.advance_top_n
+                      : "-"
+                  }}
+                </el-descriptions-item>
+                <el-descriptions-item label="最低参赛人数">
+                  {{
+                    formData.advance_count && formData.advance_top_n
+                      ? (formData.advance_count / formData.advance_top_n) * 3
+                      : "-"
+                  }}
+                </el-descriptions-item>
+              </el-descriptions>
+            </div>
+          </el-form-item>
+        </template>
         <el-form-item label="备注" prop="description">
           <el-input
             v-model="formData.description"
@@ -340,7 +458,9 @@
       v-model:visible="participantSelectVisible"
       :tournament-id="currentTournament?.id || 0"
       :existing-participants="participants.map((p) => p.student_id)"
-      :max-participants="(currentTournament?.num_groups || 1) * (currentTournament?.group_size || 4)"
+      :max-participants="
+        (currentTournament?.num_groups || 1) * (currentTournament?.group_size || 4)
+      "
       :group-size="currentTournament?.group_size || 4"
       @submit="handleParticipantSubmit"
     />
@@ -427,6 +547,8 @@ const formData = reactive<TournamentForm>({
   num_groups: 4,
   group_size: 4,
   description: "",
+  advance_count: undefined as number | undefined,
+  advance_top_n: undefined as number | undefined,
 });
 
 const rules = {
@@ -444,11 +566,18 @@ const participants = ref<TournamentParticipant[]>([]);
 const matches = ref<TournamentMatch[]>([]);
 const groupStageData = ref<any>(null);
 const knockoutData = ref<any>(null);
+const championshipStatus = ref<any>(null);
 
 // 计算属性：判断是否为小组赛赛制
 const isGroupStageTournament = computed(() => {
   const type = currentTournament.value?.tournament_type?.toUpperCase();
-  return type === "ROUND_ROBIN" || type === "PURE_GROUP";
+  return type === "ROUND_ROBIN" || type === "PURE_GROUP" || type === "CHAMPIONSHIP";
+});
+
+// 计算属性：判断是否为锦标赛赛制
+const isChampionshipTournament = computed(() => {
+  const type = currentTournament.value?.tournament_type?.toUpperCase();
+  return type === "CHAMPIONSHIP";
 });
 
 // 计算属性：判断是否为淘汰赛赛制
@@ -619,6 +748,8 @@ function resetForm() {
     num_groups: 4,
     group_size: 4,
     description: "",
+    advance_count: undefined,
+    advance_top_n: undefined,
   });
 }
 
@@ -627,6 +758,8 @@ async function handleManage(row: TournamentTable) {
   currentTournament.value = row;
   manageDialogVisible.value = true;
   activeTab.value = "participants";
+  championshipStatus.value = null;
+  knockoutData.value = null;
   await loadParticipants();
 }
 
@@ -734,6 +867,8 @@ function handleTabChange(tabName: string) {
     loadGroupStageData();
   } else if (tabName === "knockout") {
     loadKnockoutData();
+  } else if (tabName === "championshipKnockout") {
+    loadChampionshipStatus();
   }
 }
 
@@ -782,6 +917,36 @@ async function generateKnockout() {
   }
 }
 
+// 加载锦标赛状态
+async function loadChampionshipStatus() {
+  if (!currentTournament.value) return;
+  try {
+    const res = await TournamentAPIExtended.getChampionshipStatus(currentTournament.value.id);
+    championshipStatus.value = res.data?.data || null;
+    // 如果淘汰赛已生成，同时加载淘汰赛数据
+    if (championshipStatus.value?.knockout?.is_generated) {
+      await loadKnockoutData();
+    }
+  } catch (error) {
+    console.error("加载锦标赛状态失败:", error);
+  }
+}
+
+// 生成锦标赛淘汰赛对阵
+async function handleGenerateChampionshipKnockout() {
+  if (!currentTournament.value) return;
+  try {
+    await TournamentAPIExtended.generateChampionshipKnockout(
+      currentTournament.value.id
+    );
+    ElMessage.success("锦标赛淘汰赛对阵生成成功");
+    await loadChampionshipStatus();
+  } catch (error: any) {
+    console.error(error);
+    ElMessage.error(error?.response?.data?.msg || "生成淘汰赛对阵失败");
+  }
+}
+
 // 处理淘汰赛比分录入
 function handleKnockoutMatchClick(match: any) {
   selectedMatch.value = {
@@ -822,7 +987,10 @@ function handleMatchClick(match: TournamentMatch) {
 async function handleScoreSubmit(data: { matchId: number; sets: any[]; winnerId?: number }) {
   if (!currentTournament.value) return;
   try {
-    if (activeTab.value === 'knockout' && data.winnerId) {
+    if (
+      (activeTab.value === "knockout" || activeTab.value === "championshipKnockout") &&
+      data.winnerId
+    ) {
       // 淘汰赛且有胜者，使用淘汰赛API并自动晋级
       await TournamentAPIExtended.recordKnockoutScore(
         currentTournament.value.id,
@@ -832,6 +1000,9 @@ async function handleScoreSubmit(data: { matchId: number; sets: any[]; winnerId?
       );
       ElMessage.success("比分录入成功，胜者已晋级");
       await loadKnockoutData(); // 刷新淘汰赛数据
+      if (activeTab.value === "championshipKnockout") {
+        await loadChampionshipStatus();
+      }
     } else {
       // 小组赛或无胜者，使用普通API
       await TournamentAPIExtended.recordScore(currentTournament.value.id, data.matchId, {
@@ -855,6 +1026,7 @@ function getFormatLabel(tournamentType: string): string {
     PURE_GROUP: "纯小组赛",
     PROMOTION_RELEGATION: "定区升降赛",
     SINGLE_ELIMINATION: "单败制淘汰赛",
+    CHAMPIONSHIP: "锦标赛",
   };
   return map[tournamentType] || tournamentType;
 }
@@ -949,5 +1121,9 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
+}
+
+.championship-info {
+  width: 100%;
 }
 </style>

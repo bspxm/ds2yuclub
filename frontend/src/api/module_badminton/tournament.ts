@@ -93,6 +93,8 @@ export interface TournamentTable extends BaseType {
   num_groups?: number;
   match_format?: string;
   points_per_game?: number;
+  advance_count?: number;
+  advance_top_n?: number;
   description?: string;
   location?: string;
   created_by?: CommonType;
@@ -128,6 +130,8 @@ export interface TournamentForm extends BaseFormType {
   num_groups?: number;
   match_format?: string;
   points_per_game?: number;
+  advance_count?: number;
+  advance_top_n?: number;
   description?: string;
   location?: string;
   rules_description?: string;
@@ -276,6 +280,54 @@ const TournamentAPIExtended = {
       url: `${API_PATH}/${tournamentId}/group-stage-data`,
       method: "get",
       params,
+    });
+  },
+
+  // 获取淘汰赛数据
+  getKnockoutData(tournamentId: number) {
+    return request<ApiResponse<any>>({
+      url: `${API_PATH}/${tournamentId}/knockout`,
+      method: "get",
+    });
+  },
+
+  // 生成淘汰赛对阵表
+  generateKnockout(tournamentId: number, participantIds: number[]) {
+    return request<ApiResponse<any>>({
+      url: `${API_PATH}/${tournamentId}/knockout/generate`,
+      method: "post",
+      data: participantIds,
+    });
+  },
+
+  // 录入淘汰赛比分
+  recordKnockoutScore(
+    tournamentId: number,
+    matchId: number,
+    scores: { sets: any[] },
+    winnerId: number
+  ) {
+    return request<ApiResponse<any>>({
+      url: `${API_PATH}/${tournamentId}/knockout/matches/${matchId}/score`,
+      method: "put",
+      params: { winner_id: winnerId }, // winner_id 作为查询参数
+      data: scores,
+    });
+  },
+
+  // 生成锦标赛淘汰赛（从小组赛晋级）
+  generateChampionshipKnockout(tournamentId: number) {
+    return request<ApiResponse<any>>({
+      url: `${API_PATH}/${tournamentId}/championship/generate-knockout`,
+      method: "post",
+    });
+  },
+
+  // 获取锦标赛状态概览
+  getChampionshipStatus(tournamentId: number) {
+    return request<ApiResponse<any>>({
+      url: `${API_PATH}/${tournamentId}/championship/status`,
+      method: "get",
     });
   },
 
