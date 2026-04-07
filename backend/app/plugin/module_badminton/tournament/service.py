@@ -447,7 +447,11 @@ class TournamentMatchService:
             return result.get("matches", [])
 
         # 小组循环赛
-        elif tournament.tournament_type.value in ["ROUND_ROBIN", "PURE_GROUP"]:
+        elif tournament.tournament_type.value in [
+            "ROUND_ROBIN",
+            "PURE_GROUP",
+            "CHAMPIONSHIP",
+        ]:
             logger.info("[generate_matches_service] 使用循环赛算法生成对阵表")
             # 清除旧的分组和比赛数据
             await cls._cleanup_old_group_data(tournament_id, auth)
@@ -776,6 +780,14 @@ class TournamentMatchService:
         """获取羽球在线风格的小组赛数据 - 按小组组织"""
         from sqlalchemy import text
 
+        # 获取赛事类型（用于排名算法分支）
+        tournament_type_sql = text("""
+            SELECT tournament_type FROM badminton_tournament WHERE id = :tid
+        """)
+        t_result = await auth.db.execute(tournament_type_sql, {"tid": tournament_id})
+        t_row = t_result.fetchone()
+        tournament_type = t_row["tournament_type"] if t_row else None
+
         # 1. 获取赛事的所有分组
         groups_sql = text("""
             SELECT 
@@ -1011,14 +1023,24 @@ class TournamentMatchService:
 
                 rankings.append(stats)
 
-            # 按总分、胜负局差、胜负分差排序
-            rankings.sort(
-                key=lambda x: (
-                    -x["total_points"],
-                    -(x["sets_won"] - x["sets_lost"]),
-                    -(x["points_scored"] - x["points_conceded"]),
+            if tournament_type == "CHAMPIONSHIP":
+                # 锦标赛排名：胜场数 → 净胜局数 → 净胜分数（无平局）
+                rankings.sort(
+                    key=lambda x: (
+                        -x["wins"],
+                        -(x["sets_won"] - x["sets_lost"]),
+                        -(x["points_scored"] - x["points_conceded"]),
+                    )
                 )
-            )
+            else:
+                # 其他赛制排名：总分 → 净胜局 → 净胜分
+                rankings.sort(
+                    key=lambda x: (
+                        -x["total_points"],
+                        -(x["sets_won"] - x["sets_lost"]),
+                        -(x["points_scored"] - x["points_conceded"]),
+                    )
+                )
 
             # 6. 构建该分组的赛程列表
             schedule = []
@@ -1087,3 +1109,144 @@ class TournamentMatchService:
             )
 
         return {"groups": groups_data}
+
+    @classmethod
+    async def _generate_championship_knockout(
+        cls, tournament_id: int, auth: AuthSchema
+    ) -> dict:
+        """锦标赛模式：根据小组赛排名生成淘汰赛对阵"""
+        from sqlalchemy import text
+
+        # 1. 获取赛事信息
+        tournament = await TournamentCRUD(auth).get_by_id_crud(tournament_id)
+        if not tournament:
+            raise CustomException(msg="赛事不存在")
+        if tournament.tournament_type.value != "CHAMPIONSHIP":
+            raise CustomException(msg="仅锦标赛模式支持此操作")
+
+        advance_count = tournament.advance_count
+        advance_top_n = tournament.advance_top_n
+        if not advance_count or not advance_top_n:
+            raise CustomException(msg="锦标赛参数缺失")
+
+        # 2. 检查所有小组赛是否已完成
+        incomplete_sql = text("""
+            SELECT COUNT(*) as cnt
+            FROM badminton_tournament_match
+            WHERE tournament_id = :tournament_id
+            AND round_type = 'GROUP_STAGE'
+            AND status != 'COMPLETED'
+        """)
+        result = await auth.db.execute(incomplete_sql, {"tournament_id": tournament_id})
+        incomplete_count = result.scalar()
+        if incomplete_count and incomplete_count > 0:
+            raise CustomException(
+                msg=f"还有 {incomplete_count} 场小组赛未完成，请先完成所有小组赛"
+            )
+
+        # 3. 获取小组赛排名数据
+        group_stage_data = await cls.get_group_stage_data_service(
+            tournament_id, None, auth
+        )
+
+        if not group_stage_data.get("groups"):
+            raise CustomException(msg="小组赛数据为空")
+
+        # 4. 收集晋级选手（按淘汰赛种子顺序排列）
+        # 策略：先收集各组第1名，再收集各组第2名...
+        # 这样淘汰赛对阵时自然实现交叉排位
+        # 例如 4组 top2=2: A1, B1, C1, D1, A2, B2, C2, D2
+        # KnockoutService 种子对阵 1v8(A1 vs D2), 2v7(B1 vs C2)...
+        advancing_participants = []
+        groups = group_stage_data["groups"]
+
+        for rank_idx in range(advance_top_n):
+            for group_data in groups:
+                rankings = group_data["data"]["rankings"]
+                if rank_idx < len(rankings):
+                    advancing_participants.append(rankings[rank_idx])
+
+        # 5. 获取晋级选手的 participant ID
+        participant_ids = [p["participant_id"] for p in advancing_participants]
+
+        if len(participant_ids) < 2:
+            raise CustomException(msg="晋级人数不足")
+
+        # 6. 删除已有的淘汰赛对阵（如果有）
+        await auth.db.execute(
+            text(
+                "DELETE FROM badminton_tournament_match WHERE tournament_id = :tid AND round_type = 'KNOCKOUT'"
+            ),
+            {"tid": tournament_id},
+        )
+        await auth.db.flush()
+
+        # 7. 调用 KnockoutService 生成淘汰赛对阵
+        result = await KnockoutService.generate_bracket(
+            tournament_id=tournament_id,
+            participant_ids=participant_ids,
+            auth=auth,
+        )
+
+        return {
+            "advancing_count": len(participant_ids),
+            "knockout_matches": result.get("matches", []),
+            "total_rounds": result.get("total_rounds", 0),
+        }
+
+    @classmethod
+    async def get_championship_status(
+        cls, tournament_id: int, auth: AuthSchema
+    ) -> dict:
+        """获取锦标赛两阶段状态概览"""
+        from sqlalchemy import text
+
+        # 小组赛统计
+        group_sql = text("""
+            SELECT
+                COUNT(*) as total,
+                COUNT(*) FILTER (WHERE status = 'COMPLETED') as completed
+            FROM badminton_tournament_match
+            WHERE tournament_id = :tournament_id
+            AND round_type = 'GROUP_STAGE'
+        """)
+        group_result = await auth.db.execute(
+            group_sql, {"tournament_id": tournament_id}
+        )
+        group_row = group_result.fetchone()
+
+        # 淘汰赛统计
+        knockout_sql = text("""
+            SELECT
+                COUNT(*) as total,
+                COUNT(*) FILTER (WHERE status = 'COMPLETED') as completed
+            FROM badminton_tournament_match
+            WHERE tournament_id = :tournament_id
+            AND round_type = 'KNOCKOUT'
+        """)
+        knockout_result = await auth.db.execute(
+            knockout_sql, {"tournament_id": tournament_id}
+        )
+        knockout_row = knockout_result.fetchone()
+
+        group_total = group_row.total if group_row else 0
+        group_completed = group_row.completed if group_row else 0
+        knockout_total = knockout_row.total if knockout_row else 0
+        knockout_completed = knockout_row.completed if knockout_row else 0
+
+        return {
+            "group_stage": {
+                "total": group_total,
+                "completed": group_completed,
+                "remaining": (group_total or 0) - (group_completed or 0),
+                "is_completed": group_total > 0 and group_completed == group_total,
+            },
+            "knockout": {
+                "total": knockout_total,
+                "completed": knockout_completed,
+                "remaining": (knockout_total or 0) - (knockout_completed or 0),
+                "is_generated": knockout_total > 0,
+                "is_completed": knockout_total > 0
+                and knockout_completed == knockout_total,
+            },
+        }

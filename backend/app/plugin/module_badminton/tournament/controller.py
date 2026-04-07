@@ -12,13 +12,8 @@ from app.core.dependencies import AuthPermission
 from app.core.exceptions import CustomException
 from app.core.router_class import OperationLogRoute
 
-from .engine.base import (
-    TournamentEngineFactory,
-    TournamentType,
-    MatchFormat,
-    Participant,
-    RoundType,
-)
+# 淘汰赛相关导入
+from .knockout_service import KnockoutService
 from .schema import (
     TournamentCreateSchema,
     TournamentUpdateSchema,
@@ -260,6 +255,92 @@ async def get_h2h(
 
 
 @TournamentRouter.get(
+    "/{tournament_id}/knockout",
+    summary="获取淘汰赛数据",
+    description="获取单败淘汰赛的对阵树数据",
+)
+async def get_knockout(
+    tournament_id: int,
+    auth: AuthSchema = Depends(AuthPermission(["module_badminton:tournament:list"])),
+) -> JSONResponse:
+    """获取淘汰赛数据"""
+    from .knockout_service import KnockoutService
+
+    result = await KnockoutService.get_knockout_data(tournament_id, auth)
+    return SuccessResponse(data=result, msg="淘汰赛数据获取成功")
+
+
+@TournamentRouter.post(
+    "/{tournament_id}/knockout/generate",
+    summary="生成淘汰赛对阵表",
+    description="根据参赛者生成单败淘汰赛对阵表",
+)
+async def generate_knockout(
+    tournament_id: int,
+    participant_ids: list[int],
+    auth: AuthSchema = Depends(AuthPermission(["module_badminton:tournament:update"])),
+) -> JSONResponse:
+    """生成淘汰赛对阵表"""
+    from .knockout_service import KnockoutService
+
+    result = await KnockoutService.generate_bracket(
+        tournament_id, participant_ids, auth
+    )
+    return SuccessResponse(data=result, msg="淘汰赛对阵表生成成功")
+
+
+@TournamentRouter.put(
+    "/{tournament_id}/knockout/matches/{match_id}/score",
+    summary="录入淘汰赛比分",
+    description="录入单败淘汰赛比分并自动晋级",
+)
+async def record_knockout_score(
+    tournament_id: int,
+    match_id: int,
+    scores: MatchScoreSchema,
+    winner_id: int,
+    auth: AuthSchema = Depends(AuthPermission(["module_badminton:tournament:update"])),
+) -> JSONResponse:
+    """录入淘汰赛比分"""
+    from .knockout_service import KnockoutService
+
+    result = await KnockoutService.update_match(
+        match_id, scores.model_dump(), winner_id, auth
+    )
+    return SuccessResponse(data=result, msg="比分录入成功")
+
+
+@TournamentRouter.post(
+    "/{tournament_id}/championship/generate-knockout",
+    summary="生成锦标赛淘汰赛",
+    description="小组赛结束后，根据排名生成交叉淘汰赛对阵",
+)
+async def generate_championship_knockout(
+    tournament_id: int,
+    auth: AuthSchema = Depends(AuthPermission(["module_badminton:tournament:update"])),
+) -> JSONResponse:
+    """生成锦标赛淘汰赛对阵"""
+    result = await TournamentMatchService._generate_championship_knockout(
+        tournament_id, auth
+    )
+    return SuccessResponse(data=result, msg="锦标赛淘汰赛对阵生成成功")
+
+
+@TournamentRouter.get(
+    "/{tournament_id}/championship/status",
+    summary="获取锦标赛状态",
+    description="获取锦标赛两阶段（小组赛/淘汰赛）状态概览",
+)
+async def get_championship_status(
+    tournament_id: int,
+    auth: AuthSchema = Depends(AuthPermission(["module_badminton:tournament:list"])),
+) -> JSONResponse:
+    """获取锦标赛状态"""
+    result = await TournamentMatchService.get_championship_status(tournament_id, auth)
+    return SuccessResponse(data=result, msg="锦标赛状态获取成功")
+
+
+@TournamentRouter.get(
     "/types",
     summary="获取支持的赛制类型",
     description="获取系统支持的比赛赛制类型",
@@ -284,8 +365,13 @@ async def get_tournament_types() -> JSONResponse:
         },
         {
             "value": TournamentType.SINGLE_ELIMINATION.value,
-            "label": "小组单败制淘汰赛",
-            "description": "循环赛确定种子排名 + 淘汰赛决出所有名次",
+            "label": "单败制淘汰赛",
+            "description": "单败淘汰赛，决出所有名次",
+        },
+        {
+            "value": "CHAMPIONSHIP",
+            "label": "锦标赛",
+            "description": "分组循环赛 + 交叉淘汰赛，先小组循环后淘汰争夺冠军",
         },
     ]
     return SuccessResponse(data=types, msg="赛制类型获取成功")
