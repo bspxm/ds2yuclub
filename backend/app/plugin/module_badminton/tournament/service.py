@@ -127,6 +127,8 @@ class TournamentService:
                 "participant_count": row["participant_count"],
                 "match_count": row["match_count"],
                 "completed_match_count": row["completed_match_count"],
+                "advance_count": row.get("advance_count"),
+                "advance_top_n": row.get("advance_top_n"),
             }
             for row in rows
         ]
