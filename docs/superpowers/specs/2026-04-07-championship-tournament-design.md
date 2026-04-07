@@ -34,18 +34,16 @@
 
 1. 按现有规则将参赛者分为 N 个小组
 2. 小组内每人相互对战一次（单循环）
-3. 每场采用三局两胜制，每局21分
-4. 胜一场得2分，负一场得1分，弃权得0分
-5. 必须打完所有小组赛场次
+3. 每场分数由教练录入，不确定局数，系统自动判定分高者获胜，记局数比分（大比分）高者为胜者
+4. 必须打完所有小组赛场次
 
 ### 排名规则（按优先级）
 
 1. 胜场数（降序）
-2. 积分（降序）
-3. 相互胜负关系（仅两人之间，胜者排前）
-4. 净胜局数（降序）
-5. 净胜分数（降序）
-6. 抽签
+2. 相互胜负关系（仅两人之间，胜者排前）
+3. 净胜局数（降序）
+4. 净胜分数（降序）
+5. 抽签
 
 ### 第二阶段：交叉淘汰赛
 
@@ -95,6 +93,31 @@ advance_top_n: Optional[int] = None
 ```
 
 新增校验：当 tournament_type == CHAMPIONSHIP 时，advance_count 和 advance_top_n 必填。
+
+### 比分录入（复用现有逻辑）
+
+文件：`backend/app/plugin/module_badminton/tournament/service.py`
+
+现有 `record_score_service()` 已完全兼容锦标赛模式的比分录入需求：
+- 支持任意局数录入（无固定三局两胜限制）
+- 自动判定每局胜负：`player1 > player2 → winner=1`
+- 自动计算大比分：赢更多局者为比赛胜者
+- 状态始终 `IN_PROGRESS`，教练可继续添加局数
+- **无需修改**，直接复用
+
+### 排名计算（需扩展）
+
+文件：`backend/app/plugin/module_badminton/tournament/service.py`
+
+现有 `get_group_stage_data_service()` 的排名算法需为 CHAMPIONSHIP 模式做调整：
+
+| 对比项 | 现有逻辑 | 锦标赛逻辑 |
+|--------|----------|-----------|
+| 排序依据 | total_points(胜1/平0.5) → 净胜局 → 净胜分 | 胜场数 → 相互胜负关系 → 净胜局数 → 净胜分数 |
+| 积分概念 | 有（胜1分/平0.5分） | 无，直接用胜场数 |
+| 相互胜负关系 | 未实现 | 新增：两人胜场相同时比较直接对决结果 |
+
+实现方式：在 `get_group_stage_data_service()` 中根据 `tournament_type` 分支处理排名逻辑，CHAMPIONSHIP 使用新算法。
 
 ### Service 扩展
 
@@ -165,6 +188,29 @@ advance_top_n?: number
 
 小组赛全部完成后，淘汰赛 tab 出现「生成淘汰赛对阵」按钮，调用新接口生成。
 
+### 比分录入（复用现有组件）
+
+文件：`frontend/src/views/module_badminton/tournament/components/ScoreDialog.vue`
+
+现有 ScoreDialog 已兼容锦标赛模式：
+- 支持动态添加/删除局数
+- 自动计算每局胜负和大比分
+- 自动判定胜者
+- **唯一调整**：移除 `addSet()` 中 `scores.value.length < 5` 的局数上限限制（锦标赛模式不限局数）
+
+### 小组赛排名展示（需调整）
+
+文件：`frontend/src/views/module_badminton/tournament/components/GroupStageView.vue`
+
+锦标赛模式下排名列表的列头和排序依据需调整：
+
+| 对比项 | 现有显示 | 锦标赛显示 |
+|--------|----------|-----------|
+| 排名依据列 | "总分"（含平局0.5分） | "胜场"（纯胜场数） |
+| 排序 | 总分 → 净胜局 → 净胜分 | 胜场 → 相互胜负 → 净胜局 → 净胜分 |
+
+实现方式：通过 prop 或 tournament_type 判断，切换显示列和排序。
+
 ## 代码复用策略
 
 | 功能 | 复用来源 | 说明 |
@@ -173,9 +219,10 @@ advance_top_n?: number
 | 小组赛展示 | GroupStageView.vue | 直接复用 |
 | 淘汰赛生成 | knockout_service.py `generate_bracket()` | 传入晋级选手列表 |
 | 淘汰赛展示 | KnockoutBracketView.vue | 直接复用 |
-| 比分录入 | ScoreDialog.vue | 直接复用 |
-| 排名计算 | service.py `get_group_stage_data_service()` | 直接复用 |
-| 新增逻辑 | service.py 新方法 | 仅交叉排位 + 晋级编排 |
+| 比分录入 | ScoreDialog.vue + service.py `record_score_service()` | 直接复用（移除5局上限） |
+| 排名计算 | service.py `get_group_stage_data_service()` | 需扩展：锦标赛用不同排名算法 |
+| 排名展示 | GroupStageView.vue | 需扩展：锦标赛模式下调整列头和排序 |
+| 新增逻辑 | service.py 新方法 | 交叉排位 + 晋级编排 |
 
 ## 约束与校验
 
