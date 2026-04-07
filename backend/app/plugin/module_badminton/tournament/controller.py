@@ -25,6 +25,7 @@ from .service import (
     TournamentParticipantService,
     TournamentMatchService,
 )
+from ..enums import TournamentTypeEnum
 
 TournamentRouter = APIRouter(
     route_class=OperationLogRoute, prefix="/tournament", tags=["tournament管理"]
@@ -349,27 +350,27 @@ async def get_tournament_types() -> JSONResponse:
     """获取赛制类型"""
     types = [
         {
-            "value": TournamentType.ROUND_ROBIN.value,
+            "value": TournamentTypeEnum.ROUND_ROBIN.value,
             "label": "分组循环赛（带淘汰赛）",
             "description": "小组循环赛 + 交叉淘汰赛，保证多场比赛机会",
         },
         {
-            "value": TournamentType.PURE_GROUP.value,
+            "value": TournamentTypeEnum.PURE_GROUP.value,
             "label": "纯小组赛",
             "description": "仅小组循环赛决定名次，适合快速排位",
         },
         {
-            "value": TournamentType.PROMOTION_RELEGATION.value,
+            "value": TournamentTypeEnum.PROMOTION_RELEGATION.value,
             "label": "定区升降赛",
             "description": "位置挑战赛，趣味性强，位置实时变动",
         },
         {
-            "value": TournamentType.SINGLE_ELIMINATION.value,
+            "value": TournamentTypeEnum.SINGLE_ELIMINATION.value,
             "label": "单败制淘汰赛",
             "description": "单败淘汰赛，决出所有名次",
         },
         {
-            "value": "CHAMPIONSHIP",
+            "value": TournamentTypeEnum.CHAMPIONSHIP.value,
             "label": "锦标赛",
             "description": "分组循环赛 + 交叉淘汰赛，先小组循环后淘汰争夺冠军",
         },
