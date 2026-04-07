@@ -583,8 +583,11 @@ class TournamentMatchService:
         if match_values:
             match_sql = text(f"""
                 INSERT INTO badminton_tournament_match 
-                (tournament_id, group_id, round_type, round_number, match_number, player1_id, player2_id, status)
-                VALUES {", ".join(match_values)}
+                (tournament_id, group_id, round_type, round_number, match_number, player1_id, player2_id, status, uuid, created_time, updated_time)
+                SELECT tournament_id, group_id, round_type, round_number, match_number, player1_id, player2_id, status,
+                       gen_random_uuid(), NOW(), NOW()
+                FROM (VALUES {", ".join(match_values)}) 
+                AS v(tournament_id, group_id, round_type, round_number, match_number, player1_id, player2_id, status)
                 RETURNING id, round_number, match_number, player1_id, player2_id, group_id, status
             """)
             match_result = await auth.db.execute(match_sql)
