@@ -499,9 +499,8 @@ class TournamentMatchService:
     async def _generate_round_robin_matches(
         cls, tournament_id: int, tournament, auth: AuthSchema
     ) -> list[dict]:
-        """生成小组循环赛对阵表（并行优化版）"""
+        """生成小组循环赛对阵表"""
         from itertools import combinations
-        import asyncio
 
         participants = tournament.participants
         num_participants = len(participants)
@@ -537,70 +536,73 @@ class TournamentMatchService:
                 group_idx = num_groups - 1 - group_idx
             groups[group_idx].append(p)
 
-        # 创建分组（并行）
+        # 创建分组
         group_crud = TournamentGroupCRUD(auth)
         participant_crud = TournamentParticipantCRUD(auth)
         match_crud = TournamentMatchCRUD(auth)
 
-        # 并行创建所有分组
-        group_tasks = [
-            group_crud.create_group_crud(
+        group_id_map = {}
+        for group_idx in range(num_groups):
+            group_model = await group_crud.create_group_crud(
                 tournament_id=tournament_id,
                 group_order=group_idx + 1,
                 group_name=f"第{group_idx + 1}组",
             )
-            for group_idx in range(num_groups)
-        ]
-        group_models = await asyncio.gather(*group_tasks)
-        group_id_map = {
-            group_idx: model.id for group_idx, model in enumerate(group_models)
-        }
+            group_id_map[group_idx] = group_model.id
 
-        # 并行更新所有参赛者的 group_id
-        participant_tasks = []
+        # 批量更新参赛者 group_id（使用直接 SQL 避免多次 flush）
+        from sqlalchemy import text
+
+        participant_updates = []
         for group_idx, group in enumerate(groups):
             group_id = group_id_map[group_idx]
             for p in group:
-                participant_tasks.append(
-                    participant_crud.update(p.id, {"group_id": group_id})
-                )
-        await asyncio.gather(*participant_tasks)
+                participant_updates.append(f"({p.id}, {group_id})")
 
-        # 并行创建所有比赛
-        match_tasks = []
+        if participant_updates:
+            update_sql = text(f"""
+                UPDATE badminton_tournament_participant AS p
+                SET group_id = v.group_id
+                FROM (VALUES {", ".join(participant_updates)}) AS v(id, group_id)
+                WHERE p.id = v.id
+            """)
+            await auth.db.execute(update_sql)
+
+        # 批量创建比赛（使用直接 SQL 避免多次 flush）
+        match_values = []
         match_number = 1
         for group_idx, group in enumerate(groups):
+            group_id = group_id_map[group_idx]
             for p1, p2 in combinations(group, 2):
-                match_tasks.append(
-                    match_crud.create_match_crud(
-                        tournament_id=tournament_id,
-                        round_type="GROUP_STAGE",
-                        round_number=1,
-                        match_number=match_number,
-                        player1_id=p1.id,
-                        player2_id=p2.id,
-                        group_id=group_id_map[group_idx],
-                    )
+                match_values.append(
+                    f"({tournament_id}, {group_id}, 'GROUP_STAGE'::roundtypeenum, 1, {match_number}, {p1.id}, {p2.id}, 'SCHEDULED'::matchstatusenum)"
                 )
                 match_number += 1
 
-        match_models = await asyncio.gather(*match_tasks)
+        created_matches = []
+        if match_values:
+            match_sql = text(f"""
+                INSERT INTO badminton_tournament_match 
+                (tournament_id, group_id, round_type, round_number, match_number, player1_id, player2_id, status)
+                VALUES {", ".join(match_values)}
+                RETURNING id, round_number, match_number, player1_id, player2_id, group_id, status
+            """)
+            match_result = await auth.db.execute(match_sql)
+            match_rows = match_result.fetchall()
 
-        # 构建返回结果
-        created_matches = [
-            {
-                "id": model.id,
-                "round_number": model.round_number,
-                "match_number": model.match_number,
-                "player1_id": model.player1_id,
-                "player2_id": model.player2_id,
-                "round_type": "GROUP_STAGE",
-                "status": model.status.value,
-                "group_id": model.group_id,
-            }
-            for model in match_models
-            if model
-        ]
+            created_matches = [
+                {
+                    "id": row[0],
+                    "round_number": row[1],
+                    "match_number": row[2],
+                    "player1_id": row[3],
+                    "player2_id": row[4],
+                    "round_type": "GROUP_STAGE",
+                    "status": row[6] if hasattr(row[6], "value") else row[6],
+                    "group_id": row[5],
+                }
+                for row in match_rows
+            ]
 
         logger.info(
             f"[generate_matches_service] 循环赛生成完成，共{len(created_matches)}场比赛"
