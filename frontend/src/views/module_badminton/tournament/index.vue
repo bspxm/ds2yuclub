@@ -393,7 +393,7 @@
         <el-form-item label="比赛地点" prop="location">
           <el-input v-model="formData.location" placeholder="请输入比赛地点" />
         </el-form-item>
-        <el-form-item label="每组人数" prop="group_size">
+        <el-form-item v-if="formData.tournament_type !== 'CHAMPIONSHIP'" label="每组人数" prop="group_size">
           <el-input-number v-model="formData.group_size" :min="2" :max="8" />
         </el-form-item>
         <!-- 锦标赛专属参数 -->
