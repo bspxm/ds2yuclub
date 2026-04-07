@@ -393,7 +393,11 @@
         <el-form-item label="比赛地点" prop="location">
           <el-input v-model="formData.location" placeholder="请输入比赛地点" />
         </el-form-item>
-        <el-form-item v-if="formData.tournament_type !== 'CHAMPIONSHIP'" label="每组人数" prop="group_size">
+        <el-form-item
+          v-if="formData.tournament_type !== 'CHAMPIONSHIP'"
+          label="每组人数"
+          prop="group_size"
+        >
           <el-input-number v-model="formData.group_size" :min="2" :max="8" />
         </el-form-item>
         <!-- 锦标赛专属参数 -->
@@ -845,6 +849,12 @@ async function handleSeedSubmit() {
 // 生成对阵表
 async function handleGenerateMatches() {
   if (!currentTournament.value) return;
+  // 显示加载提示
+  const loading = ElLoading.service({
+    lock: true,
+    text: "正在生成对阵表，请稍候...",
+    background: "rgba(0, 0, 0, 0.7)",
+  });
   try {
     const res = await TournamentAPIExtended.generateMatches(currentTournament.value.id, true);
     // 使用生成的对阵更新本地数据
@@ -853,8 +863,11 @@ async function handleGenerateMatches() {
     activeTab.value = "matches";
     // 同时从服务器加载最新对阵，确保数据一致
     await loadMatches();
-  } catch (error) {
+  } catch (error: any) {
     console.error(error);
+    ElMessage.error(error?.response?.data?.msg || "生成对阵表失败");
+  } finally {
+    loading.close();
   }
 }
 
@@ -935,15 +948,21 @@ async function loadChampionshipStatus() {
 // 生成锦标赛淘汰赛对阵
 async function handleGenerateChampionshipKnockout() {
   if (!currentTournament.value) return;
+  // 显示加载提示
+  const loading = ElLoading.service({
+    lock: true,
+    text: "正在生成淘汰赛对阵，请稍候...",
+    background: "rgba(0, 0, 0, 0.7)",
+  });
   try {
-    await TournamentAPIExtended.generateChampionshipKnockout(
-      currentTournament.value.id
-    );
+    await TournamentAPIExtended.generateChampionshipKnockout(currentTournament.value.id);
     ElMessage.success("锦标赛淘汰赛对阵生成成功");
     await loadChampionshipStatus();
   } catch (error: any) {
     console.error(error);
     ElMessage.error(error?.response?.data?.msg || "生成淘汰赛对阵失败");
+  } finally {
+    loading.close();
   }
 }
 
