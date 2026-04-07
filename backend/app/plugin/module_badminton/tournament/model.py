@@ -76,6 +76,14 @@ class TournamentModel(ModelMixin, UserMixin):
         SmallInteger, nullable=True, comment="每局分数（如21分）"
     )
 
+    # 锦标赛专属参数
+    advance_count: Mapped[int | None] = mapped_column(
+        Integer, nullable=True, comment="淘汰赛晋级总人数"
+    )
+    advance_top_n: Mapped[int | None] = mapped_column(
+        SmallInteger, nullable=True, comment="每组前N名晋级"
+    )
+
     # 描述信息
     description: Mapped[str | None] = mapped_column(
         Text, nullable=True, comment="赛事描述"
@@ -254,24 +262,24 @@ class TournamentMatchModel(ModelMixin):
     match_number: Mapped[int] = mapped_column(
         SmallInteger, nullable=False, comment="场次"
     )
-    player1_id: Mapped[int] = mapped_column(
+    player1_id: Mapped[int | None] = mapped_column(
         Integer,
         ForeignKey(
             "badminton_tournament_participant.id",
             ondelete="CASCADE",
             onupdate="CASCADE",
         ),
-        nullable=False,
+        nullable=True,
         comment="选手1ID",
     )
-    player2_id: Mapped[int] = mapped_column(
+    player2_id: Mapped[int | None] = mapped_column(
         Integer,
         ForeignKey(
             "badminton_tournament_participant.id",
             ondelete="CASCADE",
             onupdate="CASCADE",
         ),
-        nullable=False,
+        nullable=True,
         comment="选手2ID",
     )
 

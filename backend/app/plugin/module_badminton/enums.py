@@ -35,6 +35,7 @@ class TournamentTypeEnum(enum.Enum):
     PURE_GROUP = "PURE_GROUP"  # 纯小组赛
     PROMOTION_RELEGATION = "PROMOTION_RELEGATION"  # 定区升降赛
     SINGLE_ELIMINATION = "SINGLE_ELIMINATION"  # 小组单败制淘汰赛
+    CHAMPIONSHIP = "CHAMPIONSHIP"  # 锦标赛（分组循环 + 交叉淘汰）
 
 
 class TournamentStatusEnum(enum.Enum):
@@ -55,6 +56,7 @@ class MatchStatusEnum(enum.Enum):
     COMPLETED = "COMPLETED"  # 已完成
     CANCELLED = "CANCELLED"  # 已取消
     WALKOVER = "WALKOVER"  # 弃权
+    BYE = "BYE"  # 轮空
 
 
 class RoundTypeEnum(enum.Enum):

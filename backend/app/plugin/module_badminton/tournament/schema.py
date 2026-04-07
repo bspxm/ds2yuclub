@@ -36,13 +36,35 @@ class TournamentCreateSchema(BaseModel):
     registration_deadline: Optional[DateTimeStr] = Field(
         None, description="报名截止时间"
     )
-    max_participants: Optional[int] = Field(None, description="最大参赛人数")
     group_size: Optional[int] = Field(None, description="每组人数")
     num_groups: Optional[int] = Field(None, description="分组数量")
     match_format: Optional[str] = Field(None, description="比赛形式")
     points_per_game: Optional[int] = Field(None, description="每局分数")
     description: Optional[str] = Field(None, description="赛事描述")
     location: Optional[str] = Field(None, description="比赛地点")
+    advance_count: Optional[int] = Field(None, description="淘汰赛晋级总人数")
+    advance_top_n: Optional[int] = Field(None, description="每组前N名晋级")
+
+    @model_validator(mode="after")
+    def validate_championship_params(self) -> "TournamentCreateSchema":
+        """校验锦标赛模式参数"""
+        if self.tournament_type and self.tournament_type.value == "CHAMPIONSHIP":
+            if self.advance_count is None or self.advance_top_n is None:
+                raise ValueError("锦标赛模式必须填写晋级人数和前几晋级参数")
+            if self.advance_count < 4:
+                raise ValueError("晋级人数不能少于4")
+            if self.advance_top_n < 1:
+                raise ValueError("前几晋级不能少于1")
+            if self.advance_count % self.advance_top_n != 0:
+                raise ValueError("晋级人数必须能被前几晋级整除")
+            # 检查 advance_count 是 2 的幂次
+            if self.advance_count & (self.advance_count - 1) != 0:
+                raise ValueError("晋级人数必须为2的幂次（4, 8, 16, 32）")
+            if self.group_size and self.advance_top_n >= self.group_size:
+                raise ValueError("前几晋级必须小于每组人数")
+            # 自动计算分组数
+            self.num_groups = self.advance_count // self.advance_top_n
+        return self
 
     @field_validator("name")
     @classmethod
