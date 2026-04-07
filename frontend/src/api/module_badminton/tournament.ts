@@ -223,12 +223,13 @@ const TournamentAPIExtended = {
     });
   },
 
-  // 生成对阵表
+  // 生成对阵表（超时60秒，对阵生成可能较慢）
   generateMatches(tournamentId: number, useSeeding: boolean = true) {
     return request<ApiResponse<TournamentMatch[]>>({
       url: `${API_PATH}/${tournamentId}/generate-matches`,
       method: "post",
       params: { use_seeding: useSeeding },
+      timeout: 60000,
     });
   },
 
@@ -315,11 +316,12 @@ const TournamentAPIExtended = {
     });
   },
 
-  // 生成锦标赛淘汰赛（从小组赛晋级）
+  // 生成锦标赛淘汰赛（从小组赛晋级，超时60秒）
   generateChampionshipKnockout(tournamentId: number) {
     return request<ApiResponse<any>>({
       url: `${API_PATH}/${tournamentId}/championship/generate-knockout`,
       method: "post",
+      timeout: 60000,
     });
   },
 

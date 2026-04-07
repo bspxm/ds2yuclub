@@ -846,28 +846,53 @@ async function handleSeedSubmit() {
   }
 }
 
+let isGeneratingMatches = false;
+
 // 生成对阵表
 async function handleGenerateMatches() {
   if (!currentTournament.value) return;
-  // 显示加载提示
-  const loading = ElLoading.service({
-    lock: true,
-    text: "正在生成对阵表，请稍候...",
-    background: "rgba(0, 0, 0, 0.7)",
+  if (isGeneratingMatches) {
+    ElMessage.warning("对阵表正在生成中，请稍候...");
+    return;
+  }
+  
+  isGeneratingMatches = true;
+  // 显示持久化通知，不锁定界面
+  const notification = ElNotification({
+    title: "生成对阵表",
+    message: "后台正在生成对阵表，您可以继续其他操作...",
+    type: "info",
+    duration: 0,
+    position: "bottom-right",
   });
+  
   try {
     const res = await TournamentAPIExtended.generateMatches(currentTournament.value.id, true);
     // 使用生成的对阵更新本地数据
     matches.value = res.data?.data || [];
-    ElMessage.success("对阵表生成成功");
+    notification.close();
+    ElNotification({
+      title: "生成成功",
+      message: "对阵表生成成功！",
+      type: "success",
+      duration: 3000,
+      position: "bottom-right",
+    });
     activeTab.value = "matches";
     // 同时从服务器加载最新对阵，确保数据一致
     await loadMatches();
   } catch (error: any) {
     console.error(error);
-    ElMessage.error(error?.response?.data?.msg || "生成对阵表失败");
+    notification.close();
+    ElNotification({
+      title: "生成失败",
+      message: error?.response?.data?.msg || "生成对阵表失败，请重试",
+      type: "error",
+      duration: 5000,
+      position: "bottom-right",
+    });
   } finally {
-    loading.close();
+    isGeneratingMatches = false;
   }
 }
 
@@ -945,24 +970,49 @@ async function loadChampionshipStatus() {
   }
 }
 
+let isGeneratingKnockout = false;
+
 // 生成锦标赛淘汰赛对阵
 async function handleGenerateChampionshipKnockout() {
   if (!currentTournament.value) return;
-  // 显示加载提示
-  const loading = ElLoading.service({
-    lock: true,
-    text: "正在生成淘汰赛对阵，请稍候...",
-    background: "rgba(0, 0, 0, 0.7)",
+  if (isGeneratingKnockout) {
+    ElMessage.warning("淘汰赛对阵正在生成中，请稍候...");
+    return;
+  }
+  
+  isGeneratingKnockout = true;
+  // 显示持久化通知，不锁定界面
+  const notification = ElNotification({
+    title: "生成淘汰赛对阵",
+    message: "后台正在生成淘汰赛对阵，您可以继续其他操作...",
+    type: "info",
+    duration: 0,
+    position: "bottom-right",
   });
+  
   try {
     await TournamentAPIExtended.generateChampionshipKnockout(currentTournament.value.id);
-    ElMessage.success("锦标赛淘汰赛对阵生成成功");
+    notification.close();
+    ElNotification({
+      title: "生成成功",
+      message: "锦标赛淘汰赛对阵生成成功！",
+      type: "success",
+      duration: 3000,
+      position: "bottom-right",
+    });
     await loadChampionshipStatus();
   } catch (error: any) {
     console.error(error);
-    ElMessage.error(error?.response?.data?.msg || "生成淘汰赛对阵失败");
+    notification.close();
+    ElNotification({
+      title: "生成失败",
+      message: error?.response?.data?.msg || "生成淘汰赛对阵失败，请重试",
+      type: "error",
+      duration: 5000,
+      position: "bottom-right",
+    });
   } finally {
-    loading.close();
+    isGeneratingKnockout = false;
   }
 }
 
