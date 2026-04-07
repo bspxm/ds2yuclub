@@ -785,7 +785,7 @@ class TournamentMatchService:
             SELECT tournament_type FROM badminton_tournament WHERE id = :tid
         """)
         t_result = await auth.db.execute(tournament_type_sql, {"tid": tournament_id})
-        t_row = t_result.fetchone()
+        t_row = t_result.mappings().first()
         tournament_type = t_row["tournament_type"] if t_row else None
 
         # 1. 获取赛事的所有分组
