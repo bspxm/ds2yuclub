@@ -48,7 +48,18 @@ class TournamentCreateSchema(BaseModel):
     @model_validator(mode="after")
     def validate_championship_params(self) -> "TournamentCreateSchema":
         """校验锦标赛模式参数"""
-        if self.tournament_type and self.tournament_type.value == "CHAMPIONSHIP":
+        # 兼容枚举对象（CreateSchema）和字符串（OutSchema 的 use_enum_values）
+        type_value = (
+            (
+                self.tournament_type.value
+                if hasattr(self.tournament_type, "value")
+                else self.tournament_type
+            )
+            if self.tournament_type
+            else None
+        )
+
+        if type_value == "CHAMPIONSHIP":
             if self.advance_count is None or self.advance_top_n is None:
                 raise ValueError("锦标赛模式必须填写晋级人数和前几晋级参数")
             if self.advance_count < 4:
