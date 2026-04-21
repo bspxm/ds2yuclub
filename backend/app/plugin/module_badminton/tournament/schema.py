@@ -153,3 +153,17 @@ class BatchAddParticipantsSchema(BaseModel):
     """批量添加参赛队员模型"""
 
     student_ids: list[int] = Field(..., description="学员ID列表")
+
+
+class ChallengeCreateSchema(BaseModel):
+    """发起挑战请求模型"""
+
+    challenger_id: int = Field(..., description="挑战者 participant_id")
+    defender_id: int = Field(..., description="被挑战者 participant_id")
+
+    @model_validator(mode="after")
+    def validate_challenge(self) -> "ChallengeCreateSchema":
+        """校验挑战者和被挑战者不能是同一人"""
+        if self.challenger_id == self.defender_id:
+            raise ValueError("挑战者和被挑战者不能是同一人")
+        return self

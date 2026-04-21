@@ -20,11 +20,10 @@
             style="width: 150px"
             clearable
           >
-            <el-option value="ROUND_ROBIN" label="分组循环赛" />
+            <el-option value="CHAMPIONSHIP" label="锦标赛" />
             <el-option value="PURE_GROUP" label="纯小组赛" />
             <el-option value="PROMOTION_RELEGATION" label="定区升降赛" />
             <el-option value="SINGLE_ELIMINATION" label="单败制淘汰赛" />
-            <el-option value="CHAMPIONSHIP" label="锦标赛" />
           </el-select>
         </el-form-item>
         <el-form-item prop="status" label="状态">
@@ -200,6 +199,14 @@
                   生成对阵表
                 </el-button>
               </div>
+              <el-alert
+                v-if="isPromotionRelegationTournament && participants.length > 0 && participants.length % 2 !== 0"
+                title="定区升降赛参赛人数必须为偶数，请添加或移除学员使其为偶数"
+                type="warning"
+                :closable="false"
+                show-icon
+                style="margin-bottom: 12px"
+              />
               <el-table :data="participants" border>
                 <el-table-column prop="seed_rank" label="种子排名" width="90" align="center">
                   <template #default="{ row }">
@@ -346,6 +353,78 @@
             </div>
           </el-tab-pane>
 
+          <!-- 定区升降赛（抢位赛） -->
+          <el-tab-pane
+            v-if="isPromotionRelegationTournament"
+            label="抢位赛"
+            name="promotionRelegation"
+          >
+            <div class="tab-content">
+              <div class="toolbar">
+                <el-button
+                  v-if="positionBoardData.length === 0"
+                  type="success"
+                  icon="refresh"
+                  :disabled="participants.length < 2"
+                  @click="handleInitPositions"
+                >
+                  随机抽签入位
+                </el-button>
+                <el-button
+                  v-else
+                  type="success"
+                  icon="plus"
+                  @click="handleGenerateRound"
+                >
+                  生成新一轮
+                </el-button>
+                <el-button type="primary" icon="refresh" @click="loadPositions">
+                  刷新
+                </el-button>
+              </div>
+
+              <PositionBoard
+                v-if="positionBoardData.length > 0"
+                :participants="positionBoardData"
+              />
+              <el-empty v-else description="尚未初始化位置，请点击上方按钮进行随机抽签" />
+
+              <!-- 比赛记录（按轮次分组） -->
+              <h4 style="margin-top: 20px;">比赛记录</h4>
+              <el-table :data="prMatches" border>
+                <el-table-column prop="round_number" label="轮次" width="80" align="center" />
+                <el-table-column prop="match_number" label="场地" width="80" align="center" />
+                <el-table-column prop="player1_name" label="选手1" width="120" />
+                <el-table-column prop="player2_name" label="选手2" width="120" />
+                <el-table-column label="比分" width="150" align="center">
+                  <template #default="{ row }">
+                    {{ formatPRScore(row.scores) }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="胜者" width="120" align="center">
+                  <template #default="{ row }">
+                    <span v-if="row.winner_id">
+                      {{ row.winner_id === row.player1_id ? row.player1_name : row.player2_name }}
+                    </span>
+                    <el-tag v-else type="warning" size="small">进行中</el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" width="120" align="center">
+                  <template #default="{ row }">
+                    <el-button
+                      v-if="!row.winner_id"
+                      type="primary"
+                      link
+                      @click="handleRecordPRScore(row)"
+                    >
+                      录入比分
+                    </el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </div>
+          </el-tab-pane>
+
           <!-- 对阵卡片 -->
           <el-tab-pane label="对阵" name="matches">
             <div class="tab-content">
@@ -371,11 +450,10 @@
             placeholder="请选择赛制"
             style="width: 100%"
           >
-            <el-option value="ROUND_ROBIN" label="分组循环赛（带淘汰赛）" />
+            <el-option value="CHAMPIONSHIP" label="锦标赛（分组循环+交叉淘汰）" />
             <el-option value="PURE_GROUP" label="纯小组赛" />
             <el-option value="PROMOTION_RELEGATION" label="定区升降赛" />
             <el-option value="SINGLE_ELIMINATION" label="单败制淘汰赛" />
-            <el-option value="CHAMPIONSHIP" label="锦标赛（分组循环+交叉淘汰）" />
           </el-select>
         </el-form-item>
         <el-form-item label="开始日期" prop="start_date">
@@ -404,7 +482,18 @@
           label="每组人数"
           prop="group_size"
         >
-          <el-input-number v-model="formData.group_size" :min="2" :max="8" />
+          <el-input-number
+            v-model="formData.group_size"
+            :min="2"
+            :max="8"
+          />
+          <el-text
+            v-if="formData.tournament_type === 'PROMOTION_RELEGATION'"
+            type="warning"
+            style="margin-left: 8px"
+          >
+            定区升降赛每组人数必须为偶数，否则无法配对
+          </el-text>
         </el-form-item>
         <!-- 锦标赛专属参数 -->
         <template v-if="formData.tournament_type === 'CHAMPIONSHIP'">
@@ -515,6 +604,7 @@ import ParticipantSelect from "./components/ParticipantSelect.vue";
 import ScoreDialog from "./components/ScoreDialog.vue";
 import GroupStageView from "./components/GroupStageView.vue";
 import KnockoutBracketView from "./components/KnockoutBracketView.vue";
+import PositionBoard from "./components/PositionBoard.vue";
 
 // 搜索区域显示控制
 const visible = ref(true);
@@ -550,7 +640,7 @@ function formatDate(date: Date): string {
 
 const formData = reactive<TournamentForm>({
   name: "",
-  tournament_type: "ROUND_ROBIN", // 默认：分组循环赛（大写）
+  tournament_type: "CHAMPIONSHIP", // 默认：锦标赛
   start_date: formatDate(new Date()),
   end_date: formatDate(new Date()),
   location: "",
@@ -566,6 +656,18 @@ const rules = {
   tournament_type: [{ required: true, message: "请选择赛制", trigger: "change" }],
   start_date: [{ required: true, message: "请选择开始日期", trigger: "change" }],
   end_date: [{ required: true, message: "请选择结束日期", trigger: "change" }],
+  group_size: [
+    {
+      validator: (_rule: any, value: number, callback: Function) => {
+        if (formData.tournament_type === "PROMOTION_RELEGATION" && value % 2 !== 0) {
+          callback(new Error("定区升降赛的每组人数必须为偶数"));
+        } else {
+          callback();
+        }
+      },
+      trigger: "change",
+    },
+  ],
 };
 
 // 赛事管理
@@ -577,6 +679,8 @@ const matches = ref<TournamentMatch[]>([]);
 const groupStageData = ref<any>(null);
 const knockoutData = ref<any>(null);
 const championshipStatus = ref<any>(null);
+const positionBoardData = ref<any[]>([]);
+const prMatches = ref<any[]>([]);
 
 // 计算属性：判断是否为小组赛赛制
 const isGroupStageTournament = computed(() => {
@@ -594,6 +698,12 @@ const isChampionshipTournament = computed(() => {
 const isKnockoutTournament = computed(() => {
   const type = currentTournament.value?.tournament_type?.toUpperCase();
   return type === "SINGLE_ELIMINATION";
+});
+
+// 计算属性：判断是否为定区升降赛
+const isPromotionRelegationTournament = computed(() => {
+  const type = currentTournament.value?.tournament_type?.toUpperCase();
+  return type === "PROMOTION_RELEGATION";
 });
 
 // 参赛队员选择
@@ -751,7 +861,7 @@ function resetForm() {
   Object.assign(formData, {
     id: undefined,
     name: "",
-    tournament_type: "ROUND_ROBIN",
+    tournament_type: "CHAMPIONSHIP",
     start_date: formatDate(new Date()),
     end_date: formatDate(new Date()),
     location: "",
@@ -806,13 +916,29 @@ function handleAddParticipant() {
 // 提交参赛队员
 async function handleParticipantSubmit(selectedParticipants: any[]) {
   if (!currentTournament.value) return;
+
+  const studentIds = selectedParticipants.map((p) => p.student_id);
+  const currentCount = participants.value.length;
+  const newCount = currentCount + studentIds.length;
+
+  // 定区升降赛校验：总人数必须为偶数
+  if (
+    currentTournament.value.tournament_type === "PROMOTION_RELEGATION" &&
+    newCount % 2 !== 0
+  ) {
+    ElMessage.warning(
+      `定区升降赛参赛人数必须为偶数。当前${currentCount}人，添加${studentIds.length}人后共${newCount}人，请调整为偶数`
+    );
+    return;
+  }
+
   try {
-    const studentIds = selectedParticipants.map((p) => p.student_id);
     await TournamentAPIExtended.batchAddParticipants(currentTournament.value.id, studentIds);
     ElMessage.success("添加成功");
     await loadParticipants();
-  } catch (error) {
+  } catch (error: any) {
     console.error(error);
+    ElMessage.error(error?.response?.data?.msg || "添加失败");
   }
 }
 
@@ -861,7 +987,7 @@ async function handleGenerateMatches() {
     ElMessage.warning("对阵表正在生成中，请稍候...");
     return;
   }
-  
+
   isGeneratingMatches = true;
   // 显示持久化通知，不锁定界面
   const notification = ElNotification({
@@ -871,7 +997,7 @@ async function handleGenerateMatches() {
     duration: 0,
     position: "bottom-right",
   });
-  
+
   try {
     const res = await TournamentAPIExtended.generateMatches(currentTournament.value.id, true);
     // 使用生成的对阵更新本地数据
@@ -913,6 +1039,9 @@ function handleTabChange(tabName: string) {
     loadKnockoutData();
   } else if (tabName === "championshipKnockout") {
     loadChampionshipStatus();
+  } else if (tabName === "promotionRelegation") {
+    loadPositions();
+    loadPRMatches();
   }
 }
 
@@ -998,7 +1127,7 @@ async function handleGenerateChampionshipKnockout() {
   if (!championshipStatus.value?.group_stage?.is_completed) {
     const completed = championshipStatus.value?.group_stage?.completed || 0;
     const total = championshipStatus.value?.group_stage?.total || 0;
-    const remaining = (championshipStatus.value?.group_stage?.remaining) || (total - completed);
+    const remaining = championshipStatus.value?.group_stage?.remaining || total - completed;
     ElMessage.warning(
       `小组赛尚未全部完成，还有 ${remaining} 场比赛未录入比分。请先完成所有小组赛再生成淘汰赛对阵。`
     );
@@ -1034,7 +1163,7 @@ async function handleGenerateChampionshipKnockout() {
     duration: 0,
     position: "bottom-right",
   });
-  
+
   try {
     await TournamentAPIExtended.generateChampionshipKnockout(currentTournament.value.id);
     notification.close();
@@ -1059,6 +1188,75 @@ async function handleGenerateChampionshipKnockout() {
   } finally {
     isGeneratingKnockout = false;
   }
+}
+
+// 加载位置板
+async function loadPositions() {
+  if (!currentTournament.value) return;
+  try {
+    const res = await TournamentAPIExtended.getPositions(currentTournament.value.id);
+    positionBoardData.value = res.data?.data || [];
+  } catch (error) {
+    console.error("加载位置板失败:", error);
+  }
+}
+
+// 加载抢位赛比赛记录
+async function loadPRMatches() {
+  if (!currentTournament.value) return;
+  try {
+    const res = await TournamentAPIExtended.getPRMatches(currentTournament.value.id);
+    prMatches.value = res.data?.data || [];
+  } catch (error) {
+    console.error("加载抢位赛比赛记录失败:", error);
+  }
+}
+
+// 随机抽签入位
+async function handleInitPositions() {
+  if (!currentTournament.value) return;
+  try {
+    await TournamentAPIExtended.initPositions(currentTournament.value.id);
+    ElMessage.success("位置初始化成功");
+    await loadPositions();
+    await loadPRMatches();
+  } catch (error: any) {
+    console.error(error);
+    ElMessage.error(error?.response?.data?.msg || "位置初始化失败");
+  }
+}
+
+// 生成新一轮
+async function handleGenerateRound() {
+  if (!currentTournament.value) return;
+  try {
+    await TournamentAPIExtended.generateRound(currentTournament.value.id);
+    ElMessage.success("新一轮生成成功");
+    await loadPRMatches();
+  } catch (error: any) {
+    console.error(error);
+    ElMessage.error(error?.response?.data?.msg || "生成新一轮失败");
+  }
+}
+
+// 录入抢位赛比分
+function handleRecordPRScore(match: any) {
+  selectedMatch.value = {
+    id: match.id,
+    player1: { id: match.player1_id, name: match.player1_name },
+    player2: { id: match.player2_id, name: match.player2_name },
+    scores: match.scores?.sets || [],
+    status: match.winner_id ? "COMPLETED" : "SCHEDULED",
+  } as any;
+  scoreDialogVisible.value = true;
+}
+
+// 格式化抢位赛比分
+function formatPRScore(scores: any): string {
+  if (!scores || !scores.sets || scores.sets.length === 0) {
+    return "-";
+  }
+  return scores.sets.map((s: any) => `${s.player1 || 0}:${s.player2 || 0}`).join(", ");
 }
 
 // 处理淘汰赛比分录入
@@ -1117,6 +1315,14 @@ async function handleScoreSubmit(data: { matchId: number; sets: any[]; winnerId?
       if (activeTab.value === "championshipKnockout") {
         await loadChampionshipStatus();
       }
+    } else if (activeTab.value === "promotionRelegation") {
+      // 抢位赛
+      await TournamentAPIExtended.recordScore(currentTournament.value.id, data.matchId, {
+        sets: data.sets,
+      });
+      ElMessage.success("比分录入成功");
+      await loadPRMatches(); // 刷新抢位赛比赛记录
+      await loadPositions(); // 刷新位置板（比分录入后可能触发换位）
     } else {
       // 小组赛或无胜者，使用普通API
       await TournamentAPIExtended.recordScore(currentTournament.value.id, data.matchId, {

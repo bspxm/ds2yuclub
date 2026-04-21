@@ -195,6 +195,104 @@ class TournamentParticipantCRUD(CRUDBase[TournamentParticipantModel, dict, dict]
 
         return [dict(row) for row in rows]
 
+    async def get_by_tournament_with_position_crud(
+        self, tournament_id: int
+    ) -> list[dict]:
+        """获取赛事参赛者（带抢位赛位置信息）"""
+        from sqlalchemy import text
+
+        sql = text("""
+            SELECT
+                p.id as participant_id,
+                p.student_id,
+                s.name as student_name,
+                p.current_position,
+                p.seed_rank
+            FROM badminton_tournament_participant p
+            JOIN badminton_student s ON p.student_id = s.id
+            WHERE p.tournament_id = :tournament_id
+            AND p.is_withdrawn = false
+            ORDER BY p.current_position NULLS LAST, p.id
+        """)
+
+        result = await self.auth.db.execute(sql, {"tournament_id": tournament_id})
+        rows = result.mappings().all()
+        return [dict(row) for row in rows]
+
+    async def init_positions_crud(
+        self, tournament_id: int
+    ) -> list[dict]:
+        """随机抽签初始化位置"""
+        from sqlalchemy import text
+        import random
+
+        # 获取所有参赛者
+        sql = text("""
+            SELECT id FROM badminton_tournament_participant
+            WHERE tournament_id = :tournament_id
+            AND is_withdrawn = false
+        """)
+        result = await self.auth.db.execute(sql, {"tournament_id": tournament_id})
+        participant_ids = [row[0] for row in result.fetchall()]
+
+        if len(participant_ids) < 2:
+            raise CustomException(msg="参赛人数不足，无法初始化位置")
+
+        # 随机打乱
+        random.shuffle(participant_ids)
+
+        # 批量更新位置
+        updates = []
+        for i, pid in enumerate(participant_ids):
+            updates.append(f"({pid}, {i + 1})")
+
+        update_sql = text(f"""
+            UPDATE badminton_tournament_participant AS p
+            SET current_position = v.pos
+            FROM (VALUES {', '.join(updates)}) AS v(id, pos)
+            WHERE p.id = v.id
+        """)
+        await self.auth.db.execute(update_sql)
+        await self.auth.db.flush()
+
+        return await self.get_by_tournament_with_position_crud(tournament_id)
+
+    async def swap_positions_crud(
+        self, participant_id_1: int, participant_id_2: int
+    ) -> None:
+        """交换两个参赛者的位置"""
+        from sqlalchemy import text
+
+        # 获取当前位置
+        sql = text("""
+            SELECT id, current_position FROM badminton_tournament_participant
+            WHERE id IN (:id1, :id2)
+        """)
+        result = await self.auth.db.execute(sql, {"id1": participant_id_1, "id2": participant_id_2})
+        rows = result.fetchall()
+
+        if len(rows) != 2:
+            raise CustomException(msg="参赛者不存在")
+
+        positions = {row[0]: row[1] for row in rows}
+        pos1 = positions[participant_id_1]
+        pos2 = positions[participant_id_2]
+
+        # 交换
+        swap_sql = text("""
+            UPDATE badminton_tournament_participant
+            SET current_position = CASE
+                WHEN id = :id1 THEN :pos2 ::integer
+                WHEN id = :id2 THEN :pos1 ::integer
+            END
+            WHERE id IN (:id1, :id2)
+        """)
+        await self.auth.db.execute(
+            swap_sql,
+            {"id1": participant_id_1, "id2": participant_id_2, "pos1": pos1, "pos2": pos2},
+        )
+        await self.auth.db.flush()
+
     async def update_statistics_crud(
         self, participant_id: int, won: bool, points_scored: int, points_conceded: int
     ) -> Optional[TournamentParticipantModel]:

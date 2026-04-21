@@ -181,6 +181,11 @@ class TournamentParticipantModel(ModelMixin):
         Boolean, default=False, nullable=False, comment="是否退赛"
     )
 
+    # 抢位赛当前位置（1=冠军位，数字越大排名越低）
+    current_position: Mapped[int | None] = mapped_column(
+        Integer, nullable=True, comment="抢位赛当前位置"
+    )
+
     # 统计信息（实时更新）
     matches_played: Mapped[int] = mapped_column(
         Integer, default=0, nullable=False, comment="已赛场次"

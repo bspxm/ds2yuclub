@@ -341,6 +341,38 @@ const TournamentAPIExtended = {
       params: { student_id_1: studentId1, student_id_2: studentId2 },
     });
   },
+
+  // 抢位赛：初始化位置
+  initPositions(tournamentId: number) {
+    return request<ApiResponse<any[]>>({
+      url: `${API_PATH}/${tournamentId}/positions/init`,
+      method: "post",
+    });
+  },
+
+  // 抢位赛：获取位置板
+  getPositions(tournamentId: number) {
+    return request<ApiResponse<any[]>>({
+      url: `${API_PATH}/${tournamentId}/positions`,
+      method: "get",
+    });
+  },
+
+  // 抢位赛：生成新一轮
+  generateRound(tournamentId: number) {
+    return request<ApiResponse<any[]>>({
+      url: `${API_PATH}/${tournamentId}/rounds/generate`,
+      method: "post",
+    });
+  },
+
+  // 抢位赛：获取比赛记录
+  getPRMatches(tournamentId: number) {
+    return request<ApiResponse<any[]>>({
+      url: `${API_PATH}/${tournamentId}/pr-matches`,
+      method: "get",
+    });
+  },
 };
 
 export { TournamentAPIExtended };

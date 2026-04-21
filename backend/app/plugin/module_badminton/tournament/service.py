@@ -290,6 +290,7 @@ class TournamentParticipantService:
             select(
                 TournamentModel.id,
                 TournamentModel.status,
+                TournamentModel.tournament_type,
                 TournamentModel.num_groups,
                 TournamentModel.group_size,
             ).where(TournamentModel.id == tournament_id)
@@ -319,6 +320,17 @@ class TournamentParticipantService:
         if new_count > max_participants:
             raise CustomException(
                 msg=f"参赛人数超出限制：当前{current_count}人，最大容量{max_participants}人（{tournament.num_groups}组×{tournament.group_size}人/组）"
+            )
+
+        # 定区升降赛：总人数必须为偶数
+        type_value = (
+            tournament.tournament_type.value
+            if hasattr(tournament.tournament_type, "value")
+            else tournament.tournament_type
+        )
+        if type_value == "PROMOTION_RELEGATION" and new_count % 2 != 0:
+            raise CustomException(
+                msg=f"定区升降赛参赛人数必须为偶数。当前{current_count}人，添加{len(student_ids)}人后共{new_count}人，请调整为偶数"
             )
 
         results = []
@@ -459,6 +471,13 @@ class TournamentMatchService:
             await cls._cleanup_old_group_data(tournament_id, auth)
             return await cls._generate_round_robin_matches(
                 tournament_id, tournament, auth
+            )
+
+        # 定区升降赛
+        elif tournament.tournament_type.value == "PROMOTION_RELEGATION":
+            logger.info("[generate_matches_service] 定区升降赛：初始化位置")
+            return await cls._init_promotion_relegation_positions(
+                tournament_id, auth
             )
 
         # 其他赛制暂不支持
@@ -800,7 +819,120 @@ class TournamentMatchService:
         total_time = time.time() - start_time
         logger.info(f"[record_score_service] 总计耗时: {total_time:.3f}s")
 
+        # 定区升降赛：一轮结束后统一换位
+        if result and final_status == "COMPLETED":
+            await cls._finalize_round_if_complete(match_id, auth)
+
         return result
+
+    @classmethod
+    async def _finalize_round_if_complete(
+        cls, match_id: int, auth: AuthSchema
+    ) -> None:
+        """检查该轮是否全部完成，若完成则按场地胜负统一更新位置"""
+        from sqlalchemy import select, text
+        from app.plugin.module_badminton.tournament.model import TournamentMatchModel
+
+        # 获取当前比赛信息
+        result = await auth.db.execute(
+            select(
+                TournamentMatchModel.id,
+                TournamentMatchModel.tournament_id,
+                TournamentMatchModel.round_type,
+                TournamentMatchModel.round_number,
+            ).where(TournamentMatchModel.id == match_id)
+        )
+        match = result.first()
+        if not match:
+            return
+
+        round_type = match.round_type
+        if hasattr(round_type, "value"):
+            round_type = round_type.value
+        if round_type != "PROMOTION_RELEGATION":
+            return
+
+        tournament_id = match.tournament_id
+        round_number = match.round_number
+
+        # 检查该轮是否所有比赛都已分出胜负
+        check_sql = text("""
+            SELECT COUNT(*) as total,
+                   COUNT(*) FILTER (WHERE winner_id IS NOT NULL) as completed
+            FROM badminton_tournament_match
+            WHERE tournament_id = :tid
+              AND round_type = 'PROMOTION_RELEGATION'
+              AND round_number = :rn
+        """)
+        result = await auth.db.execute(
+            check_sql, {"tid": tournament_id, "rn": round_number}
+        )
+        row = result.fetchone()
+        if not row or row[0] == 0 or row[0] != row[1]:
+            logger.info(
+                f"[_finalize_round_if_complete] 轮次 {round_number} 尚未全部完成，跳过换位"
+            )
+            return
+
+        # 获取该轮所有比赛（按 match_number 即场地编号排序）
+        matches_sql = text("""
+            SELECT id, player1_id, player2_id, winner_id, match_number
+            FROM badminton_tournament_match
+            WHERE tournament_id = :tid
+              AND round_type = 'PROMOTION_RELEGATION'
+              AND round_number = :rn
+            ORDER BY match_number
+        """)
+        result = await auth.db.execute(
+            matches_sql, {"tid": tournament_id, "rn": round_number}
+        )
+        matches = result.fetchall()
+        total_matches = len(matches)
+
+        # 获取所有参赛者（用于处理轮空）
+        participants_sql = text("""
+            SELECT id FROM badminton_tournament_participant
+            WHERE tournament_id = :tid AND is_withdrawn = false
+            ORDER BY current_position NULLS LAST, id
+        """)
+        result = await auth.db.execute(
+            participants_sql, {"tid": tournament_id}
+        )
+        all_participant_ids = [r[0] for r in result.fetchall()]
+        participated_ids = set()
+
+        # 按场地胜负计算新位置
+        updates = []
+        for m in matches:
+            winner_id = m.winner_id
+            loser_id = m.player1_id if winner_id == m.player2_id else m.player2_id
+            match_num = m.match_number
+
+            # 胜者新位置 = match_number
+            # 负者新位置 = total_matches + match_number
+            updates.append(f"({winner_id}, {match_num})")
+            updates.append(f"({loser_id}, {total_matches + match_num})")
+            participated_ids.add(m.player1_id)
+            participated_ids.add(m.player2_id)
+
+        # 轮空者（奇数人数时最后一人未参赛）放到最后
+        for pid in all_participant_ids:
+            if pid not in participated_ids:
+                new_pos = len(all_participant_ids)
+                updates.append(f"({pid}, {new_pos})")
+
+        if updates:
+            update_sql = text(f"""
+                UPDATE badminton_tournament_participant AS p
+                SET current_position = v.pos ::integer
+                FROM (VALUES {', '.join(updates)}) AS v(id, pos)
+                WHERE p.id = v.id
+            """)
+            await auth.db.execute(update_sql)
+            await auth.db.flush()
+            logger.info(
+                f"[_finalize_round_if_complete] 轮次 {round_number} 结束，已更新 {len(updates)} 人位置"
+            )
 
     @classmethod
     async def get_group_stage_data_service(
@@ -1141,6 +1273,198 @@ class TournamentMatchService:
             )
 
         return {"groups": groups_data}
+
+    @classmethod
+    async def _init_promotion_relegation_positions(
+        cls, tournament_id: int, auth: AuthSchema
+    ) -> list[dict]:
+        """定区升降赛：随机抽签初始化位置"""
+        from sqlalchemy import text
+
+        # 校验赛事类型
+        result = await auth.db.execute(
+            text("SELECT tournament_type FROM badminton_tournament WHERE id = :tid"),
+            {"tid": tournament_id},
+        )
+        row = result.fetchone()
+        if not row or row[0] != "PROMOTION_RELEGATION":
+            raise CustomException(msg="仅定区升降赛支持此操作")
+
+        # 清除旧的位置数据
+        await auth.db.execute(
+            text(
+                "UPDATE badminton_tournament_participant SET current_position = NULL WHERE tournament_id = :tid"
+            ),
+            {"tid": tournament_id},
+        )
+
+        # 清除旧的抢位赛比赛记录
+        await auth.db.execute(
+            text(
+                "DELETE FROM badminton_tournament_match WHERE tournament_id = :tid AND round_type = 'PROMOTION_RELEGATION'"
+            ),
+            {"tid": tournament_id},
+        )
+
+        # 初始化位置
+        positions = await TournamentParticipantCRUD(auth).init_positions_crud(
+            tournament_id
+        )
+
+        logger.info(
+            f"[_init_promotion_relegation_positions] 位置初始化完成，共{len(positions)}人"
+        )
+        return positions
+
+    @classmethod
+    async def generate_round_service(
+        cls,
+        tournament_id: int,
+        auth: AuthSchema,
+    ) -> list[dict]:
+        """生成新一轮抢位赛：按当前位置配对，(1,2), (3,4)..."""
+        from sqlalchemy import text
+
+        # 校验赛事类型
+        result = await auth.db.execute(
+            text("SELECT tournament_type FROM badminton_tournament WHERE id = :tid"),
+            {"tid": tournament_id},
+        )
+        row = result.fetchone()
+        if not row or row[0] != "PROMOTION_RELEGATION":
+            raise CustomException(msg="仅定区升降赛支持此操作")
+
+        # 检查是否有正在进行的轮次
+        ongoing_sql = text("""
+            SELECT COUNT(*) FROM badminton_tournament_match
+            WHERE tournament_id = :tid
+              AND round_type = 'PROMOTION_RELEGATION'
+              AND round_number = (
+                  SELECT COALESCE(MAX(round_number), 0)
+                  FROM badminton_tournament_match
+                  WHERE tournament_id = :tid AND round_type = 'PROMOTION_RELEGATION'
+              )
+              AND winner_id IS NULL
+        """)
+        result = await auth.db.execute(
+            ongoing_sql, {"tid": tournament_id}
+        )
+        ongoing_count = result.scalar()
+        if ongoing_count and ongoing_count > 0:
+            raise CustomException(msg="当前轮次尚未结束，请先完成所有比赛后再生成新一轮")
+
+        # 获取当前所有参赛者（按位置排序）
+        participants_sql = text("""
+            SELECT id, current_position
+            FROM badminton_tournament_participant
+            WHERE tournament_id = :tid AND is_withdrawn = false
+            ORDER BY current_position NULLS LAST, id
+        """)
+        result = await auth.db.execute(
+            participants_sql, {"tid": tournament_id}
+        )
+        participants = result.fetchall()
+
+        if len(participants) < 2:
+            raise CustomException(msg="参赛人数不足，无法生成比赛")
+
+        # 确定下一轮次
+        round_sql = text("""
+            SELECT COALESCE(MAX(round_number), 0) + 1 as next_round
+            FROM badminton_tournament_match
+            WHERE tournament_id = :tid AND round_type = 'PROMOTION_RELEGATION'
+        """)
+        result = await auth.db.execute(round_sql, {"tid": tournament_id})
+        next_round = result.scalar() or 1
+
+        # 按位置配对：(1,2), (3,4), (5,6)...
+        match_crud = TournamentMatchCRUD(auth)
+        created_matches = []
+        match_number = 1
+        i = 0
+        while i + 1 < len(participants):
+            p1_id = participants[i][0]
+            p2_id = participants[i + 1][0]
+
+            match = await match_crud.create_match_crud(
+                tournament_id=tournament_id,
+                round_type="PROMOTION_RELEGATION",
+                round_number=next_round,
+                match_number=match_number,
+                player1_id=p1_id,
+                player2_id=p2_id,
+            )
+            created_matches.append({
+                "id": match.id,
+                "round_number": next_round,
+                "match_number": match_number,
+                "player1_id": match.player1_id,
+                "player2_id": match.player2_id,
+                "status": match.status.value if hasattr(match.status, "value") else match.status,
+            })
+            match_number += 1
+            i += 2
+
+        # 如果有轮空（奇数人），记录日志
+        if i < len(participants):
+            logger.info(
+                f"[generate_round_service] 轮次 {next_round}：选手 {participants[i][0]} 轮空"
+            )
+
+        logger.info(
+            f"[generate_round_service] 轮次 {next_round} 生成完成，共 {len(created_matches)} 场比赛"
+        )
+        return created_matches
+
+    @classmethod
+    async def get_pr_matches_service(
+        cls, tournament_id: int, auth: AuthSchema
+    ) -> list[dict]:
+        """获取抢位赛比赛记录"""
+        from sqlalchemy import text
+
+        sql = text("""
+            SELECT
+                m.id,
+                m.round_number,
+                m.match_number,
+                m.player1_id,
+                m.player2_id,
+                m.scores,
+                m.winner_id,
+                m.status,
+                m.created_time,
+                s1.name as player1_name,
+                s2.name as player2_name
+            FROM badminton_tournament_match m
+            JOIN badminton_tournament_participant p1 ON m.player1_id = p1.id
+            JOIN badminton_student s1 ON p1.student_id = s1.id
+            JOIN badminton_tournament_participant p2 ON m.player2_id = p2.id
+            JOIN badminton_student s2 ON p2.student_id = s2.id
+            WHERE m.tournament_id = :tournament_id
+            AND m.round_type = 'PROMOTION_RELEGATION'
+            ORDER BY m.round_number DESC, m.match_number
+        """)
+
+        result = await auth.db.execute(sql, {"tournament_id": tournament_id})
+        rows = result.mappings().all()
+
+        return [
+            {
+                "id": row["id"],
+                "round_number": row["round_number"],
+                "match_number": row["match_number"],
+                "player1_id": row["player1_id"],
+                "player1_name": row["player1_name"],
+                "player2_id": row["player2_id"],
+                "player2_name": row["player2_name"],
+                "scores": row["scores"],
+                "winner_id": row["winner_id"],
+                "status": row["status"].value if hasattr(row["status"], "value") else row["status"],
+                "created_time": row["created_time"].isoformat() if row["created_time"] else None,
+            }
+            for row in rows
+        ]
 
     @classmethod
     async def _generate_championship_knockout(
