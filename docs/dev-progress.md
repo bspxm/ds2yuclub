@@ -1,9 +1,9 @@
 # 羽毛球培训会员管理系统 - 开发进度
 
 ## 📌 当前目标
-- 修复前端Vue TypeScript类型错误
-- 完善项目文档和README
-- 准备下一阶段功能开发
+- 优化赛事管理模块用户体验
+- 完善小组赛数据展示
+- 提升系统性能
 
 ---
 
@@ -16,6 +16,30 @@
 - [x] 清理旧文档，保留比赛规则文档
 - [x] 推送到GitHub仓库
 
+### ✅ 已完成（2026-04-04 下午/晚间）
+- [x] **后端控制器重构** - 将 monolithic controller 分散到各子模块
+- [x] **创建 assessment/controller.py** - 能力评估API（6个端点）
+- [x] **创建 leave/controller.py** - 请假管理API
+- [x] **创建 attendance/controller.py** - 考勤记录API（7个端点）
+- [x] **重构 student/controller.py** - 学员管理API（12个端点）
+- [x] **重构 tournament/controller.py** - 添加赛事管理API
+- [x] **重构 course/controller.py** - 课程管理API
+- [x] **重构 semester/controller.py** - 学期管理API
+- [x] **重构 class_/controller.py** - 班级管理API
+- [x] **重构 purchase/controller.py** - 购买记录API
+- [x] **重构 schedule/controller.py** - 排课记录API
+- [x] **删除冗余顶层文件** - crud.py, model.py, schema.py, service.py, controller.py
+- [x] **修复前端API路径** - tournament.ts 和 class.ts 与后端对齐
+- [x] **统一枚举值为大写** - 数据库和Python代码同步
+- [x] **创建数据库视图** - v_tournament_list, v_tournament_match, v_tournament_participant_stats
+- [x] **羽球在线风格小组赛视图** - 对阵矩阵、积分排名、赛程列表
+- [x] **优化比分录入性能** - 使用直接SQL避免ORM关联加载
+- [x] **优化参赛队员添加性能** - 直接SQL查询避免关联加载
+- [x] **优化查询性能** - 使用视图预计算统计数据
+- [x] **简化对阵管理** - 只保留卡片视图
+- [x] **修复各种bug** - 枚举序列化、平局判定、数据去重等
+- [x] **推送到GitHub** - 88个文件变更
+
 ### 🔄 进行中
 - [ ] 整理项目开发进度文档
 - [ ] 分析feature-progress.json中的功能缺口
@@ -23,7 +47,6 @@
 ### ⏳ 待办
 - [ ] 修复课程模块API端点缺失问题
 - [ ] 修复购买记录模块API端点缺失问题
-- [ ] 修复比赛管理模块controller缺失问题
 - [ ] 实现微信登录集成
 - [ ] 添加数据可视化功能（能力雷达图等）
 
@@ -39,7 +62,7 @@
 | **排课管理** | ✅ 已完成 | 100% | 无 |
 | **购买记录** | 🔄 进行中 | 45% | controller只暴露2/9个端点 |
 | **出勤管理** | ✅ 已完成 | 75% | 2个端点调用不存在的service方法 |
-| **比赛管理** | 🔄 进行中 | 35% | 无controller.py文件 |
+| **比赛管理** | ✅ 已完成 | 85% | 小组赛视图已完善 |
 | **能力评估** | ✅ 已完成 | 90% | 缺少数据可视化 |
 | **能力分组** | ✅ 已完成 | 85% | 教练筛选下拉框未连接 |
 | **请假管理** | ✅ 已完成 | 85% | 缺少消息通知功能 |
@@ -48,7 +71,7 @@
 | **认证系统** | 🔄 进行中 | 70% | 微信登录集成未实现 |
 | **系统增强** | ⏳ 待办 | 10% | 大量规划功能未实现 |
 
-**总体完成度：78.5%**
+**总体完成度：82%**
 
 ---
 
@@ -57,7 +80,6 @@
 ### 1. 后端API端点缺失
 - **课程模块**：缺少GET/PUT/DELETE端点
 - **购买记录**：controller只暴露2个端点，service有10个方法未暴露
-- **比赛管理**：无controller.py文件，所有service方法未暴露为HTTP端点
 - **出勤管理**：2个端点调用不存在的service方法
 
 ### 2. 前端功能缺失
@@ -72,6 +94,44 @@
 ---
 
 ## 📝 变更记录
+
+### 2026-04-04：后端控制器重构
+- **重构文件**：backend/app/plugin/module_badminton/
+- **变更内容**：
+  - 删除 monolithic controller.py，分散到各子模块
+  - 创建 assessment/controller.py（能力评估）
+  - 创建 leave/controller.py（请假管理）
+  - 创建 attendance/controller.py（考勤记录）
+  - 重构 student/controller.py（学员管理）
+  - 重构 tournament/controller.py（赛事管理）
+  - 重构 course/controller.py（课程管理）
+  - 重构 semester/controller.py（学期管理）
+  - 重构 class_/controller.py（班级管理）
+  - 重构 purchase/controller.py（购买记录）
+  - 重构 schedule/controller.py（排课记录）
+- **删除文件**：crud.py, model.py, schema.py, service.py, controller.py
+- **保留文件**：__init__.py（模块入口）, enums.py, cache_utils.py, response.py
+
+### 2026-04-04：赛事管理优化
+- **羽球在线风格小组赛视图**：
+  - 对阵矩阵表（绿色=胜，红色=负，橙色=平）
+  - 积分排名（总分、场数、胜负赛、胜负局、胜负分、净胜分）
+  - 赛程列表（时间、对阵、比分、详细比分）
+- **对阵卡片美化**：
+  - 第一行：对阵双方名字
+  - 第二行：局分
+  - 第三行：详细比分
+- **性能优化**：
+  - 创建 v_tournament_list 视图
+  - 创建 v_tournament_match 视图
+  - 创建 v_tournament_participant_stats 视图
+  - 使用直接SQL避免ORM关联加载
+- **Bug修复**：
+  - 枚举值大小写不匹配（统一为大写）
+  - 比分录入性能问题（11秒 → <100ms）
+  - 平局判定错误（1:1 显示为负 → 平）
+  - 添加参赛队员去重
+  - 录入比分后自动刷新小组赛数据
 
 ### 2026-04-04：前端TypeScript错误修复
 - **修复文件**：所有module_badminton下的Vue组件
@@ -89,22 +149,23 @@
 - **文档清理**：移除旧文档，保留比赛规则
 
 ### 2026-04-04：GitHub推送
-- **提交**：`aa7842e docs: 修正数据库配置信息，PostgreSQL端口及API地址`
-- **推送**：成功推送到GitHub仓库
+- **提交**：`6751998 refactor: 重构羽毛球模块控制器并优化小组赛功能`
+- **推送**：成功推送到 https://github.com/bspxm/ds2yuclub.git
+- **变更**：88个文件，6,197行新增，11,512行删除
 
 ---
 
 ## 🎯 下一阶段优先级
 
 ### 高优先级
-1. **比赛管理模块** - 添加controller.py，暴露所有service方法
-2. **购买记录模块** - 补全缺失的API端点
-3. **课程管理模块** - 实现Update/Delete功能
+1. **购买记录模块** - 补全缺失的API端点
+2. **课程管理模块** - 实现Update/Delete功能
+3. **出勤管理** - 修复缺失的service方法
 
 ### 中优先级
 4. **微信登录集成** - 实现OAuth2.0认证
 5. **数据可视化** - 添加能力雷达图、统计图表
-6. **出勤管理** - 修复缺失的service方法
+6. **比赛引擎持久化** - 比赛状态保存和恢复
 
 ### 低优先级
 7. **移动端优化** - 响应式布局、PWA支持
@@ -119,6 +180,8 @@
 - ✅ 插件化架构运行正常
 - ✅ 数据库迁移工具（Alembic）配置完成
 - ✅ Redis缓存配置完成
+- ✅ 控制器模块化重构完成
+- ✅ 数据库视图优化查询性能
 - ⚠️ 部分模块API端点缺失
 
 ### 前端（Vue3 + TypeScript）
@@ -126,6 +189,7 @@
 - ✅ Element Plus组件库集成
 - ✅ Pinia状态管理配置
 - ✅ UnoCSS样式框架
+- ✅ 羽球在线风格小组赛视图
 - ⚠️ 部分功能页面为stub实现
 
 ### 数据库（PostgreSQL）
@@ -133,6 +197,7 @@
 - ✅ 异步SQLAlchemy 2.0
 - ✅ 所有业务表结构已定义
 - ✅ 数据迁移脚本可用
+- ✅ 统计视图优化查询性能
 
 ### 部署（Docker）
 - ✅ docker-compose配置完成
@@ -166,6 +231,7 @@
 - 遵循分层架构：controller → service → crud → model + schema
 - 使用异步SQLAlchemy 2.0
 - 枚举值必须大写（ACTIVE、COMPLETED等）
+- 使用数据库视图优化查询性能
 
 ### 前端开发
 - 页面路径：`frontend/src/views/module_badminton/`
@@ -185,5 +251,5 @@
 
 ---
 
-**最后更新：2026-04-04**
+**最后更新：2026-04-04 23:30**
 **下次评审：2026-04-11**

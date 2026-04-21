@@ -4,7 +4,7 @@
     "provider": {
         "ZhipuAI/GLM-5": {
             "npm": "@ai-sdk/openai-compatible",
-            "name": "魔塔",
+            "name": "魔塔:GLM-5",
             "options": {
                 "baseURL": "https://api-inference.modelscope.cn/v1/",
                 "apiKey": "ms-0a4c325c-b609-4adf-bd79-712dfd4ac6d8"
@@ -17,7 +17,7 @@
         },
         "MiniMax/MiniMax-M2.5": {
             "npm": "@ai-sdk/openai-compatible",
-            "name": "魔塔",
+            "name": "魔塔:MiniMax-M2.5",
             "options": {
                 "baseURL": "https://api-inference.modelscope.cn/v1/",
                 "apiKey": "ms-0a4c325c-b609-4adf-bd79-712dfd4ac6d8"
@@ -27,20 +27,32 @@
                     "name": "MiniMax/MiniMax-M2.5"
                 }
             }
-        }
-    },
-    "agent": {
-        "prometheus": {
-            "provider": "opencode-go/glm-5",
-            "model": "opencode-go/glm-5"
         },
-        "atlas": {
-            "provider": "opencode-go/minimax-m2.7",
-            "model": "opencode-go/minimax-m2.7"
+        "moonshotai/Kimi-K2.5": {
+            "npm": "@ai-sdk/openai-compatible",
+            "name": "魔塔:Kimi-K2.5",
+            "options": {
+                "baseURL": "https://api-inference.modelscope.cn/v1/",
+                "apiKey": "ms-0a4c325c-b609-4adf-bd79-712dfd4ac6d8"
+            },
+            "models": {
+                "moonshotai/Kimi-K2.5": {
+                    "name": "moonshotai/Kimi-K2.5"
+                }
+            }
         },
-        "sisyphus": {
-            "provider": "opencode-go/minimax-m2.7",
-            "model": "opencode-go/minimax-m2.7"
+        "unsloth/GLM-4.7-Flash-GGUF": {
+            "npm": "@ai-sdk/openai-compatible",
+            "name": "魔塔:GLM-4.7-Flash-GGUF",
+            "options": {
+                "baseURL": "https://ms-ens-11751164-c23f.api-inference.modelscope.cn/v1",
+                "apiKey": "ms-0a4c325c-b609-4adf-bd79-712dfd4ac6d8"
+            },
+            "models": {
+                "unsloth/GLM-4.7-Flash-GGUF": {
+                    "name": "unsloth/GLM-4.7-Flash-GGUF"
+                }
+            }
         }
     }
 }

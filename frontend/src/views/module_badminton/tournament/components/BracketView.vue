@@ -132,9 +132,9 @@ function getSetScores(match: Match): string {
 .round-header {
   text-align: center;
   font-weight: bold;
-  color: #333;
+  color: var(--el-text-color-primary);
   padding: 8px 16px;
-  background: #f5f7fa;
+  background: var(--el-fill-color-light);
   border-radius: 4px;
 }
 
@@ -147,8 +147,8 @@ function getSetScores(match: Match): string {
 }
 
 .match-card {
-  background: #fff;
-  border: 1px solid #e4e7ed;
+  background: var(--el-bg-color);
+  border: 1px solid var(--el-border-color);
   border-radius: 8px;
   overflow: hidden;
   min-width: 180px;
@@ -160,12 +160,16 @@ function getSetScores(match: Match): string {
 }
 
 .match-card.clickable:hover {
-  border-color: #409eff;
+  border-color: var(--el-color-primary);
   box-shadow: 0 2px 8px rgba(64, 158, 255, 0.2);
 }
 
+.dark .match-card.clickable:hover {
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.3);
+}
+
 .match-card.completed {
-  background: #fafafa;
+  background: var(--el-fill-color-light);
 }
 
 .player {
@@ -176,21 +180,21 @@ function getSetScores(match: Match): string {
 }
 
 .player.winner {
-  background: #f0f9ff;
+  background: var(--el-color-primary-light-9);
 }
 
 .player-name {
   font-size: 14px;
-  color: #333;
+  color: var(--el-text-color-primary);
 }
 
 .score {
   font-weight: bold;
-  color: #409eff;
+  color: var(--el-color-primary);
 }
 
 .divider {
   height: 1px;
-  background: #e4e7ed;
+  background: var(--el-border-color);
 }
 </style>

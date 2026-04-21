@@ -26,15 +26,15 @@
           </div>
 
           <!-- 第二行：局分 -->
-          <div class="sets-score" v-if="match.scores && match.scores.length > 0">
+          <div v-if="match.scores && match.scores.length > 0" class="sets-score">
             <span class="sets-text">{{ getSetsScore(match) }}</span>
           </div>
-          <div class="sets-score pending" v-else>
+          <div v-else class="sets-score pending">
             <span class="sets-text">-</span>
           </div>
 
           <!-- 第三行：详细比分 -->
-          <div class="detail-score" v-if="match.scores && match.scores.length > 0">
+          <div v-if="match.scores && match.scores.length > 0" class="detail-score">
             <span class="detail-text">{{ getDetailScore(match) }}</span>
           </div>
         </div>
@@ -66,8 +66,6 @@ const emit = defineEmits<{
   (e: "matchClick", match: Match): void;
 }>();
 
-
-
 function getSetsScore(match: Match): string {
   if (!match.scores || match.scores.length === 0) return "-";
 
@@ -88,7 +86,7 @@ function getSetsScore(match: Match): string {
 function getDetailScore(match: Match): string {
   if (!match.scores || match.scores.length === 0) return "";
 
-  return match.scores.map(s => `${s.player1}:${s.player2}`).join(", ");
+  return match.scores.map((s) => `${s.player1}:${s.player2}`).join(", ");
 }
 
 function getRoundText(roundType: string): string {
@@ -125,8 +123,8 @@ function isCompleted(status: string): boolean {
 }
 
 .match-card {
-  background: #fff;
-  border: 1px solid #e4e7ed;
+  background: var(--el-bg-color);
+  border: 1px solid var(--el-border-color);
   border-radius: 8px;
   overflow: hidden;
   cursor: pointer;
@@ -134,12 +132,16 @@ function isCompleted(status: string): boolean {
 }
 
 .match-card:hover {
-  border-color: #409eff;
+  border-color: var(--el-color-primary);
   box-shadow: 0 4px 12px rgba(64, 158, 255, 0.15);
 }
 
+.dark .match-card:hover {
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.25);
+}
+
 .match-card.completed {
-  background: #fafafa;
+  background: var(--el-fill-color-light);
 }
 
 .card-header {
@@ -147,19 +149,19 @@ function isCompleted(status: string): boolean {
   justify-content: space-between;
   align-items: center;
   padding: 10px 12px;
-  background: #f5f7fa;
-  border-bottom: 1px solid #e4e7ed;
+  background: var(--el-fill-color-light);
+  border-bottom: 1px solid var(--el-border-color);
 }
 
 .round-tag {
   font-size: 12px;
-  color: #409eff;
+  color: var(--el-color-primary);
   font-weight: bold;
 }
 
 .match-num {
   font-size: 11px;
-  color: #909399;
+  color: var(--el-text-color-secondary);
 }
 
 .card-content {
@@ -181,7 +183,7 @@ function isCompleted(status: string): boolean {
   flex: 1;
   font-size: 14px;
   font-weight: 500;
-  color: #606266;
+  color: var(--el-text-color-regular);
   text-align: center;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -189,13 +191,13 @@ function isCompleted(status: string): boolean {
 }
 
 .player-name.winner {
-  color: #67c23a;
+  color: var(--el-color-success);
   font-weight: bold;
 }
 
 .vs {
   font-size: 11px;
-  color: #c0c4cc;
+  color: var(--el-text-color-placeholder);
   font-weight: normal;
   flex-shrink: 0;
 }
@@ -204,18 +206,18 @@ function isCompleted(status: string): boolean {
 .sets-score {
   text-align: center;
   padding: 6px 0;
-  background: #f5f7fa;
+  background: var(--el-fill-color-light);
   border-radius: 4px;
 }
 
 .sets-score.pending {
-  background: #f5f7fa;
+  background: var(--el-fill-color-light);
 }
 
 .sets-text {
   font-size: 20px;
   font-weight: bold;
-  color: #303133;
+  color: var(--el-text-color-primary);
 }
 
 /* 第三行：详细比分 */
@@ -226,7 +228,7 @@ function isCompleted(status: string): boolean {
 
 .detail-text {
   font-size: 12px;
-  color: #909399;
+  color: var(--el-text-color-secondary);
   letter-spacing: 0.5px;
 }
 </style>

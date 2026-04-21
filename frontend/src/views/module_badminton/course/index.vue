@@ -25,7 +25,7 @@
               v-for="user in userList"
               :key="user.id"
               :label="user.name || user.username"
-              :value="(user.id as number)"
+              :value="user.id as number"
             />
           </el-select>
         </el-form-item>
@@ -430,7 +430,7 @@
                 v-for="user in userList"
                 :key="user.id"
                 :label="user.name || user.username"
-                :value="(user.id as number)"
+                :value="user.id as number"
               />
             </el-select>
           </el-form-item>

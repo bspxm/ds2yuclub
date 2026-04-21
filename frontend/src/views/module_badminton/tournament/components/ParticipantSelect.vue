@@ -14,12 +14,25 @@
       </el-input>
     </div>
 
+    <div class="capacity-info">
+      <el-tag :type="isOverCapacity ? 'danger' : 'info'" size="large">
+        已选择
+        <strong>{{ selectedIds.length }}</strong>
+        人，每组
+        <strong>{{ groupSize || 4 }}</strong>
+        人，共分
+        <strong>{{ numGroups }}</strong>
+        个小组
+      </el-tag>
+    </div>
+
     <el-table
       ref="tableRef"
       v-loading="loading"
       :data="students"
       max-height="400"
       @selection-change="handleSelectionChange"
+      @row-click="handleRowClick"
     >
       <el-table-column type="selection" width="55" />
       <el-table-column prop="name" label="姓名" width="100" />
@@ -71,6 +84,8 @@ const props = defineProps<{
   visible: boolean;
   tournamentId: number;
   existingParticipants: number[];
+  maxParticipants?: number;
+  groupSize?: number;
 }>();
 
 const emit = defineEmits<{
@@ -78,6 +93,7 @@ const emit = defineEmits<{
   (e: "submit", participants: SelectedParticipant[]): void;
 }>();
 
+const tableRef = ref();
 const dialogVisible = computed({
   get: () => props.visible,
   set: (val) => emit("update:visible", val),
@@ -89,13 +105,22 @@ const selectedIds = ref<number[]>([]);
 const students = ref<Student[]>([]);
 const allStudents = ref<Student[]>([]);
 
+const isOverCapacity = computed(() => {
+  return props.maxParticipants && selectedIds.value.length > props.maxParticipants;
+});
+
+const numGroups = computed(() => {
+  if (!props.groupSize || props.groupSize <= 0) return 1;
+  return Math.ceil(selectedIds.value.length / props.groupSize) || 1;
+});
+
 async function loadStudents() {
   loading.value = true;
   try {
     const res = await StudentAPI.getStudentList({ page_no: 1, page_size: 100 });
     const items = res.data?.data?.items || [];
     // 确保 existingParticipants 和 student id 都是数字类型进行比较
-    const existingIds = props.existingParticipants.map(id => Number(id));
+    const existingIds = props.existingParticipants.map((id) => Number(id));
     allStudents.value = items.filter((s: any) => !existingIds.includes(Number(s.id)));
     students.value = allStudents.value;
   } catch (error) {
@@ -111,10 +136,11 @@ function handleSearch(query: string) {
     students.value = allStudents.value;
   } else {
     const lowerQuery = query.toLowerCase();
-    students.value = allStudents.value.filter((s) =>
-      s.name?.toLowerCase().includes(lowerQuery) ||
-      s.group_name?.toLowerCase().includes(lowerQuery) ||
-      s.level?.toLowerCase().includes(lowerQuery)
+    students.value = allStudents.value.filter(
+      (s) =>
+        s.name?.toLowerCase().includes(lowerQuery) ||
+        s.group_name?.toLowerCase().includes(lowerQuery) ||
+        s.level?.toLowerCase().includes(lowerQuery)
     );
   }
 }
@@ -132,7 +158,33 @@ function getAge(birthDate: string | undefined): string {
 }
 
 function handleSelectionChange(rows: Student[]) {
-  selectedIds.value = rows.map((r) => r.id).filter(Boolean) as number[];
+  const newIds = rows.map((r) => r.id).filter(Boolean) as number[];
+
+  // 检查是否超过最大容量
+  if (props.maxParticipants && newIds.length > props.maxParticipants) {
+    // 使用 MessageBox 弹窗提示，更醒目
+    ElMessage({
+      type: "error",
+      message: `最多只能选择 ${props.maxParticipants} 名参赛学员！`,
+      duration: 3000,
+      showClose: true,
+    });
+    // 取消最后选中的项
+    const lastSelected = rows[rows.length - 1];
+    if (lastSelected && tableRef.value) {
+      tableRef.value.toggleRowSelection(lastSelected, false);
+    }
+    return;
+  }
+
+  selectedIds.value = newIds;
+}
+
+function handleRowClick(row: Student) {
+  const table = tableRef.value;
+  if (table) {
+    table.toggleRowSelection(row);
+  }
 }
 
 function handleSubmit() {
@@ -160,6 +212,16 @@ defineExpose({
 
 <style scoped>
 .search-box {
+  margin-bottom: 12px;
+}
+
+.capacity-info {
   margin-bottom: 16px;
+  text-align: center;
+}
+
+.capacity-info strong {
+  font-size: 16px;
+  color: var(--el-color-primary);
 }
 </style>

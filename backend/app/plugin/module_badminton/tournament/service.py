@@ -776,13 +776,20 @@ class TournamentMatchService:
         elif p2_wins > p1_wins and (p2_wins >= 2 or p1_wins == 0):
             winner_id = m.player2_id
 
+        final_status = "COMPLETED" if winner_id else "IN_PROGRESS"
+        logger.info(
+            f"[record_score_service] match_id={match_id} p1_wins={p1_wins} p2_wins={p2_wins} "
+            f"winner_id={winner_id} status={final_status}"
+        )
+
         step3_start = time.time()
         # 使用优化的更新方法
+        # 当比赛已分出胜负时标记为已完成，否则为进行中
         result = await TournamentMatchCRUD(auth).update_score_crud(
             match_id=match_id,
             scores=scores_data,
             winner_id=winner_id,
-            status="IN_PROGRESS",  # 始终为进行中，允许继续添加局数
+            status=final_status,
         )
         step3_time = time.time() - step3_start
         logger.info(f"[record_score_service] 步骤3-更新数据库: {step3_time:.3f}s")
@@ -1154,13 +1161,13 @@ class TournamentMatchService:
         if not advance_count or not advance_top_n:
             raise CustomException(msg="锦标赛参数缺失")
 
-        # 2. 检查所有小组赛是否已完成
+        # 2. 检查所有小组赛是否已完成（使用 winner_id 判断，与小组赛数据接口保持一致）
         incomplete_sql = text("""
             SELECT COUNT(*) as cnt
             FROM badminton_tournament_match
             WHERE tournament_id = :tournament_id
             AND round_type = 'GROUP_STAGE'
-            AND status != 'COMPLETED'
+            AND winner_id IS NULL
         """)
         result = await auth.db.execute(incomplete_sql, {"tournament_id": tournament_id})
         incomplete_count = result.scalar()
@@ -1226,11 +1233,35 @@ class TournamentMatchService:
         """获取锦标赛两阶段状态概览"""
         from sqlalchemy import text
 
-        # 小组赛统计
+        # 调试：查询该赛事所有比赛的状态分布
+        debug_status_sql = text("""
+            SELECT round_type, status, COUNT(*) as cnt
+            FROM badminton_tournament_match
+            WHERE tournament_id = :tournament_id
+            GROUP BY round_type, status
+            ORDER BY round_type, status
+        """)
+        debug_result = await auth.db.execute(debug_status_sql, {"tournament_id": tournament_id})
+        debug_rows = debug_result.fetchall()
+        logger.info(f"[get_championship_status] tournament_id={tournament_id} 状态分布: {[(r.round_type, r.status, r.cnt) for r in debug_rows]}")
+
+        # 调试：查询小组赛详细状态
+        debug_group_sql = text("""
+            SELECT id, round_type, status, winner_id, player1_id, player2_id
+            FROM badminton_tournament_match
+            WHERE tournament_id = :tournament_id
+            AND round_type = 'GROUP_STAGE'
+            ORDER BY id
+        """)
+        debug_group_result = await auth.db.execute(debug_group_sql, {"tournament_id": tournament_id})
+        debug_group_rows = debug_group_result.fetchall()
+        logger.info(f"[get_championship_status] 小组赛共 {len(debug_group_rows)} 场, 详情: {[(r.id, r.status, r.winner_id) for r in debug_group_rows]}")
+
+        # 小组赛统计（使用 winner_id 判断完成状态，与小组赛数据接口保持一致）
         group_sql = text("""
             SELECT
                 COUNT(*) as total,
-                COUNT(*) FILTER (WHERE status = 'COMPLETED') as completed
+                COUNT(*) FILTER (WHERE winner_id IS NOT NULL) as completed
             FROM badminton_tournament_match
             WHERE tournament_id = :tournament_id
             AND round_type = 'GROUP_STAGE'
@@ -1240,11 +1271,11 @@ class TournamentMatchService:
         )
         group_row = group_result.fetchone()
 
-        # 淘汰赛统计
+        # 淘汰赛统计（使用 winner_id 判断完成状态）
         knockout_sql = text("""
             SELECT
                 COUNT(*) as total,
-                COUNT(*) FILTER (WHERE status = 'COMPLETED') as completed
+                COUNT(*) FILTER (WHERE winner_id IS NOT NULL) as completed
             FROM badminton_tournament_match
             WHERE tournament_id = :tournament_id
             AND round_type = 'KNOCKOUT'

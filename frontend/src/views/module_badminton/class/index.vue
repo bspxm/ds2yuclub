@@ -537,7 +537,7 @@
                     >
                       {{ day }}
                     </div>
-                     <el-checkbox-group v-model="formData.time_slots![day]">
+                    <el-checkbox-group v-model="formData.time_slots![day]">
                       <el-checkbox label="A" value="A">09:00-10:30</el-checkbox>
                       <el-checkbox label="B" value="B">10:30-12:00</el-checkbox>
                       <el-checkbox label="C" value="C">15:00-16:30</el-checkbox>
@@ -768,7 +768,9 @@ const formData = reactive<ClassForm>(initialFormData);
 const sortedWeeklyScheduleDays = computed(() => {
   const dayOrder = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
   // 过滤出选中的星期
-  const selectedDays = (formData.weekly_schedule_days || []).filter((day) => dayOrder.includes(day));
+  const selectedDays = (formData.weekly_schedule_days || []).filter((day) =>
+    dayOrder.includes(day)
+  );
   // 按固定顺序排序
   return selectedDays.sort((a, b) => dayOrder.indexOf(a) - dayOrder.indexOf(b));
 });

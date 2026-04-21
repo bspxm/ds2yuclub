@@ -22,7 +22,7 @@
               v-for="student in studentList"
               :key="student.id"
               :label="`${student.name}:${calculateAge(student.birth_date)}岁:${student.level || '未设置'}:${student.group_name || '未设置'}`"
-                       :value="student.id as number"
+              :value="student.id as number"
             />
           </el-select>
         </el-form-item>
@@ -64,7 +64,7 @@
               v-for="semester in semesterList"
               :key="semester.id"
               :label="semester.name"
-                       :value="semester.id as number"
+              :value="semester.id as number"
             />
           </el-select>
         </el-form-item>
@@ -260,7 +260,7 @@
           >
             <template #default="scope">
               <el-tag :type="getPurchaseTypeTagType(scope.row.purchase_type || '') as any">
-                {{ getPurchaseTypeText(scope.row.purchase_type || '') }}
+                {{ getPurchaseTypeText(scope.row.purchase_type || "") }}
               </el-tag>
             </template>
           </el-table-column>
@@ -313,7 +313,7 @@
           >
             <template #default="scope">
               <el-tag :type="getStatusTagType(scope.row.status || '') as any">
-                {{ getStatusText(scope.row.status || '') }}
+                {{ getStatusText(scope.row.status || "") }}
               </el-tag>
             </template>
           </el-table-column>
@@ -416,7 +416,7 @@
             </el-descriptions-item>
             <el-descriptions-item label="购买类型">
               <el-tag :type="getPurchaseTypeTagType(detailFormData.purchase_type || '') as any">
-                {{ getPurchaseTypeText(detailFormData.purchase_type || '') }}
+                {{ getPurchaseTypeText(detailFormData.purchase_type || "") }}
               </el-tag>
             </el-descriptions-item>
             <el-descriptions-item label="购买课次">
@@ -449,7 +449,7 @@
             </el-descriptions-item>
             <el-descriptions-item label="状态">
               <el-tag :type="getStatusTagType(detailFormData.status || '') as any">
-                {{ getStatusText(detailFormData.status || '') }}
+                {{ getStatusText(detailFormData.status || "") }}
               </el-tag>
             </el-descriptions-item>
             <el-descriptions-item label="创建人">
@@ -517,7 +517,7 @@
                       v-for="student in studentList"
                       :key="student.id"
                       :label="`${student.name}:${calculateAge(student.birth_date)}岁:${student.level || '未设置'}:${student.group_name || '未设置'}`"
-                       :value="student.id as number"
+                      :value="student.id as number"
                     />
                   </el-select>
                 </el-form-item>
@@ -1347,7 +1347,10 @@ const batchRules = reactive({
         // 如果是自选天班级，验证是否选择了足够的次数
         if (classTypeInfo.value && classTypeInfo.value.class_type === "flexible") {
           const requiredCount = classTypeInfo.value.sessions_per_week || 0;
-          const selectedCount = Object.keys(value).reduce((sum, day) => sum + (value[day] || []).length, 0);
+          const selectedCount = Object.keys(value).reduce(
+            (sum, day) => sum + (value[day] || []).length,
+            0
+          );
           if (selectedCount !== requiredCount) {
             callback();
             return;
@@ -1503,7 +1506,9 @@ function getPurchaseTypeText(type: string): string {
 }
 
 // 获取购买类型标签样式
-function getPurchaseTypeTagType(type: string): "primary" | "success" | "warning" | "info" | "danger" {
+function getPurchaseTypeTagType(
+  type: string
+): "primary" | "success" | "warning" | "info" | "danger" {
   const typeMap: Record<string, "primary" | "success" | "warning" | "info" | "danger"> = {
     new: "primary",
     renewal: "success",

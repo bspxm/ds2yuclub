@@ -243,7 +243,7 @@
           >
             <template #default="scope">
               <el-tag :type="(statusTypeMap[scope.row.status || ''] || 'info') as any">
-                {{ statusMap[scope.row.status || ''] || scope.row.status }}
+                {{ statusMap[scope.row.status || ""] || scope.row.status }}
               </el-tag>
             </template>
           </el-table-column>
@@ -331,7 +331,7 @@
           </el-descriptions-item>
           <el-descriptions-item label="学期状态">
             <el-tag :type="(statusTypeMap[detailFormData.status || ''] || 'info') as any">
-              {{ statusMap[detailFormData.status || ''] || detailFormData.status }}
+              {{ statusMap[detailFormData.status || ""] || detailFormData.status }}
             </el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="开始日期">

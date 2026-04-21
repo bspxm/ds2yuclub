@@ -274,17 +274,23 @@
                 <el-button type="primary" icon="refresh" @click="loadChampionshipStatus">
                   刷新状态
                 </el-button>
-                <el-button
-                  v-if="
-                    championshipStatus?.group_stage?.is_completed &&
-                    !championshipStatus?.knockout?.is_generated
+                <el-tooltip
+                  v-if="!championshipStatus?.knockout?.is_generated"
+                  :content="
+                    championshipStatus?.group_stage?.is_completed
+                      ? '小组赛已全部完成，点击生成淘汰赛对阵'
+                      : `小组赛尚未全部完成 (${championshipStatus?.group_stage?.completed || 0}/${championshipStatus?.group_stage?.total || 0})`
                   "
-                  type="success"
-                  icon="trophy"
-                  @click="handleGenerateChampionshipKnockout"
                 >
-                  生成淘汰赛对阵
-                </el-button>
+                  <el-button
+                    type="success"
+                    icon="trophy"
+                    :disabled="!championshipStatus?.group_stage?.is_completed"
+                    @click="handleGenerateChampionshipKnockout"
+                  >
+                    生成淘汰赛对阵
+                  </el-button>
+                </el-tooltip>
               </div>
 
               <!-- 状态概览 -->
@@ -979,7 +985,46 @@ async function handleGenerateChampionshipKnockout() {
     ElMessage.warning("淘汰赛对阵正在生成中，请稍候...");
     return;
   }
-  
+
+  // 先重新加载最新状态，确保数据准确
+  try {
+    await loadChampionshipStatus();
+  } catch {
+    ElMessage.error("加载锦标赛状态失败，请重试");
+    return;
+  }
+
+  // 检查小组赛是否全部完成
+  if (!championshipStatus.value?.group_stage?.is_completed) {
+    const completed = championshipStatus.value?.group_stage?.completed || 0;
+    const total = championshipStatus.value?.group_stage?.total || 0;
+    const remaining = (championshipStatus.value?.group_stage?.remaining) || (total - completed);
+    ElMessage.warning(
+      `小组赛尚未全部完成，还有 ${remaining} 场比赛未录入比分。请先完成所有小组赛再生成淘汰赛对阵。`
+    );
+    return;
+  }
+
+  // 检查淘汰赛是否已生成
+  if (championshipStatus.value?.knockout?.is_generated) {
+    ElMessage.warning("淘汰赛对阵已经生成，请勿重复操作");
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      "小组赛已全部完成，确认生成淘汰赛对阵吗？生成后将不可撤销。",
+      "确认生成淘汰赛",
+      {
+        confirmButtonText: "确认生成",
+        cancelButtonText: "取消",
+        type: "warning",
+      }
+    );
+  } catch {
+    return;
+  }
+
   isGeneratingKnockout = true;
   // 显示持久化通知，不锁定界面
   const notification = ElNotification({
