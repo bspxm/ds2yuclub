@@ -33,10 +33,9 @@
             style="width: 120px"
             clearable
           >
-            <el-option value="planned" label="计划中" />
-            <el-option value="ongoing" label="进行中" />
-            <el-option value="completed" label="已结束" />
-            <el-option value="cancelled" label="已取消" />
+            <el-option value="DRAFT" label="准备" />
+            <el-option value="ACTIVE" label="进行中" />
+            <el-option value="COMPLETED" label="结束" />
           </el-select>
         </el-form-item>
         <el-form-item>
@@ -137,6 +136,7 @@
               管理
             </el-button>
             <el-button
+              v-if="row.status === 'DRAFT'"
               v-hasPerm="['module_badminton:tournament:update']"
               type="primary"
               link
@@ -146,6 +146,7 @@
               编辑
             </el-button>
             <el-button
+              v-if="row.status === 'DRAFT'"
               v-hasPerm="['module_badminton:tournament:delete']"
               type="danger"
               link
@@ -187,10 +188,16 @@
           <el-tab-pane label="参赛队员" name="participants">
             <div class="tab-content">
               <div class="toolbar">
-                <el-button type="primary" icon="plus" @click="handleAddParticipant">
+                <el-button
+                  v-if="currentTournament?.status === 'DRAFT'"
+                  type="primary"
+                  icon="plus"
+                  @click="handleAddParticipant"
+                >
                   添加参赛队员
                 </el-button>
                 <el-button
+                  v-if="currentTournament?.status === 'DRAFT'"
                   type="success"
                   icon="refresh"
                   :disabled="participants.length < 2"
@@ -412,12 +419,20 @@
                 <el-table-column label="操作" width="120" align="center">
                   <template #default="{ row }">
                     <el-button
-                      v-if="!row.winner_id"
+                      v-if="!row.winner_id && currentTournament?.status !== 'COMPLETED'"
                       type="primary"
                       link
                       @click="handleRecordPRScore(row)"
                     >
                       录入比分
+                    </el-button>
+                    <el-button
+                      v-else-if="row.winner_id"
+                      type="info"
+                      link
+                      @click="handleRecordPRScore(row)"
+                    >
+                      查看
                     </el-button>
                   </template>
                 </el-table-column>
@@ -430,6 +445,14 @@
             <div class="tab-content">
               <div class="toolbar">
                 <el-button type="primary" icon="refresh" @click="loadMatches">刷新</el-button>
+                <el-button
+                  v-if="currentTournament?.status === 'ACTIVE'"
+                  type="danger"
+                  icon="flag"
+                  @click="handleEndTournament"
+                >
+                  比赛结束
+                </el-button>
               </div>
               <CardView :matches="matches" @match-click="handleMatchClick" />
             </div>
@@ -568,6 +591,7 @@
     <ScoreDialog
       v-model:visible="scoreDialogVisible"
       :match="selectedMatch"
+      :readonly="scoreDialogReadonly"
       @submit="handleScoreSubmit"
     />
 
@@ -588,7 +612,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from "vue";
-import { ElMessage, ElMessageBox } from "element-plus";
+import { ElLoading, ElMessage, ElMessageBox } from "element-plus";
 import { QuestionFilled } from "@element-plus/icons-vue";
 import TournamentAPI, { TournamentAPIExtended } from "@/api/module_badminton/tournament";
 import type {
@@ -711,6 +735,7 @@ const participantSelectVisible = ref(false);
 
 // 比分录入
 const scoreDialogVisible = ref(false);
+const scoreDialogReadonly = ref(false);
 const selectedMatch = ref<TournamentMatch | null>(null);
 
 // 种子排名设置
@@ -1011,6 +1036,10 @@ async function handleGenerateMatches() {
       position: "bottom-right",
     });
     activeTab.value = "matches";
+    // 更新赛事状态为进行中
+    if (currentTournament.value) {
+      currentTournament.value.status = "ACTIVE";
+    }
     // 同时从服务器加载最新对阵，确保数据一致
     await loadMatches();
   } catch (error: any) {
@@ -1218,6 +1247,9 @@ async function handleInitPositions() {
   try {
     await TournamentAPIExtended.initPositions(currentTournament.value.id);
     ElMessage.success("位置初始化成功");
+    if (currentTournament.value) {
+      currentTournament.value.status = "ACTIVE";
+    }
     await loadPositions();
     await loadPRMatches();
   } catch (error: any) {
@@ -1248,7 +1280,61 @@ function handleRecordPRScore(match: any) {
     scores: match.scores?.sets || [],
     status: match.winner_id ? "COMPLETED" : "SCHEDULED",
   } as any;
+  scoreDialogReadonly.value = currentTournament.value?.status === "COMPLETED";
   scoreDialogVisible.value = true;
+}
+
+// 处理小组赛比分录入
+function handleGroupStageScore(scheduleItem: any) {
+  // 转换小组赛赛程项为 TournamentMatch 格式
+  selectedMatch.value = {
+    id: scheduleItem.match_id,
+    player1: { id: scheduleItem.player1_id, name: scheduleItem.player1_name },
+    player2: { id: scheduleItem.player2_id, name: scheduleItem.player2_name },
+    scores: scheduleItem.sets || [], // 传递已有的比分数据
+    status: scheduleItem.completed ? "COMPLETED" : "SCHEDULED",
+  } as any;
+  scoreDialogReadonly.value = currentTournament.value?.status === "COMPLETED";
+  scoreDialogVisible.value = true;
+}
+
+// 点击比赛
+function handleMatchClick(match: TournamentMatch) {
+  selectedMatch.value = match;
+  scoreDialogReadonly.value = currentTournament.value?.status === "COMPLETED";
+  scoreDialogVisible.value = true;
+}
+
+// 结束赛事
+async function handleEndTournament() {
+  if (!currentTournament.value) return;
+  try {
+    await ElMessageBox.confirm(
+      `确认结束赛事"${currentTournament.value.name}"吗？结束后将不能再录入比分。`,
+      "结束赛事",
+      {
+        confirmButtonText: "确认结束",
+        cancelButtonText: "取消",
+        type: "warning",
+      }
+    );
+    const loading = ElLoading.service({ text: "正在结束赛事，请稍候...", fullscreen: true });
+    try {
+      await TournamentAPIExtended.completeTournament(currentTournament.value.id);
+      loading.close();
+      ElMessage.success("赛事已结束");
+      manageDialogVisible.value = false;
+      handleQuery();
+    } catch (e: any) {
+      loading.close();
+      ElMessage.error(e?.response?.data?.msg || "结束赛事失败");
+    }
+  } catch (error: any) {
+    if (error !== "cancel") {
+      console.error(error);
+      ElMessage.error(error?.response?.data?.msg || "结束赛事失败");
+    }
+  }
 }
 
 // 格式化抢位赛比分
@@ -1273,25 +1359,7 @@ function handleKnockoutMatchClick(match: any) {
       : [],
     status: match.status,
   };
-  scoreDialogVisible.value = true;
-}
-
-// 处理小组赛比分录入
-function handleGroupStageScore(scheduleItem: any) {
-  // 转换小组赛赛程项为 TournamentMatch 格式
-  selectedMatch.value = {
-    id: scheduleItem.match_id,
-    player1: { id: scheduleItem.player1_id, name: scheduleItem.player1_name },
-    player2: { id: scheduleItem.player2_id, name: scheduleItem.player2_name },
-    scores: scheduleItem.sets || [], // 传递已有的比分数据
-    status: scheduleItem.completed ? "COMPLETED" : "SCHEDULED",
-  } as any;
-  scoreDialogVisible.value = true;
-}
-
-// 点击比赛
-function handleMatchClick(match: TournamentMatch) {
-  selectedMatch.value = match;
+  scoreDialogReadonly.value = currentTournament.value?.status === "COMPLETED";
   scoreDialogVisible.value = true;
 }
 
@@ -1354,17 +1422,13 @@ function getFormatLabel(tournamentType: string): string {
 function getStatusLabel(status: string): string {
   const map: Record<string, string> = {
     // 大写格式（数据库视图返回）
-    DRAFT: "草稿",
-    REGISTRATION: "报名中",
+    DRAFT: "准备",
     ACTIVE: "进行中",
-    COMPLETED: "已结束",
-    CANCELLED: "已取消",
+    COMPLETED: "结束",
     // 小写格式（兼容旧数据）
-    draft: "草稿",
-    registration: "报名中",
+    draft: "准备",
     active: "进行中",
-    completed: "已结束",
-    cancelled: "已取消",
+    completed: "结束",
   };
   return map[status] || status;
 }
@@ -1373,16 +1437,12 @@ function getStatusType(status: string): string {
   const map: Record<string, string> = {
     // 大写格式
     DRAFT: "info",
-    REGISTRATION: "warning",
-    ACTIVE: "success",
+    ACTIVE: "warning",
     COMPLETED: "success",
-    CANCELLED: "danger",
     // 小写格式（兼容）
     draft: "info",
-    registration: "warning",
-    active: "success",
+    active: "warning",
     completed: "success",
-    cancelled: "danger",
   };
   return map[status] || "info";
 }

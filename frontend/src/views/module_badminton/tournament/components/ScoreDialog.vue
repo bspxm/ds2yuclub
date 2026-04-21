@@ -1,5 +1,5 @@
 <template>
-  <el-dialog v-model="dialogVisible" title="录入比分" width="550px" @close="dialogVisible = false">
+  <el-dialog v-model="dialogVisible" :title="readonly ? '查看比分' : '录入比分'" width="550px" @close="dialogVisible = false">
     <div v-if="match">
       <div class="match-info">
         <span class="player-name" :class="{ winner: calculatedWinner === match.player1?.id }">
@@ -21,6 +21,7 @@
             :min="0"
             :max="99"
             size="large"
+            :disabled="readonly"
             @change="calculateWinner"
           />
           <span class="score-separator">:</span>
@@ -29,15 +30,16 @@
             :min="0"
             :max="99"
             size="large"
+            :disabled="readonly"
             @change="calculateWinner"
           />
-          <el-button v-if="scores.length > 1" type="danger" link @click="removeSet(index)">
+          <el-button v-if="!readonly && scores.length > 1" type="danger" link @click="removeSet(index)">
             删除
           </el-button>
         </div>
       </div>
 
-      <div class="actions">
+      <div v-if="!readonly" class="actions">
         <el-button type="primary" link @click="addSet">+ 添加局数</el-button>
       </div>
 
@@ -59,8 +61,8 @@
     </div>
 
     <template #footer>
-      <el-button @click="dialogVisible = false">取消</el-button>
-      <el-button type="primary" @click="handleSubmit">确认</el-button>
+      <el-button @click="dialogVisible = false">{{ readonly ? '关闭' : '取消' }}</el-button>
+      <el-button v-if="!readonly" type="primary" @click="handleSubmit">确认</el-button>
     </template>
   </el-dialog>
 </template>
@@ -93,6 +95,7 @@ const props = defineProps<{
     status?: string;
     roundType?: string;
   } | null;
+  readonly?: boolean;
 }>();
 
 const emit = defineEmits<{

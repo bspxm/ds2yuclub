@@ -26,7 +26,7 @@ from .service import (
     TournamentParticipantService,
     TournamentMatchService,
 )
-from ..enums import TournamentTypeEnum
+from ..enums import TournamentStatusEnum, TournamentTypeEnum
 
 TournamentRouter = APIRouter(
     route_class=OperationLogRoute, prefix="/tournament", tags=["tournament管理"]
@@ -230,6 +230,22 @@ async def record_score(
         tournament_id, match_id, scores, auth
     )
     return SuccessResponse(data=result, msg="比分录入成功")
+
+
+@TournamentRouter.put(
+    "/{tournament_id}/complete",
+    summary="结束赛事",
+    description="将赛事状态标记为已结束，结束后不能再录入比分",
+)
+async def complete_tournament(
+    tournament_id: int,
+    auth: AuthSchema = Depends(AuthPermission(["module_badminton:tournament:update"])),
+) -> JSONResponse:
+    """结束赛事"""
+    result = await TournamentService.update_status_service(
+        auth, tournament_id, TournamentStatusEnum.COMPLETED.value
+    )
+    return SuccessResponse(data=result, msg="赛事已结束")
 
 
 @TournamentRouter.get(

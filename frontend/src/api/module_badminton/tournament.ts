@@ -373,6 +373,14 @@ const TournamentAPIExtended = {
       method: "get",
     });
   },
+
+  // 结束赛事
+  completeTournament(tournamentId: number) {
+    return request<ApiResponse<any>>({
+      url: `${API_PATH}/${tournamentId}/complete`,
+      method: "put",
+    });
+  },
 };
 
 export { TournamentAPIExtended };

@@ -79,6 +79,11 @@ class TournamentCRUD(
         # 将schema转换为字典
         obj_dict = data.model_dump(exclude_unset=True, exclude={"id"})
 
+        # 处理枚举字段：将枚举对象转换为字符串值
+        for key, value in obj_dict.items():
+            if hasattr(value, "value"):
+                obj_dict[key] = value.value
+
         # 处理日期字段：将字符串转换为date对象
         date_fields = ["start_date", "end_date"]
         for field in date_fields:
@@ -103,9 +108,7 @@ class TournamentCRUD(
         self, tournament_id: int, status: str
     ) -> Optional[TournamentModel]:
         """更新赛事状态"""
-        return await self.update_crud(
-            tournament_id, TournamentUpdateSchema(status=status)
-        )
+        return await self.update(id=tournament_id, data={"status": status})
 
     async def get_active_tournaments_crud(self) -> Sequence[TournamentModel]:
         """获取进行中的赛事"""

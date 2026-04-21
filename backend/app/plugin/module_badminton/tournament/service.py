@@ -452,13 +452,14 @@ class TournamentMatchService:
             raise CustomException(msg="有效参赛人数不足")
 
         # 单败淘汰赛使用淘汰赛服务
+        result = None
         if tournament.tournament_type.value == "SINGLE_ELIMINATION":
             logger.info("[generate_matches_service] 使用淘汰赛服务生成对阵表")
             participant_ids = [p.id for p in valid_participants]
             result = await KnockoutService.generate_bracket(
                 tournament_id=tournament_id, participant_ids=participant_ids, auth=auth
             )
-            return result.get("matches", [])
+            result = result.get("matches", [])
 
         # 小组循环赛
         elif tournament.tournament_type.value in [
@@ -469,14 +470,14 @@ class TournamentMatchService:
             logger.info("[generate_matches_service] 使用循环赛算法生成对阵表")
             # 清除旧的分组和比赛数据
             await cls._cleanup_old_group_data(tournament_id, auth)
-            return await cls._generate_round_robin_matches(
+            result = await cls._generate_round_robin_matches(
                 tournament_id, tournament, auth
             )
 
         # 定区升降赛
         elif tournament.tournament_type.value == "PROMOTION_RELEGATION":
             logger.info("[generate_matches_service] 定区升降赛：初始化位置")
-            return await cls._init_promotion_relegation_positions(
+            result = await cls._init_promotion_relegation_positions(
                 tournament_id, auth
             )
 
@@ -486,6 +487,17 @@ class TournamentMatchService:
                 f"[generate_matches_service] 暂不支持的赛制类型: {tournament.tournament_type.value}"
             )
             return []
+
+        # 生成对阵成功后，将赛事状态更新为进行中
+        if result:
+            await TournamentCRUD(auth).update_status_crud(
+                tournament_id, TournamentStatusEnum.ACTIVE.value
+            )
+            logger.info(
+                f"[generate_matches_service] 赛事 {tournament_id} 状态已更新为 ACTIVE"
+            )
+
+        return result
 
     @classmethod
     async def _cleanup_old_group_data(
@@ -764,6 +776,17 @@ class TournamentMatchService:
 
         if not m or m.tournament_id != tournament_id:
             raise CustomException(msg="比赛不存在")
+
+        # 校验赛事状态：已结束的赛事不能录入比分
+        from sqlalchemy import text
+        status_result = await auth.db.execute(
+            text("SELECT status FROM badminton_tournament WHERE id = :tid"),
+            {"tid": tournament_id},
+        )
+        status_row = status_result.fetchone()
+        tournament_status = status_row[0] if status_row else None
+        if tournament_status == TournamentStatusEnum.COMPLETED.value:
+            raise CustomException(msg="赛事已结束，不能录入比分")
 
         # 存储比分数据，包含每局的胜负标记
         sets_data = []
