@@ -1,5 +1,10 @@
 <template>
-  <el-dialog v-model="dialogVisible" :title="readonly ? '查看比分' : '录入比分'" width="550px" @close="dialogVisible = false">
+  <el-dialog
+    v-model="dialogVisible"
+    :title="readonly ? '查看比分' : '录入比分'"
+    width="550px"
+    @close="dialogVisible = false"
+  >
     <div v-if="match">
       <div class="match-info">
         <span class="player-name" :class="{ winner: calculatedWinner === match.player1?.id }">
@@ -33,7 +38,12 @@
             :disabled="readonly"
             @change="calculateWinner"
           />
-          <el-button v-if="!readonly && scores.length > 1" type="danger" link @click="removeSet(index)">
+          <el-button
+            v-if="!readonly && scores.length > 1"
+            type="danger"
+            link
+            @click="removeSet(index)"
+          >
             删除
           </el-button>
         </div>
@@ -61,7 +71,7 @@
     </div>
 
     <template #footer>
-      <el-button @click="dialogVisible = false">{{ readonly ? '关闭' : '取消' }}</el-button>
+      <el-button @click="dialogVisible = false">{{ readonly ? "关闭" : "取消" }}</el-button>
       <el-button v-if="!readonly" type="primary" @click="handleSubmit">确认</el-button>
     </template>
   </el-dialog>
@@ -220,26 +230,26 @@ function handleSubmit() {
 <style scoped>
 .match-info {
   display: flex;
-  justify-content: center;
-  align-items: center;
   gap: 20px;
+  align-items: center;
+  justify-content: center;
   padding: 20px;
   font-size: 18px;
 }
 
 .player-name {
-  font-weight: bold;
   min-width: 100px;
-  text-align: center;
   padding: 8px 16px;
+  font-weight: bold;
+  color: var(--el-text-color-primary);
+  text-align: center;
   border-radius: 8px;
   transition: all 0.3s;
-  color: var(--el-text-color-primary);
 }
 
 .player-name.winner {
-  background: var(--el-color-success);
   color: white;
+  background: var(--el-color-success);
   box-shadow: 0 4px 12px rgba(103, 194, 58, 0.4);
 }
 
@@ -248,8 +258,8 @@ function handleSubmit() {
 }
 
 .vs {
-  color: var(--el-text-color-secondary);
   font-size: 14px;
+  color: var(--el-text-color-secondary);
 }
 
 .scores {
@@ -261,8 +271,8 @@ function handleSubmit() {
 
 .score-row {
   display: flex;
-  align-items: center;
   gap: 12px;
+  align-items: center;
 }
 
 .set-label {
@@ -278,8 +288,8 @@ function handleSubmit() {
 
 .actions {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   margin-top: 16px;
 }
 
@@ -294,12 +304,12 @@ function handleSubmit() {
 }
 
 .winner-text {
-  color: var(--el-color-success);
   font-size: 16px;
+  color: var(--el-color-success);
 }
 
 .error-text {
-  color: var(--el-color-warning);
   font-size: 14px;
+  color: var(--el-color-warning);
 }
 </style>

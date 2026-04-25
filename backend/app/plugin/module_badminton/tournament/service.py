@@ -48,7 +48,7 @@ class TournamentService:
     ) -> dict:
         """更新赛事"""
         logger.info(f"[update_service] 开始更新赛事，tournament_id={tournament_id}")
-        tournament = await TournamentCRUD(auth).get_by_id_crud(tournament_id)
+        tournament = await TournamentCRUD(auth).get_by_id_crud(tournament_id, preload=[])
         if not tournament:
             logger.error(f"[update_service] 赛事不存在，tournament_id={tournament_id}")
             raise CustomException(msg="赛事不存在")
@@ -300,7 +300,21 @@ class TournamentParticipantService:
         if not tournament:
             raise CustomException(msg="赛事不存在")
 
+        type_value = (
+            tournament.tournament_type.value
+            if hasattr(tournament.tournament_type, "value")
+            else tournament.tournament_type
+        )
+
+        # 赛事已开始：只有纯小组赛和锦标赛支持补报
         if tournament.status != TournamentStatusEnum.DRAFT:
+            if tournament.status == TournamentStatusEnum.ACTIVE and type_value in (
+                "PURE_GROUP",
+                "CHAMPIONSHIP",
+            ):
+                return await cls._batch_add_late_service(
+                    tournament_id, student_ids, auth
+                )
             raise CustomException(msg="赛事已开始，不能添加参赛队员")
 
         # 验证参赛人数是否超过容量
@@ -323,11 +337,6 @@ class TournamentParticipantService:
             )
 
         # 定区升降赛：总人数必须为偶数
-        type_value = (
-            tournament.tournament_type.value
-            if hasattr(tournament.tournament_type, "value")
-            else tournament.tournament_type
-        )
         if type_value == "PROMOTION_RELEGATION" and new_count % 2 != 0:
             raise CustomException(
                 msg=f"定区升降赛参赛人数必须为偶数。当前{current_count}人，添加{len(student_ids)}人后共{new_count}人，请调整为偶数"
@@ -340,6 +349,85 @@ class TournamentParticipantService:
                     tournament_id, student_id
                 )
                 results.append({"student_id": student_id, "status": "added"})
+            except ValueError:
+                results.append({"student_id": student_id, "status": "already_exists"})
+
+        return results
+
+    @classmethod
+    async def _batch_add_late_service(
+        cls, tournament_id: int, student_ids: list[int], auth: AuthSchema
+    ) -> list[dict]:
+        """补报学员：ACTIVE状态下为纯小组赛/锦标赛添加参赛队员并补建比赛"""
+        from sqlalchemy import text
+
+        # 查询所有小组及其当前活跃人数
+        groups_result = await auth.db.execute(
+            text("""
+                SELECT g.id, g.group_name, g.group_order,
+                       COUNT(p.id) FILTER (WHERE p.is_withdrawn = false) AS active_count
+                FROM badminton_tournament_group g
+                LEFT JOIN badminton_tournament_participant p ON p.group_id = g.id
+                WHERE g.tournament_id = :tid
+                GROUP BY g.id, g.group_name, g.group_order
+                ORDER BY COUNT(p.id) FILTER (WHERE p.is_withdrawn = false) ASC, g.group_order ASC
+            """),
+            {"tid": tournament_id},
+        )
+        groups = groups_result.mappings().all()
+
+        if not groups:
+            raise CustomException(msg="赛事暂无分组，无法补报")
+
+        results = []
+        for student_id in student_ids:
+            try:
+                participant = await TournamentParticipantCRUD(auth).register_crud(
+                    tournament_id, student_id
+                )
+                if not participant:
+                    results.append({"student_id": student_id, "status": "failed"})
+                    continue
+
+                # 选人数最少的小组（第一个即为最少，已按 active_count 排序）
+                target_group = groups[0]
+                target_group_id = target_group["id"]
+
+                # 更新 participant group_id
+                await auth.db.execute(
+                    text(
+                        "UPDATE badminton_tournament_participant SET group_id = :gid WHERE id = :pid"
+                    ),
+                    {"gid": target_group_id, "pid": participant.id},
+                )
+                await auth.db.flush()
+
+                # 查询该组活跃成员（排除补报学员自身和已退赛的）
+                members_result = await auth.db.execute(
+                    text("""
+                        SELECT id FROM badminton_tournament_participant
+                        WHERE group_id = :gid AND id != :pid AND is_withdrawn = false
+                    """),
+                    {"gid": target_group_id, "pid": participant.id},
+                )
+                existing_ids = [row[0] for row in members_result.fetchall()]
+
+                # 创建补赛对阵
+                if existing_ids:
+                    await TournamentMatchCRUD(auth).batch_create_late_matches_crud(
+                        tournament_id=tournament_id,
+                        group_id=target_group_id,
+                        new_participant_id=participant.id,
+                        existing_participant_ids=existing_ids,
+                    )
+
+                results.append(
+                    {
+                        "student_id": student_id,
+                        "status": "added",
+                        "group_name": target_group["group_name"],
+                    }
+                )
             except ValueError:
                 results.append({"student_id": student_id, "status": "already_exists"})
 

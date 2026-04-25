@@ -75,8 +75,9 @@ class TournamentCRUD(
     async def update_crud(
         self, id: int, data: TournamentUpdateSchema
     ) -> Optional[TournamentModel]:
-        """更新赛事"""
-        # 将schema转换为字典
+        """更新赛事 - 使用直接SQL更新避免ORM多次查询"""
+        from sqlalchemy import update
+
         obj_dict = data.model_dump(exclude_unset=True, exclude={"id"})
 
         # 处理枚举字段：将枚举对象转换为字符串值
@@ -97,8 +98,25 @@ class TournamentCRUD(
                         # 如果格式不匹配，尝试其他格式或保持原样
                         pass
 
-        # 传递字典给基类的update方法
-        return await self.update(id=id, data=obj_dict)
+        if not obj_dict:
+            return await self.get(id=id, preload=[])
+
+        # 设置更新人
+        if self.auth.user:
+            obj_dict["updated_id"] = self.auth.user.id
+
+        # 直接UPDATE + RETURNING
+        stmt = (
+            update(TournamentModel)
+            .where(TournamentModel.id == id)
+            .values(**obj_dict)
+            .returning(TournamentModel)
+        )
+        result = await self.auth.db.execute(stmt)
+        obj = result.scalars().first()
+        await self.auth.db.flush()
+
+        return obj
 
     async def delete_crud(self, ids: list[int]) -> None:
         """删除赛事"""
@@ -360,6 +378,41 @@ class TournamentMatchCRUD(CRUDBase[TournamentMatchModel, dict, dict]):
                 f"[create_match_crud] 对阵创建失败: tournament_id={tournament_id}, player1_id={player1_id}, player2_id={player2_id}"
             )
         return result
+
+    async def batch_create_late_matches_crud(
+        self,
+        tournament_id: int,
+        group_id: int,
+        new_participant_id: int,
+        existing_participant_ids: list[int],
+    ) -> list[TournamentMatchModel]:
+        """为补报学员创建与同组已有成员的比赛"""
+        from sqlalchemy import text as sa_text
+
+        # 查询当前小组最大 match_number
+        max_match_result = await self.auth.db.execute(
+            sa_text(
+                "SELECT COALESCE(MAX(match_number), 0) FROM badminton_tournament_match "
+                "WHERE group_id = :gid AND round_type = 'GROUP_STAGE'"
+            ),
+            {"gid": group_id},
+        )
+        max_match_number = max_match_result.scalar() or 0
+
+        created = []
+        for idx, opponent_id in enumerate(existing_participant_ids):
+            match = await self.create_match_crud(
+                tournament_id=tournament_id,
+                round_type="GROUP_STAGE",
+                round_number=1,
+                match_number=max_match_number + idx + 1,
+                player1_id=new_participant_id,
+                player2_id=opponent_id,
+                group_id=group_id,
+            )
+            if match:
+                created.append(match)
+        return created
 
     async def get_by_tournament_crud(
         self, tournament_id: int, group_id: Optional[int] = None

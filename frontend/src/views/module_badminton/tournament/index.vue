@@ -189,7 +189,10 @@
             <div class="tab-content">
               <div class="toolbar">
                 <el-button
-                  v-if="currentTournament?.status === 'DRAFT'"
+                  v-if="
+                    currentTournament?.status === 'DRAFT' ||
+                    (currentTournament?.status === 'ACTIVE' && isGroupStageTournament)
+                  "
                   type="primary"
                   icon="plus"
                   @click="handleAddParticipant"
@@ -200,14 +203,18 @@
                   v-if="currentTournament?.status === 'DRAFT'"
                   type="success"
                   icon="refresh"
-                  :disabled="participants.length < 2"
+                  :disabled="participants.length < 2 || isGeneratingMatches"
                   @click="handleGenerateMatches"
                 >
                   生成对阵表
                 </el-button>
               </div>
               <el-alert
-                v-if="isPromotionRelegationTournament && participants.length > 0 && participants.length % 2 !== 0"
+                v-if="
+                  isPromotionRelegationTournament &&
+                  participants.length > 0 &&
+                  participants.length % 2 !== 0
+                "
                 title="定区升降赛参赛人数必须为偶数，请添加或移除学员使其为偶数"
                 type="warning"
                 :closable="false"
@@ -267,6 +274,7 @@
                   v-if="!knockoutData"
                   type="success"
                   icon="trophy"
+                  :disabled="isGeneratingKnockout"
                   @click="generateKnockout"
                 >
                   生成对阵表
@@ -299,7 +307,9 @@
                   <el-button
                     type="success"
                     icon="trophy"
-                    :disabled="!championshipStatus?.group_stage?.is_completed"
+                    :disabled="
+                      !championshipStatus?.group_stage?.is_completed || isGeneratingKnockout
+                    "
                     @click="handleGenerateChampionshipKnockout"
                   >
                     生成淘汰赛对阵
@@ -377,17 +387,10 @@
                 >
                   随机抽签入位
                 </el-button>
-                <el-button
-                  v-else
-                  type="success"
-                  icon="plus"
-                  @click="handleGenerateRound"
-                >
+                <el-button v-else type="success" icon="plus" @click="handleGenerateRound">
                   生成新一轮
                 </el-button>
-                <el-button type="primary" icon="refresh" @click="loadPositions">
-                  刷新
-                </el-button>
+                <el-button type="primary" icon="refresh" @click="loadPositions">刷新</el-button>
               </div>
 
               <PositionBoard
@@ -397,7 +400,7 @@
               <el-empty v-else description="尚未初始化位置，请点击上方按钮进行随机抽签" />
 
               <!-- 比赛记录（按轮次分组） -->
-              <h4 style="margin-top: 20px;">比赛记录</h4>
+              <h4 style="margin-top: 20px">比赛记录</h4>
               <el-table :data="prMatches" border>
                 <el-table-column prop="round_number" label="轮次" width="80" align="center" />
                 <el-table-column prop="match_number" label="场地" width="80" align="center" />
@@ -444,17 +447,52 @@
           <el-tab-pane label="对阵" name="matches">
             <div class="tab-content">
               <div class="toolbar">
-                <el-button type="primary" icon="refresh" @click="loadMatches">刷新</el-button>
-                <el-button
-                  v-if="currentTournament?.status === 'ACTIVE'"
-                  type="danger"
-                  icon="flag"
-                  @click="handleEndTournament"
-                >
-                  比赛结束
-                </el-button>
+                <div class="toolbar-left">
+                  <el-select
+                    v-model="selectedPlayerId"
+                    placeholder="按参赛者筛选"
+                    clearable
+                    filterable
+                    style="width: 200px"
+                    @clear="selectedPlayerId = null"
+                  >
+                    <el-option
+                      v-for="p in playerFilterOptions"
+                      :key="p.id"
+                      :label="p.name"
+                      :value="p.id"
+                    />
+                  </el-select>
+                </div>
+                <div class="match-stats">
+                  <div class="stat-item">
+                    <span class="stat-label">全部</span>
+                    <span class="stat-value">{{ matchStats.total }}</span>
+                  </div>
+                  <span class="stat-divider" />
+                  <div class="stat-item">
+                    <span class="stat-label">已完成</span>
+                    <span class="stat-value is-completed">{{ matchStats.completed }}</span>
+                  </div>
+                  <span class="stat-divider" />
+                  <div class="stat-item">
+                    <span class="stat-label">进行中</span>
+                    <span class="stat-value is-pending">{{ matchStats.pending }}</span>
+                  </div>
+                </div>
+                <div class="toolbar-right">
+                  <el-button type="primary" icon="refresh" @click="loadMatches">刷新</el-button>
+                  <el-button
+                    v-if="currentTournament?.status === 'ACTIVE'"
+                    type="danger"
+                    icon="flag"
+                    @click="handleEndTournament"
+                  >
+                    比赛结束
+                  </el-button>
+                </div>
               </div>
-              <CardView :matches="matches" @match-click="handleMatchClick" />
+              <CardView :matches="filteredMatches" @match-click="handleMatchClick" />
             </div>
           </el-tab-pane>
         </el-tabs>
@@ -505,11 +543,7 @@
           label="每组人数"
           prop="group_size"
         >
-          <el-input-number
-            v-model="formData.group_size"
-            :min="2"
-            :max="8"
-          />
+          <el-input-number v-model="formData.group_size" :min="2" :max="8" />
           <el-text
             v-if="formData.tournament_type === 'PROMOTION_RELEGATION'"
             type="warning"
@@ -700,6 +734,32 @@ const currentTournament = ref<TournamentTable | null>(null);
 const activeTab = ref("participants");
 const participants = ref<TournamentParticipant[]>([]);
 const matches = ref<TournamentMatch[]>([]);
+const selectedPlayerId = ref<number | null>(null);
+const playerFilterOptions = computed(() => {
+  const playerMap = new Map<number, string>();
+  for (const m of matches.value) {
+    if (m.player1?.id && m.player1?.student_name) {
+      playerMap.set(m.player1.id, m.player1.student_name);
+    }
+    if (m.player2?.id && m.player2?.student_name) {
+      playerMap.set(m.player2.id, m.player2.student_name);
+    }
+  }
+  return Array.from(playerMap.entries())
+    .map(([id, name]) => ({ id, name }))
+    .sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
+});
+const filteredMatches = computed(() => {
+  if (!selectedPlayerId.value) return matches.value;
+  return matches.value.filter(
+    (m) => m.player1?.id === selectedPlayerId.value || m.player2?.id === selectedPlayerId.value
+  );
+});
+const matchStats = computed(() => {
+  const total = matches.value.length;
+  const completed = matches.value.filter((m) => m.status?.toUpperCase() === "COMPLETED").length;
+  return { total, completed, pending: total - completed };
+});
 const groupStageData = ref<any>(null);
 const knockoutData = ref<any>(null);
 const championshipStatus = ref<any>(null);
@@ -947,22 +1007,45 @@ async function handleParticipantSubmit(selectedParticipants: any[]) {
   const newCount = currentCount + studentIds.length;
 
   // 定区升降赛校验：总人数必须为偶数
-  if (
-    currentTournament.value.tournament_type === "PROMOTION_RELEGATION" &&
-    newCount % 2 !== 0
-  ) {
+  if (currentTournament.value.tournament_type === "PROMOTION_RELEGATION" && newCount % 2 !== 0) {
     ElMessage.warning(
       `定区升降赛参赛人数必须为偶数。当前${currentCount}人，添加${studentIds.length}人后共${newCount}人，请调整为偶数`
     );
     return;
   }
 
+  // 赛事已开始：弹确认框
+  if (currentTournament.value.status === "ACTIVE") {
+    try {
+      await ElMessageBox.confirm(
+        "赛事已开始，补报学员将自动分配到人数最少的小组，并创建该学员与组内其他成员的比赛。是否继续？",
+        "补报确认",
+        { confirmButtonText: "确定", cancelButtonText: "取消", type: "warning" }
+      );
+    } catch {
+      return;
+    }
+  }
+
+  const notification = ElNotification({
+    title: "添加参赛队员",
+    message:
+      currentTournament.value.status === "ACTIVE"
+        ? "正在补报学员并生成比赛，请稍候..."
+        : "正在添加学员...",
+    type: "info",
+    duration: 0,
+    position: "bottom-right",
+  });
+
   try {
     await TournamentAPIExtended.batchAddParticipants(currentTournament.value.id, studentIds);
+    notification.close();
     ElMessage.success("添加成功");
     await loadParticipants();
   } catch (error: any) {
     console.error(error);
+    notification.close();
     ElMessage.error(error?.response?.data?.msg || "添加失败");
   }
 }
@@ -1101,6 +1184,12 @@ async function loadKnockoutData() {
 // 生成淘汰赛对阵表
 async function generateKnockout() {
   if (!currentTournament.value) return;
+  if (isGeneratingKnockout) {
+    ElMessage.warning("淘汰赛对阵正在生成中，请稍候...");
+    return;
+  }
+
+  isGeneratingKnockout = true;
   try {
     const participantIds = participants.value.map((p) => p.id);
     if (participantIds.length < 2) {
@@ -1116,6 +1205,8 @@ async function generateKnockout() {
   } catch (error) {
     console.error(error);
     ElMessage.error("生成淘汰赛对阵表失败");
+  } finally {
+    isGeneratingKnockout = false;
   }
 }
 
@@ -1501,6 +1592,61 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.toolbar-left,
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toolbar-right {
+  margin-left: auto;
+}
+
+.match-stats {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 16px;
+  background: var(--el-fill-color-light);
+  border-radius: 8px;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.stat-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--el-text-color-primary);
+  min-width: 18px;
+  text-align: center;
+}
+
+.stat-value.is-completed {
+  color: var(--el-color-success);
+}
+
+.stat-value.is-pending {
+  color: var(--el-color-warning);
+}
+
+.stat-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--el-border-color);
 }
 
 .championship-info {
