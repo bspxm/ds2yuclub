@@ -1720,10 +1720,10 @@ onMounted(() => {
 }
 
 .data-table__content-wrapper {
-  flex: 1;
-  overflow: hidden;
   display: flex;
+  flex: 1;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .data-table__content {
@@ -1742,8 +1742,8 @@ onMounted(() => {
 
 .card-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   font-weight: bold;
 }
 
@@ -1760,39 +1760,39 @@ onMounted(() => {
 
 .student-checkbox-group :deep(.el-checkbox) {
   width: 100%;
-  margin-right: 0;
   padding: 12px;
+  margin-right: 0;
   border: 1px solid var(--el-border-color-light);
   border-radius: 8px;
   transition: all 0.3s;
 }
 
 .student-checkbox-group :deep(.el-checkbox:hover) {
-  border-color: var(--el-color-primary);
   background-color: var(--el-color-primary-light-9);
+  border-color: var(--el-color-primary);
 }
 
 .student-checkbox-group :deep(.el-checkbox.is-checked) {
-  border-color: var(--el-color-primary);
   background-color: var(--el-color-primary-light-9);
+  border-color: var(--el-color-primary);
 }
 
 .student-item {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   width: 100%;
 }
 
 .student-name {
-  font-weight: 500;
   font-size: 14px;
+  font-weight: 500;
 }
 
 .student-info {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
 }
 
 /* 时间段显示样式 */
@@ -1807,15 +1807,15 @@ onMounted(() => {
 }
 
 .day-label {
+  flex-shrink: 0;
+  min-width: 40px;
   font-weight: 600;
   color: #606266;
-  min-width: 40px;
-  flex-shrink: 0;
 }
 
 .time-labels {
-  color: #909399;
   font-size: 13px;
+  color: #909399;
 }
 
 /* 右侧表单容器 - 相对定位 */
@@ -1828,15 +1828,15 @@ onMounted(() => {
 .form-loading-overlay {
   position: absolute;
   top: 0;
-  left: 0;
   right: 0;
   bottom: 0;
+  left: 0;
+  z-index: 100;
   display: flex;
   flex-direction: column;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
   background-color: var(--el-mask-color);
-  z-index: 100;
   border-radius: 4px;
 }
 

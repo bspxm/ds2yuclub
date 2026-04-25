@@ -333,7 +333,7 @@
             <el-col :span="8">
               <el-card shadow="never">
                 <template #header>
-                  <div style="display: flex; justify-content: space-between; align-items: center">
+                  <div style="display: flex; align-items: center; justify-content: space-between">
                     <span>选择学员（{{ (formData.student_ids || []).length }} 人）</span>
                     <el-tag type="info" size="small">
                       已选择 {{ (formData.student_ids || []).length }} 人
@@ -403,7 +403,7 @@
                           {{ student.name }}:{{ calculateAge(student.birth_date ?? "") }}岁:{{
                             student.level || "未设置"
                           }}:{{ student.group_name || "未设置" }}
-                          <span style="color: #909399; font-size: 12px; margin-left: 8px">
+                          <span style="margin-left: 8px; font-size: 12px; color: #909399">
                             {{ student.mobile || "无手机号" }}
                           </span>
                         </span>
@@ -970,8 +970,8 @@ onMounted(() => {
 }
 
 .search-container {
-  margin-bottom: 20px;
   padding: 20px;
+  margin-bottom: 20px;
   background-color: var(--el-bg-color);
   border-radius: 4px;
 }
@@ -982,8 +982,8 @@ onMounted(() => {
 
 .data-table__toolbar {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   margin-bottom: 20px;
 }
 

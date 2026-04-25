@@ -126,8 +126,8 @@ function getScoreText(match: Match): string {
 }
 
 .table-toolbar {
-  margin-bottom: 16px;
   display: flex;
   gap: 12px;
+  margin-bottom: 16px;
 }
 </style>

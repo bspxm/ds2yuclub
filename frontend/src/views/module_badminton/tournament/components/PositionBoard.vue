@@ -36,9 +36,9 @@ const sortedParticipants = computed(() => {
 
 <style scoped>
 .position-board {
+  padding: 16px;
   border: 1px solid #e4e7ed;
   border-radius: 4px;
-  padding: 16px;
 }
 
 .position-list {
@@ -52,8 +52,8 @@ const sortedParticipants = computed(() => {
   align-items: center;
   padding: 12px 16px;
   background: #f5f7fa;
-  border-radius: 4px;
   border-left: 4px solid #909399;
+  border-radius: 4px;
 }
 
 .position-top {
@@ -63,8 +63,8 @@ const sortedParticipants = computed(() => {
 
 .position-number {
   width: 80px;
-  font-weight: bold;
   font-size: 16px;
+  font-weight: bold;
   color: #303133;
 }
 

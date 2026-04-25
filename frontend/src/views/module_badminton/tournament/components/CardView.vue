@@ -123,11 +123,11 @@ function isCompleted(status: string): boolean {
 }
 
 .match-card {
+  overflow: hidden;
+  cursor: pointer;
   background: var(--el-bg-color);
   border: 1px solid var(--el-border-color);
   border-radius: 8px;
-  overflow: hidden;
-  cursor: pointer;
   transition: all 0.2s;
 }
 
@@ -146,8 +146,8 @@ function isCompleted(status: string): boolean {
 
 .card-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   padding: 10px 12px;
   background: var(--el-fill-color-light);
   border-bottom: 1px solid var(--el-border-color);
@@ -155,8 +155,8 @@ function isCompleted(status: string): boolean {
 
 .round-tag {
   font-size: 12px;
-  color: var(--el-color-primary);
   font-weight: bold;
+  color: var(--el-color-primary);
 }
 
 .match-num {
@@ -165,47 +165,47 @@ function isCompleted(status: string): boolean {
 }
 
 .card-content {
-  padding: 16px 12px;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  padding: 16px 12px;
 }
 
 /* 第一行：对阵双方名字 */
 .players-row {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
   gap: 8px;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .player-name {
   flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 14px;
   font-weight: 500;
   color: var(--el-text-color-regular);
   text-align: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .player-name.winner {
-  color: var(--el-color-success);
   font-weight: bold;
+  color: var(--el-color-success);
 }
 
 .vs {
-  font-size: 11px;
-  color: var(--el-text-color-placeholder);
-  font-weight: normal;
   flex-shrink: 0;
+  font-size: 11px;
+  font-weight: normal;
+  color: var(--el-text-color-placeholder);
 }
 
 /* 第二行：局分 */
 .sets-score {
-  text-align: center;
   padding: 6px 0;
+  text-align: center;
   background: var(--el-fill-color-light);
   border-radius: 4px;
 }
@@ -222,8 +222,8 @@ function isCompleted(status: string): boolean {
 
 /* 第三行：详细比分 */
 .detail-score {
-  text-align: center;
   padding-top: 4px;
+  text-align: center;
 }
 
 .detail-text {

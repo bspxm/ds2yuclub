@@ -580,13 +580,13 @@ onMounted(() => {
   .tournament-item {
     padding: 12px;
     background-color: var(--el-fill-color-light);
-    border-radius: 6px;
     border: 1px solid var(--el-border-color);
+    border-radius: 6px;
   }
 
   .course-item {
-    border-color: var(--el-border-color);
     background-color: var(--el-fill-color-light);
+    border-color: var(--el-border-color);
   }
 
   .dimension-item {

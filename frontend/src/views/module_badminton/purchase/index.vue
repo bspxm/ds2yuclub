@@ -660,31 +660,31 @@
               <!-- 第六行：备注（跨两列） -->
               <el-col :span="24">
                 <el-form-item label="上课时间段" prop="selected_time_slots">
-                  <div v-if="!formData.class_id" style="color: #909399; font-size: 14px">
+                  <div v-if="!formData.class_id" style="font-size: 14px; color: #909399">
                     请先选择班级
                   </div>
                   <div
                     v-else-if="loadingTimeSlotsSingle"
                     style="
-                      text-align: center;
                       padding: 40px;
+                      text-align: center;
                       background-color: var(--el-fill-color-lighter);
-                      border-radius: 4px;
                       border: 1px dashed var(--el-border-color-darker);
+                      border-radius: 4px;
                     "
                   >
                     <el-icon class="is-loading" :size="32" color="var(--el-color-primary)">
                       <Loading />
                     </el-icon>
                     <div
-                      style="margin-top: 12px; color: var(--el-text-color-regular); font-size: 14px"
+                      style="margin-top: 12px; font-size: 14px; color: var(--el-text-color-regular)"
                     >
                       加载上课时间段中...
                     </div>
                   </div>
                   <div
                     v-else-if="availableTimeSlotsSingle.length === 0"
-                    style="color: #f56c6c; font-size: 14px"
+                    style="font-size: 14px; color: #f56c6c"
                   >
                     该班级暂无可用时间段
                   </div>
@@ -695,11 +695,11 @@
                         flex-wrap: wrap;
                         gap: 20px;
                         max-height: 300px;
+                        padding: 15px;
                         overflow-y: auto;
+                        background-color: var(--el-fill-color-blank);
                         border: 1px solid var(--el-border-color);
                         border-radius: 4px;
-                        padding: 15px;
-                        background-color: var(--el-fill-color-blank);
                       "
                     >
                       <div
@@ -708,20 +708,20 @@
                         style="
                           flex: 1;
                           min-width: 200px;
-                          border: 1px solid var(--el-border-color);
-                          border-radius: 4px;
                           padding: 10px;
                           background-color: var(--el-fill-color-light);
+                          border: 1px solid var(--el-border-color);
+                          border-radius: 4px;
                         "
                       >
                         <div
                           style="
+                            padding-bottom: 8px;
                             margin-bottom: 10px;
+                            font-size: 16px;
                             font-weight: bold;
                             color: var(--el-text-color-primary);
                             border-bottom: 1px solid var(--el-border-color-light);
-                            padding-bottom: 8px;
-                            font-size: 16px;
                           "
                         >
                           {{ day }}
@@ -757,7 +757,7 @@
                     </div>
                     <div
                       v-if="timeSlotWarningSingle"
-                      style="margin-top: 8px; color: #e6a23c; font-size: 12px"
+                      style="margin-top: 8px; font-size: 12px; color: #e6a23c"
                     >
                       <el-icon><WarningFilled /></el-icon>
                       {{ timeSlotWarningSingle }}
@@ -807,7 +807,7 @@
         <el-col :span="8">
           <el-card shadow="never">
             <template #header>
-              <div style="display: flex; justify-content: space-between; align-items: center">
+              <div style="display: flex; align-items: center; justify-content: space-between">
                 <span>选择学员（{{ batchSelectedStudents.length }} 人）</span>
                 <el-tag type="info" size="small">
                   已选择 {{ batchSelectedStudents.length }} 人
@@ -876,7 +876,7 @@
                       {{ student.name }}:{{ calculateAge(student.birth_date) }}岁:{{
                         student.level || "未设置"
                       }}:{{ student.group_name || "未设置" }}
-                      <span style="color: #909399; font-size: 12px; margin-left: 8px">
+                      <span style="margin-left: 8px; font-size: 12px; color: #909399">
                         {{ student.mobile || "无手机号" }}
                       </span>
                     </span>
@@ -1005,16 +1005,16 @@
                 </el-col>
                 <el-col :span="24">
                   <el-form-item label="上课时间段" prop="selected_time_slots">
-                    <div v-if="!batchFormData.class_id" style="color: #909399; font-size: 14px">
+                    <div v-if="!batchFormData.class_id" style="font-size: 14px; color: #909399">
                       请先选择班级
                     </div>
-                    <div v-else-if="loadingTimeSlots" style="text-align: center; padding: 20px">
+                    <div v-else-if="loadingTimeSlots" style="padding: 20px; text-align: center">
                       <el-icon class="is-loading"><Loading /></el-icon>
                       <span style="margin-left: 8px">加载中...</span>
                     </div>
                     <div
                       v-else-if="availableTimeSlots.length === 0"
-                      style="color: #f56c6c; font-size: 14px"
+                      style="font-size: 14px; color: #f56c6c"
                     >
                       该班级暂无可用时间段
                     </div>
@@ -1025,11 +1025,11 @@
                           flex-wrap: wrap;
                           gap: 20px;
                           max-height: 300px;
+                          padding: 15px;
                           overflow-y: auto;
+                          background-color: var(--el-fill-color-blank);
                           border: 1px solid var(--el-border-color);
                           border-radius: 4px;
-                          padding: 15px;
-                          background-color: var(--el-fill-color-blank);
                         "
                       >
                         <div
@@ -1038,20 +1038,20 @@
                           style="
                             flex: 1;
                             min-width: 200px;
-                            border: 1px solid var(--el-border-color);
-                            border-radius: 4px;
                             padding: 10px;
                             background-color: var(--el-fill-color-light);
+                            border: 1px solid var(--el-border-color);
+                            border-radius: 4px;
                           "
                         >
                           <div
                             style="
+                              padding-bottom: 8px;
                               margin-bottom: 10px;
+                              font-size: 16px;
                               font-weight: bold;
                               color: var(--el-text-color-primary);
                               border-bottom: 1px solid var(--el-border-color-light);
-                              padding-bottom: 8px;
-                              font-size: 16px;
                             "
                           >
                             {{ day }}
@@ -1087,7 +1087,7 @@
                       </div>
                       <div
                         v-if="timeSlotWarning"
-                        style="margin-top: 8px; color: #e6a23c; font-size: 12px"
+                        style="margin-top: 8px; font-size: 12px; color: #e6a23c"
                       >
                         <el-icon><WarningFilled /></el-icon>
                         {{ timeSlotWarning }}
@@ -2262,10 +2262,10 @@ onMounted(() => {
 }
 
 .data-table__content-wrapper {
-  flex: 1;
-  overflow: hidden;
   display: flex;
+  flex: 1;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .data-table__content {
@@ -2284,14 +2284,14 @@ onMounted(() => {
 }
 
 .day-label {
+  flex-shrink: 0;
+  min-width: 40px;
   font-weight: 600;
   color: #606266;
-  min-width: 40px;
-  flex-shrink: 0;
 }
 
 .time-labels {
-  color: #909399;
   font-size: 13px;
+  color: #909399;
 }
 </style>

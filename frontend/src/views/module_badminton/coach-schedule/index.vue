@@ -442,8 +442,8 @@ onMounted(async () => {
 
 .card-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
 }
 
 .header-actions {
@@ -466,28 +466,28 @@ onMounted(async () => {
 
 .time-slot-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   width: 100%;
 }
 
 .time-slot-info {
   display: flex;
-  align-items: center;
   gap: 12px;
+  align-items: center;
 }
 
 .time-range {
   font-size: 14px;
-  color: #606266;
   font-weight: 500;
+  color: #606266;
 }
 
 .schedule-cards {
-  padding: 15px 0;
   display: flex;
   flex-direction: column;
   gap: 15px;
+  padding: 15px 0;
 }
 
 .schedule-card {
@@ -496,22 +496,22 @@ onMounted(async () => {
 
 .schedule-card-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
 }
 
 .schedule-title {
   display: flex;
-  align-items: center;
   gap: 12px;
+  align-items: center;
 }
 
 .location {
   display: flex;
-  align-items: center;
   gap: 4px;
-  color: #909399;
+  align-items: center;
   font-size: 13px;
+  color: #909399;
 }
 
 .schedule-status {
@@ -521,49 +521,49 @@ onMounted(async () => {
 
 .schedule-topic {
   margin-bottom: 10px;
-  color: #303133;
   font-size: 14px;
+  color: #303133;
 }
 
 .schedule-summary {
   margin-bottom: 10px;
-  color: #606266;
   font-size: 13px;
   line-height: 1.6;
+  color: #606266;
 }
 
 .schedule-notes {
-  margin-bottom: 15px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
   padding: 10px;
+  margin-bottom: 15px;
+  font-size: 13px;
+  color: #606266;
   background-color: #f5f7fa;
   border-radius: 4px;
-  color: #606266;
-  font-size: 13px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
 }
 
 .students-section {
+  padding-top: 15px;
   margin-top: 15px;
   border-top: 1px solid #ebeef5;
-  padding-top: 15px;
 }
 
 .students-header {
   display: flex;
-  align-items: center;
   gap: 12px;
+  align-items: center;
   margin-bottom: 10px;
 }
 
 /* 折叠面板样式优化 */
 :deep(.el-collapse-item__header) {
-  background-color: var(--el-fill-color-light);
-  border-radius: 4px;
   padding: 12px 16px;
   margin-bottom: 10px;
   color: var(--el-text-color-primary);
+  background-color: var(--el-fill-color-light);
+  border-radius: 4px;
 }
 
 :deep(.el-collapse-item__header:hover) {
@@ -571,8 +571,8 @@ onMounted(async () => {
 }
 
 :deep(.el-collapse-item__wrap) {
-  border-radius: 4px;
   border: none;
+  border-radius: 4px;
 }
 
 :deep(.el-collapse-item__content) {
@@ -583,11 +583,11 @@ onMounted(async () => {
 .coach-name-display {
   width: 200px;
   padding: 8px 12px;
+  font-size: 14px;
+  color: var(--el-text-color-regular);
   background-color: var(--el-fill-color-light);
   border: 1px solid var(--el-border-color);
   border-radius: 4px;
-  color: var(--el-text-color-regular);
-  font-size: 14px;
 }
 
 /* 时间范围文字颜色适配 */

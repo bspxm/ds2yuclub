@@ -1735,30 +1735,30 @@ function handleMatchClick(match: KnockoutMatch) {
 
 <style scoped>
 .knockout-bracket {
+  min-height: 500px;
   padding: 24px;
   background: var(--el-bg-color-page);
-  border-radius: 12px;
-  min-height: 500px;
   border: 1px solid var(--el-border-color-light);
+  border-radius: 12px;
 }
 
 /* 轮次标题 */
 .round-headers {
   display: flex;
-  margin-bottom: 20px;
   padding-bottom: 12px;
+  margin-bottom: 20px;
   border-bottom: 2px solid var(--el-border-color);
 }
 
 .round-header {
+  flex-shrink: 0;
   width: v-bind('ROUND_WIDTH + "px"');
-  text-align: center;
   font-size: 13px;
   font-weight: 600;
   color: var(--el-text-color-secondary);
+  text-align: center;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  flex-shrink: 0;
 }
 
 .round-header:last-child {
@@ -1767,9 +1767,9 @@ function handleMatchClick(match: KnockoutMatch) {
 
 /* 容器 */
 .bracket-wrapper {
+  padding: 16px 0;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 16px 0;
 }
 
 .bracket-wrapper::-webkit-scrollbar {
@@ -1821,8 +1821,8 @@ function handleMatchClick(match: KnockoutMatch) {
   position: absolute;
   top: 0;
   left: 0;
-  pointer-events: none;
   z-index: 1;
+  pointer-events: none;
 }
 
 .line {
@@ -1833,28 +1833,28 @@ function handleMatchClick(match: KnockoutMatch) {
 }
 
 .line.active {
+  filter: drop-shadow(0 0 3px rgba(103, 194, 58, 0.4));
   stroke: url(#activeLineGradient);
   stroke-width: 2.5;
-  filter: drop-shadow(0 0 3px rgba(103, 194, 58, 0.4));
 }
 
 /* 比赛卡片 */
 .match-card {
   position: absolute;
+  z-index: 10;
+  padding: 8px 12px;
+  cursor: pointer;
   background: var(--el-bg-color);
   border: 1px solid var(--el-border-color);
   border-radius: 8px;
-  padding: 8px 12px;
-  cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 10;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .match-card:hover {
-  transform: translateY(-2px);
   border-color: var(--el-color-primary);
   box-shadow: 0 8px 25px rgba(59, 130, 246, 0.2);
+  transform: translateY(-2px);
 }
 
 .dark .match-card:hover {
@@ -1867,8 +1867,8 @@ function handleMatchClick(match: KnockoutMatch) {
 }
 
 .match-card.bye {
-  opacity: 0.75;
   background: var(--el-fill-color-light);
+  opacity: 0.75;
 }
 
 .match-card.has-winner {
@@ -1877,16 +1877,16 @@ function handleMatchClick(match: KnockoutMatch) {
 
 /* 选手行 */
 .player-row {
+  box-sizing: border-box;
   display: flex;
-  align-items: center;
   gap: 6px;
+  align-items: center;
+  height: 28px;
   padding: 4px 0;
   font-size: 13px;
   line-height: 20px;
-  height: 28px;
   color: var(--el-text-color-primary);
   border-bottom: 1px solid var(--el-border-color-lighter);
-  box-sizing: border-box;
 }
 
 .player-row:last-child {
@@ -1903,20 +1903,20 @@ function handleMatchClick(match: KnockoutMatch) {
 }
 
 .player-row.is-bye {
-  color: var(--el-text-color-placeholder);
   font-style: italic;
+  color: var(--el-text-color-placeholder);
 }
 
 /* 种子号 */
 .seed {
+  min-width: 18px;
+  padding: 1px 4px;
   font-size: 11px;
   font-weight: 600;
   color: var(--el-text-color-secondary);
-  min-width: 18px;
   text-align: center;
   background: var(--el-fill-color);
   border-radius: 3px;
-  padding: 1px 4px;
 }
 
 .seed.empty {
@@ -1932,16 +1932,16 @@ function handleMatchClick(match: KnockoutMatch) {
 /* 选手名 */
 .name {
   flex: 1;
+  min-width: 60px;
+  max-width: 120px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  min-width: 60px;
-  max-width: 120px;
 }
 
 .name.empty-slot {
-  color: var(--el-text-color-placeholder);
   font-style: italic;
+  color: var(--el-text-color-placeholder);
 }
 
 /* 比分容器 */
@@ -1954,13 +1954,13 @@ function handleMatchClick(match: KnockoutMatch) {
 
 /* 单个比分 */
 .score-item {
-  font-weight: 600;
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
   width: 22px;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
   font-family: "Courier New", monospace;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--el-text-color-secondary);
+  text-align: center;
 }
 
 .player-row.winner .score {
@@ -1974,17 +1974,17 @@ function handleMatchClick(match: KnockoutMatch) {
 /* 局分显示 */
 .match-result {
   position: absolute;
-  right: -45px;
   top: 50%;
-  transform: translateY(-50%);
-  background: var(--el-color-primary);
-  color: white;
-  font-weight: 700;
-  font-size: 12px;
+  right: -45px;
   padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: white;
+  white-space: nowrap;
+  background: var(--el-color-primary);
   border-radius: 4px;
   box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
-  white-space: nowrap;
+  transform: translateY(-50%);
 }
 
 .dark .match-result {
@@ -1992,23 +1992,23 @@ function handleMatchClick(match: KnockoutMatch) {
 }
 
 .result-score {
-  font-variant-numeric: tabular-nums;
   font-family: "Courier New", monospace;
+  font-variant-numeric: tabular-nums;
 }
 
 /* 比赛状态指示器 */
 .match-status {
   position: absolute;
-  right: -6px;
   top: 50%;
+  right: -6px;
   transform: translateY(-50%);
 }
 
 .status-dot {
   width: 8px;
   height: 8px;
-  border-radius: 50%;
   border: 2px solid var(--el-bg-color);
+  border-radius: 50%;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
@@ -2023,7 +2023,10 @@ function handleMatchClick(match: KnockoutMatch) {
 /* 冠军卡片 */
 .champion-card {
   position: absolute;
+  z-index: 20;
   width: 180px;
+  padding: 16px;
+  text-align: center;
   background: linear-gradient(
     135deg,
     var(--el-color-warning-light-9) 0%,
@@ -2032,10 +2035,7 @@ function handleMatchClick(match: KnockoutMatch) {
   );
   border: 2px solid var(--el-color-warning);
   border-radius: 12px;
-  padding: 16px;
   box-shadow: 0 10px 40px rgba(230, 162, 60, 0.3);
-  z-index: 20;
-  text-align: center;
 }
 
 .dark .champion-card {
@@ -2050,11 +2050,11 @@ function handleMatchClick(match: KnockoutMatch) {
 
 .champion-header {
   display: flex;
+  gap: 8px;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  margin-bottom: 12px;
   padding-bottom: 8px;
+  margin-bottom: 12px;
   border-bottom: 1px solid rgba(230, 162, 60, 0.3);
 }
 
@@ -2076,9 +2076,9 @@ function handleMatchClick(match: KnockoutMatch) {
 
 .champion-content {
   display: flex;
+  gap: 6px;
   align-items: center;
   justify-content: center;
-  gap: 6px;
 }
 
 .champion-content .flag {
@@ -2099,16 +2099,16 @@ function handleMatchClick(match: KnockoutMatch) {
 .bracket-legend {
   display: flex;
   gap: 24px;
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--el-border-color);
   justify-content: center;
+  padding-top: 16px;
+  margin-top: 20px;
+  border-top: 1px solid var(--el-border-color);
 }
 
 .legend-item {
   display: flex;
-  align-items: center;
   gap: 6px;
+  align-items: center;
   font-size: 12px;
   color: var(--el-text-color-secondary);
 }
@@ -2139,8 +2139,8 @@ function handleMatchClick(match: KnockoutMatch) {
   }
 
   .round-header {
-    font-size: 11px;
     width: 160px;
+    font-size: 11px;
   }
 
   .match-card {
@@ -2148,8 +2148,8 @@ function handleMatchClick(match: KnockoutMatch) {
   }
 
   .player-row {
-    font-size: 11px;
     padding: 3px 0;
+    font-size: 11px;
   }
 
   .name {

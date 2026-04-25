@@ -109,8 +109,8 @@ function getSetScores(match: Match): string {
 <style scoped>
 .bracket-view {
   width: 100%;
-  overflow-x: auto;
   padding: 16px;
+  overflow-x: auto;
 }
 
 .empty-state {
@@ -130,28 +130,28 @@ function getSetScores(match: Match): string {
 }
 
 .round-header {
-  text-align: center;
+  padding: 8px 16px;
   font-weight: bold;
   color: var(--el-text-color-primary);
-  padding: 8px 16px;
+  text-align: center;
   background: var(--el-fill-color-light);
   border-radius: 4px;
 }
 
 .round-matches {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 16px;
   justify-content: space-around;
-  flex: 1;
 }
 
 .match-card {
+  min-width: 180px;
+  overflow: hidden;
   background: var(--el-bg-color);
   border: 1px solid var(--el-border-color);
   border-radius: 8px;
-  overflow: hidden;
-  min-width: 180px;
   transition: all 0.2s;
 }
 
@@ -174,8 +174,8 @@ function getSetScores(match: Match): string {
 
 .player {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   padding: 12px 16px;
 }
 

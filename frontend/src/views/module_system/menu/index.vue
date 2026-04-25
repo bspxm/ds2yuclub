@@ -1030,10 +1030,10 @@ onUnmounted(() => {
 }
 
 .data-table__content-wrapper {
-  flex: 1;
-  overflow: hidden;
   display: flex;
+  flex: 1;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .data-table__content {

@@ -262,10 +262,10 @@ function formatTime(timeStr: string | null): string {
 }
 
 .section-title {
+  padding-bottom: 8px;
+  margin-bottom: 16px;
   font-size: 18px;
   font-weight: bold;
-  margin-bottom: 16px;
-  padding-bottom: 8px;
   border-bottom: 2px solid var(--el-color-primary);
 }
 
@@ -281,21 +281,21 @@ function formatTime(timeStr: string | null): string {
 
 .matrix-table {
   width: 100%;
-  border-collapse: collapse;
   font-size: 14px;
+  border-collapse: collapse;
 }
 
 .matrix-table th,
 .matrix-table td {
-  border: 1px solid var(--el-border-color-lighter);
+  min-width: 80px;
   padding: 12px 8px;
   text-align: center;
-  min-width: 80px;
+  border: 1px solid var(--el-border-color-lighter);
 }
 
 .matrix-table th {
-  background-color: var(--el-fill-color-light);
   font-weight: bold;
+  background-color: var(--el-fill-color-light);
 }
 
 .corner-cell {
@@ -303,26 +303,26 @@ function formatTime(timeStr: string | null): string {
 }
 
 .header-cell {
-  writing-mode: horizontal-tb;
   max-width: 100px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  writing-mode: horizontal-tb;
 }
 
 .row-header {
-  background-color: var(--el-fill-color-light);
-  font-weight: bold;
-  text-align: left;
   max-width: 100px;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-weight: bold;
+  text-align: left;
   white-space: nowrap;
+  background-color: var(--el-fill-color-light);
 }
 
 .matrix-cell {
-  transition: background-color 0.2s;
   padding: 8px 4px;
+  transition: background-color 0.2s;
 }
 
 .win-cell {
@@ -340,13 +340,13 @@ function formatTime(timeStr: string | null): string {
 .score-container {
   display: flex;
   flex-direction: column;
-  align-items: center;
   gap: 4px;
+  align-items: center;
 }
 
 .score {
-  font-weight: bold;
   font-size: 16px;
+  font-weight: bold;
 }
 
 .score.win {
@@ -363,9 +363,9 @@ function formatTime(timeStr: string | null): string {
 
 .detail-score {
   font-size: 11px;
-  color: var(--el-text-color-regular);
   font-weight: normal;
   line-height: 1.2;
+  color: var(--el-text-color-regular);
 }
 
 .result-text {
@@ -374,9 +374,9 @@ function formatTime(timeStr: string | null): string {
 }
 
 .draw-count {
+  margin-left: 2px;
   font-size: 11px;
   color: var(--el-color-warning);
-  margin-left: 2px;
 }
 
 .detail-score-list {
@@ -387,10 +387,10 @@ function formatTime(timeStr: string | null): string {
 }
 
 .set-score {
+  padding: 2px 6px;
   font-size: 12px;
   color: var(--el-text-color-regular);
   background-color: var(--el-fill-color-light);
-  padding: 2px 6px;
   border-radius: 4px;
 }
 
@@ -412,26 +412,26 @@ function formatTime(timeStr: string | null): string {
   justify-content: center;
   width: 24px;
   height: 24px;
-  border-radius: 50%;
   font-weight: bold;
+  border-radius: 50%;
 }
 
 .rank-1 {
-  background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
   color: #fff;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
 }
 
 .rank-2 {
-  background: linear-gradient(135deg, #c0c0c0 0%, #e0e0e0 100%);
   color: #fff;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  background: linear-gradient(135deg, #c0c0c0 0%, #e0e0e0 100%);
 }
 
 .rank-3 {
-  background: linear-gradient(135deg, #cd7f32 0%, #daa520 100%);
   color: #fff;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  background: linear-gradient(135deg, #cd7f32 0%, #daa520 100%);
 }
 
 .player-name {
@@ -439,20 +439,20 @@ function formatTime(timeStr: string | null): string {
 }
 
 .positive {
-  color: var(--el-color-success);
   font-weight: bold;
+  color: var(--el-color-success);
 }
 
 .negative {
-  color: var(--el-color-danger);
   font-weight: bold;
+  color: var(--el-color-danger);
 }
 
 .match-players {
   display: flex;
+  gap: 12px;
   align-items: center;
   justify-content: center;
-  gap: 12px;
 }
 
 .match-players .player {
@@ -460,13 +460,13 @@ function formatTime(timeStr: string | null): string {
 }
 
 .match-players .player.winner {
-  color: var(--el-color-success);
   font-weight: bold;
+  color: var(--el-color-success);
 }
 
 .match-players .vs {
-  color: var(--el-text-color-secondary);
   font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 
 .match-score {
