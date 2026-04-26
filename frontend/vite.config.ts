@@ -3,7 +3,7 @@ import { type ConfigEnv, type UserConfig, loadEnv, defineConfig } from "vite";
 
 import AutoImport from "unplugin-auto-import/vite";
 import Components from "unplugin-vue-components/vite";
-import { ElementPlusResolver } from "unplugin-vue-components/resolvers";
+import { ElementPlusResolver, VantResolver } from "unplugin-vue-components/resolvers";
 
 import UnoCSS from "unocss/vite";
 import { resolve } from "path";
@@ -75,6 +75,8 @@ export default defineConfig(({ mode }: ConfigEnv): UserConfig => {
       // 组件自动导入
       Components({
         resolvers: [
+          // 导入 Vant 组件
+          VantResolver(),
           // 导入 Element Plus 组件
           ElementPlusResolver({ importStyle: "sass" }),
         ],

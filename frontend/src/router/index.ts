@@ -1,6 +1,7 @@
 import type { App } from "vue";
 import { createRouter, createWebHashHistory, type RouteRecordRaw } from "vue-router";
 export const Layout = () => import("@/layouts/index.vue");
+export const MobileLayout = () => import("@/layouts/mobile.vue");
 /**
  * 静态路由
  */
@@ -40,6 +41,79 @@ export const constantRoutes: RouteRecordRaw[] = [
     meta: { hidden: true, title: "500" },
     component: () => import("@/views/error/500.vue"),
   },
+  // ========== 移动端路由 ==========
+  {
+    path: "/m",
+    component: MobileLayout,
+    meta: { hidden: true },
+    children: [
+      {
+        path: "badminton/coach/home",
+        name: "MobileCoachHome",
+        component: () => import("@/views/module_badminton/m/coach/home.vue"),
+        meta: { title: "教练首页" },
+      },
+      {
+        path: "badminton/coach",
+        redirect: "/m/badminton/coach/home",
+      },
+      {
+        path: "badminton/coach/attendance",
+        name: "MobileCoachAttendance",
+        component: () => import("@/views/module_badminton/m/coach/attendance.vue"),
+        meta: { title: "点名签到" },
+      },
+      {
+        path: "badminton/coach/schedule",
+        name: "MobileCoachSchedule",
+        component: () => import("@/views/module_badminton/m/coach/schedule.vue"),
+        meta: { title: "我的课表" },
+      },
+      {
+        path: "badminton/coach/tournament-list",
+        name: "MobileCoachTournamentList",
+        component: () => import("@/views/module_badminton/m/coach/tournament-list.vue"),
+        meta: { title: "赛事列表" },
+      },
+      {
+        path: "badminton/coach/tournament-matches/:id",
+        name: "MobileCoachTournamentMatches",
+        component: () => import("@/views/module_badminton/m/coach/tournament-matches.vue"),
+        meta: { title: "对阵列表" },
+      },
+      {
+        path: "badminton/coach/match-score/:tournamentId/:matchId",
+        name: "MobileCoachMatchScore",
+        component: () => import("@/views/module_badminton/m/coach/match-score.vue"),
+        meta: { title: "录入比分" },
+      },
+      {
+        path: "badminton/coach/assessment",
+        name: "MobileCoachAssessment",
+        component: () => import("@/views/module_badminton/m/coach/assessment-compose.vue"),
+        meta: { title: "能力评估" },
+      },
+      {
+        path: "badminton/parent/student",
+        name: "MobileParentStudent",
+        component: () => import("@/views/module_badminton/m/parent/student.vue"),
+        meta: { title: "学习情况" },
+      },
+      {
+        path: "badminton/parent/tournament",
+        name: "MobileParentTournament",
+        component: () => import("@/views/module_badminton/m/parent/tournament.vue"),
+        meta: { title: "比赛结果" },
+      },
+      {
+        path: "badminton/parent/h2h",
+        name: "MobileParentH2H",
+        component: () => import("@/views/module_badminton/m/parent/h2h.vue"),
+        meta: { title: "学员H2H" },
+      },
+    ],
+  },
+  // ========== 404 兜底 ==========
   {
     path: "/:pathMatch(.*)*",
     component: () => import("@/views/error/404.vue"),

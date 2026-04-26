@@ -82,6 +82,19 @@ async function handleAuthenticatedUser(
       return;
     }
 
+    // 角色路由分发：非管理员用户访问 PC 首页时自动跳转移动端
+    if ((to.path === "/" || to.path === "/home") && !userStore.basicInfo.is_superuser) {
+      const roles = userStore.basicInfo.roles || [];
+      const roleCodes = roles.map((r) => r.code);
+
+      if (roleCodes.includes("PARENTS")) {
+        next("/m/badminton/parent/student");
+        return;
+      }
+      next("/m/badminton/coach/home");
+      return;
+    }
+
     // 动态设置页面标题
     const title = (to.params.title as string) || (to.query.title as string);
     if (title) {
