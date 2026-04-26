@@ -229,16 +229,26 @@
                               : 'empty',
                       ]"
                     >
-                      <template v-if="result">
-                        <div class="gs-matrix-score">{{ result.score }}</div>
-                        <div class="gs-matrix-result">
-                          {{ result.win ? "胜" : result.draw ? "平" : "负" }}
+                      <template v-if="ri !== ci">
+                        <div
+                          class="gs-matrix-cell-inner"
+                          :class="{ clickable: tournament?.status !== 'COMPLETED' }"
+                          @click.stop="handleMatrixCellClick(ri, ci)"
+                        >
+                          <template v-if="result">
+                            <div class="gs-matrix-score">{{ result.score }}</div>
+                            <div class="gs-matrix-result">
+                              {{ result.win ? "胜" : result.draw ? "平" : "负" }}
+                            </div>
+                          </template>
+                          <template v-else>
+                            <span class="gs-matrix-pending">-</span>
+                          </template>
                         </div>
                       </template>
-                      <template v-else-if="ri === ci">
+                      <template v-else>
                         <span class="gs-matrix-diag">—</span>
                       </template>
-                      <template v-else><span class="gs-matrix-pending">-</span></template>
                     </td>
                   </tr>
                 </tbody>
@@ -248,6 +258,52 @@
         </template>
         <van-empty v-else-if="!groupStageData?.groups?.length" description="暂无小组赛数据" />
       </div>
+
+      <!-- 小组赛录入比分弹窗 -->
+      <van-popup v-model:show="showScoreDialog" position="bottom" round closeable class="score-popup" @closed="onScoreDialogClosed">
+        <div v-if="scoreMatch" class="score-popup-content">
+          <div class="scoreboard">
+            <div class="sb-player" :class="{ 'is-winner': scoreWinnerId === scoreMatch.player1?.id }">
+              <div class="sb-name">{{ scoreMatch.player1?.name || scoreMatch.player1?.student_name || "待定" }}</div>
+              <div class="sb-score">{{ scoreSetsWon(1) }}</div>
+            </div>
+            <div class="sb-vs">
+              <div class="sb-vs-text">VS</div>
+              <div class="sb-vs-sub">大比分</div>
+            </div>
+            <div class="sb-player" :class="{ 'is-winner': scoreWinnerId === scoreMatch.player2?.id }">
+              <div class="sb-name">{{ scoreMatch.player2?.name || scoreMatch.player2?.student_name || "待定" }}</div>
+              <div class="sb-score">{{ scoreSetsWon(2) }}</div>
+            </div>
+          </div>
+
+          <div class="sets-section">
+            <div class="section-label">{{ scoreReadonly ? "历史比分" : "局分录入" }}</div>
+            <div v-for="(set, index) in scoreSets" :key="index" class="set-block">
+              <div class="set-header">
+                <span class="set-title">第{{ index + 1 }}局</span>
+                <van-button v-if="!scoreReadonly && scoreSets.length > 1" icon="delete" size="small" plain round @click="scoreRemoveSet(index)" />
+              </div>
+              <div class="set-body">
+                <input v-model="set.player1" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="score-input" :readonly="scoreReadonly" maxlength="2" @input="!scoreReadonly && scoreCalculateWinner()">
+                <span class="set-colon">:</span>
+                <input v-model="set.player2" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="score-input" :readonly="scoreReadonly" maxlength="2" @input="!scoreReadonly && scoreCalculateWinner()">
+              </div>
+            </div>
+            <van-button v-if="!scoreReadonly" icon="plus" block plain round class="add-set-btn" @click="scoreSets.push({ player1: '', player2: '' })">新增一局</van-button>
+          </div>
+
+          <div v-if="scoreResultText" class="result-banner" :class="scoreResultValid ? 'valid' : 'invalid'">
+            <van-icon :name="scoreResultValid ? 'success' : 'cross'" />
+            {{ scoreResultText }}
+          </div>
+
+          <div v-if="!scoreReadonly" class="submit-area">
+            <van-button type="primary" block round size="large" :loading="scoreSubmitting" :disabled="!scoreResultValid" @click="scoreHandleSubmit">确认提交</van-button>
+          </div>
+        </div>
+        <van-empty v-else description="比赛不存在" />
+      </van-popup>
 
       <div v-if="viewTab === 'knockout'" class="ko-view">
         <van-loading v-if="loadingKnockout" size="24px" />
@@ -299,13 +355,13 @@
                   {{ set.player1 }}:{{ set.player2 }}
                 </span>
               </div>
-              <van-tag v-if="tournament?.status === 'COMPLETED' || m.status === 'completed'" type="success" round size="small">
+              <van-tag v-if="tournament?.status === 'COMPLETED' || m.status === 'completed'" type="success" round :size="'small' as any">
                 已结束
               </van-tag>
-              <van-tag v-else-if="m.status === 'bye'" type="default" round size="small">
+              <van-tag v-else-if="m.status === 'bye'" type="default" round :size="'small' as any">
                 轮空
               </van-tag>
-              <van-tag v-else type="warning" round size="small">待比赛</van-tag>
+              <van-tag v-else type="warning" round :size="'small' as any">待比赛</van-tag>
             </div>
           </div>
         </template>
@@ -404,6 +460,15 @@ const positions = ref<any[]>([]);
 const prMatches = ref<any[]>([]);
 const selectedGroupId = ref<number | null>(null);
 const showGroupPicker = ref(false);
+
+// 小组赛录入比分弹窗
+const showScoreDialog = ref(false);
+const scoreMatch = ref<any>(null);
+const scoreSets = ref<{ player1: string; player2: string }[]>([{ player1: "", player2: "" }]);
+const scoreWinnerId = ref<number | null>(null);
+const scoreSubmitting = ref(false);
+const scoreResultValid = ref(false);
+const scoreResultText = ref("");
 
 const isGroupStageType = computed(
   () =>
@@ -540,6 +605,130 @@ function onGroupPickerConfirm({ selectedValues }: any) {
 
 function goMatchScore(matchId: number) {
   router.push(`/m/badminton/coach/match-score/${route.params.id}/${matchId}`);
+}
+
+function handleMatrixCellClick(ri: number, ci: number) {
+  if (tournament.value?.status === "COMPLETED") return;
+  const matrix = currentGroupData.value?.matrix;
+  if (!matrix || !matrix[ri] || !matrix[ci]) return;
+  const p1Id = matrix[ri].participant_id;
+  const p2Id = matrix[ci].participant_id;
+  if (!p1Id || !p2Id) return;
+  const pid1 = (m: any) => m.player1_id ?? m.player1?.id;
+  const pid2 = (m: any) => m.player2_id ?? m.player2?.id;
+  const found = matches.value.find(
+    (m: any) =>
+      (pid1(m) === p1Id && pid2(m) === p2Id) ||
+      (pid1(m) === p2Id && pid2(m) === p1Id)
+  );
+  if (!found) {
+    showToast("找不到该对阵");
+    return;
+  }
+  openScoreDialog(found);
+}
+
+const scoreReadonly = computed(
+  () => scoreMatch.value?.status === "completed" || tournament.value?.status === "COMPLETED"
+);
+
+function scoreSetsWon(player: 1 | 2): number {
+  let count = 0;
+  for (const s of scoreSets.value) {
+    const p1 = parseInt(s.player1) || 0;
+    const p2 = parseInt(s.player2) || 0;
+    if (p1 === 0 && p2 === 0) continue;
+    if (player === 1 && p1 > p2) count++;
+    if (player === 2 && p2 > p1) count++;
+  }
+  return count;
+}
+
+function scoreGetNumericSets() {
+  return scoreSets.value.map((s) => ({
+    player1: parseInt(s.player1) || 0,
+    player2: parseInt(s.player2) || 0,
+  }));
+}
+
+function scoreCalculateWinner() {
+  const numSets = scoreGetNumericSets();
+  let p1Wins = 0;
+  let p2Wins = 0;
+  let hasValue = false;
+  for (const s of numSets) {
+    if (s.player1 === 0 && s.player2 === 0) continue;
+    hasValue = true;
+    if (s.player1 > s.player2) p1Wins++;
+    else if (s.player2 > s.player1) p2Wins++;
+  }
+  if (!hasValue) {
+    scoreResultValid.value = false;
+    scoreResultText.value = "";
+    return;
+  }
+  const total = numSets.filter((s) => s.player1 !== 0 || s.player2 !== 0).length;
+  const needed = Math.ceil(total / 2);
+  if (p1Wins >= needed && p1Wins > p2Wins) {
+    scoreWinnerId.value = scoreMatch.value?.player1?.id;
+    scoreResultText.value = `胜者 ${scoreMatch.value?.player1?.name}  (${p1Wins}:${p2Wins})`;
+    scoreResultValid.value = true;
+  } else if (p2Wins >= needed && p2Wins > p1Wins) {
+    scoreWinnerId.value = scoreMatch.value?.player2?.id;
+    scoreResultText.value = `胜者 ${scoreMatch.value?.player2?.name}  (${p1Wins}:${p2Wins})`;
+    scoreResultValid.value = true;
+  } else {
+    scoreResultValid.value = false;
+    scoreResultText.value = "比赛尚未结束，请继续录入比分";
+  }
+}
+
+function openScoreDialog(match: any) {
+  scoreMatch.value = match;
+  if (match.scores && match.scores.length > 0) {
+    scoreSets.value = match.scores.map((s: any) => ({
+      player1: String(s.player1),
+      player2: String(s.player2),
+    }));
+  } else {
+    scoreSets.value = [{ player1: "", player2: "" }];
+  }
+  scoreWinnerId.value = match.winner_id ?? null;
+  scoreResultValid.value = false;
+  scoreResultText.value = "";
+  scoreCalculateWinner();
+  showScoreDialog.value = true;
+}
+
+function scoreRemoveSet(index: number) {
+  scoreSets.value.splice(index, 1);
+  scoreCalculateWinner();
+}
+
+async function scoreHandleSubmit() {
+  if (!scoreMatch.value) return;
+  scoreSubmitting.value = true;
+  try {
+    const numSets = scoreGetNumericSets();
+    for (const s of numSets) {
+      if (s.player1 < 0 || s.player2 < 0) {
+        showToast("比分不能为负数");
+        return;
+      }
+    }
+    await TournamentAPIExtended.recordScore(Number(route.params.id), scoreMatch.value.id, { sets: numSets });
+    showSuccessToast("比分录入成功");
+    showScoreDialog.value = false;
+    await loadMatches();
+  } catch (e: any) {
+    showToast(e.response?.data?.msg || "提交失败");
+  } finally {
+    scoreSubmitting.value = false;
+  }
+}
+
+function onScoreDialogClosed() {
+  scoreMatch.value = null;
 }
 
 function totalScore(scores: any[], player: number): number {
@@ -1051,6 +1240,338 @@ onMounted(async () => {
 }
 .gs-matrix-pending {
   color: var(--mobile-border);
+}
+.gs-matrix-cell-inner {
+  min-width: 52px;
+  padding: 4px 2px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+.gs-matrix-cell-inner:active {
+  background: var(--mobile-tab-active-bg);
+}
+
+/* score popup */
+.score-popup {
+  max-height: 92vh;
+  overflow: hidden;
+}
+.score-popup :deep(.van-popup__close-icon) {
+  top: 4px;
+  z-index: 1;
+}
+.score-popup-content {
+  padding: 20px 16px calc(env(safe-area-inset-bottom, 0px) + 16px);
+  box-sizing: border-box;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  max-height: calc(92vh - 50px);
+}
+.scoreboard {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+  padding: 8px 0;
+}
+.sb-player {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 6px;
+  background: var(--mobile-scoreboard-bg);
+  border-radius: 10px;
+  min-height: 60px;
+  transition: all 0.3s;
+}
+.sb-player.is-winner {
+  background: var(--mobile-scoreboard-winner-bg);
+  box-shadow: 0 0 0 2px var(--mobile-green);
+}
+.sb-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mobile-text-primary);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.is-winner .sb-name {
+  color: var(--mobile-winner-text);
+}
+.sb-score {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--mobile-text-primary);
+  line-height: 1;
+}
+.is-winner .sb-score {
+  color: var(--mobile-winner-text);
+}
+.sb-vs {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+}
+.sb-vs-text {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mobile-text-muted);
+}
+.sb-vs-sub {
+  font-size: 9px;
+  color: var(--mobile-text-muted);
+  margin-top: 2px;
+}
+.sets-section {
+  margin: 10px 0;
+}
+.section-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--mobile-text-primary);
+  margin-bottom: 8px;
+}
+.set-block {
+  padding: 10px;
+  margin-bottom: 8px;
+  background: var(--mobile-card-bg);
+  border: 1px solid var(--mobile-set-block-border);
+  border-radius: 8px;
+}
+.set-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.set-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--mobile-text-secondary);
+}
+.set-body {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.score-input {
+  flex: 1;
+  min-width: 0;
+  width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 10px 2px;
+  border: none;
+  border-radius: 8px;
+  background: var(--mobile-gray-bg, #f5f5f5);
+  text-align: center;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--mobile-text-primary);
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.score-input[readonly] {
+  background: transparent;
+  color: var(--mobile-text-secondary);
+}
+.score-input::placeholder {
+  color: var(--mobile-text-muted);
+}
+.set-colon {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--mobile-text-primary);
+  flex-shrink: 0;
+  width: 16px;
+  text-align: center;
+}
+.add-set-btn {
+  margin-top: 6px;
+  font-size: 13px;
+}
+.result-banner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin: 10px 0;
+  font-size: 14px;
+  font-weight: 500;
+}
+.result-banner.valid {
+  color: var(--mobile-green-text);
+  background: var(--mobile-green-bg);
+}
+.result-banner.invalid {
+  color: var(--mobile-orange-text);
+  background: var(--mobile-orange-bg);
+}
+.submit-area {
+  margin-top: 12px;
+}
+.score-overlay-hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.score-overlay-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--mobile-text-primary);
+}
+.score-overlay-bd {
+  flex: 1;
+  overflow-y: auto;
+}
+.score-popup-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--mobile-text-primary);
+  text-align: center;
+  margin-bottom: 16px;
+}
+.scoreboard {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  padding: 12px 0;
+}
+.sb-player {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 8px;
+  background: var(--mobile-scoreboard-bg);
+  border-radius: 10px;
+  min-height: 70px;
+  transition: all 0.3s;
+}
+.sb-player.is-winner {
+  background: var(--mobile-scoreboard-winner-bg);
+  box-shadow: 0 0 0 2px var(--mobile-green);
+}
+.sb-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--mobile-text-primary);
+  text-align: center;
+}
+.is-winner .sb-name {
+  color: var(--mobile-winner-text);
+}
+.sb-score {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--mobile-text-primary);
+  line-height: 1;
+}
+.is-winner .sb-score {
+  color: var(--mobile-winner-text);
+}
+.sb-vs {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+}
+.sb-vs-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mobile-text-muted);
+}
+.sb-vs-sub {
+  font-size: 10px;
+  color: var(--mobile-text-muted);
+  margin-top: 2px;
+}
+.sets-section {
+  margin: 12px 0;
+}
+.section-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--mobile-text-primary);
+  margin-bottom: 10px;
+}
+.set-block {
+  padding: 12px;
+  margin-bottom: 10px;
+  background: var(--mobile-card-bg);
+  border: 1px solid var(--mobile-set-block-border);
+  border-radius: 8px;
+}
+.set-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.set-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--mobile-text-secondary);
+}
+.set-body {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.score-field {
+  flex: 1;
+  text-align: center;
+  font-size: 20px !important;
+  font-weight: 700 !important;
+}
+.set-colon {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--mobile-text-primary);
+  flex-shrink: 0;
+}
+.add-set-btn {
+  margin-top: 8px;
+  font-size: 13px;
+}
+.result-banner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin: 12px 0;
+  font-size: 14px;
+  font-weight: 500;
+}
+.result-banner.valid {
+  color: var(--mobile-green-text);
+  background: var(--mobile-green-bg);
+}
+.result-banner.invalid {
+  color: var(--mobile-orange-text);
+  background: var(--mobile-orange-bg);
+}
+.submit-area {
+  margin-top: 16px;
 }
 
 /* knockout view */
