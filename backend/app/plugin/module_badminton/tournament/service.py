@@ -813,6 +813,21 @@ class TournamentMatchService:
         if not m or m.tournament_id != tournament_id:
             raise CustomException(msg="比赛不存在")
 
+        def _participant_info(p):
+            if not p:
+                return None
+            student_name = p.student.name if p.student else f"Player {p.id}"
+            return {
+                "id": p.id,
+                "student_id": p.student_id,
+                "name": student_name,
+                "student_name": student_name,
+            }
+
+        scores_list = []
+        if m.scores and isinstance(m.scores, dict):
+            scores_list = m.scores.get("sets", [])
+
         return {
             "id": m.id,
             "tournament_id": m.tournament_id,
@@ -822,10 +837,11 @@ class TournamentMatchService:
             if hasattr(m.round_type, "value")
             else m.round_type,
             "status": m.status.value if hasattr(m.status, "value") else m.status,
-            "player1_id": m.player1_id,
-            "player2_id": m.player2_id,
-            "scores": m.scores,
+            "player1": _participant_info(m.player1),
+            "player2": _participant_info(m.player2),
+            "scores": scores_list,
             "winner_id": m.winner_id,
+            "group_id": m.group_id,
             "scheduled_time": m.scheduled_time.isoformat()
             if m.scheduled_time
             else None,

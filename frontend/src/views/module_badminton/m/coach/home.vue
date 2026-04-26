@@ -155,12 +155,13 @@ onMounted(() => {
 .greeting-text {
   font-size: 22px;
   font-weight: 600;
+  color: var(--mobile-text-primary);
 }
 
 .date-text {
   margin-top: 4px;
   font-size: 14px;
-  color: #999;
+  color: var(--mobile-text-muted);
 }
 
 .loading {
@@ -177,30 +178,30 @@ onMounted(() => {
   flex: 1;
   padding: 16px;
   text-align: center;
-  background: #fff;
+  background: var(--mobile-card-bg);
   border-radius: 10px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 4px var(--mobile-shimmer);
 }
 
 .summary-item .num {
   display: block;
   font-size: 28px;
   font-weight: 700;
-  color: #333;
+  color: var(--mobile-text-primary);
 }
 
 .summary-item .label {
   display: block;
   margin-top: 4px;
   font-size: 13px;
-  color: #999;
+  color: var(--mobile-text-muted);
 }
 
 .next-class-card {
   padding: 16px;
   margin-bottom: 20px;
   color: #fff;
-  background: linear-gradient(135deg, #07c160, #06ad56);
+  background: var(--mobile-gradient-green);
   border-radius: 10px;
 }
 
@@ -231,6 +232,7 @@ onMounted(() => {
   margin-bottom: 12px;
   font-size: 16px;
   font-weight: 600;
+  color: var(--mobile-text-primary);
 }
 
 .action-grid {
@@ -246,13 +248,13 @@ onMounted(() => {
   align-items: center;
   padding: 16px 8px;
   cursor: pointer;
-  background: #fff;
+  background: var(--mobile-card-bg);
   border-radius: 10px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 4px var(--mobile-shimmer);
 }
 
 .action-item span {
   font-size: 12px;
-  color: #666;
+  color: var(--mobile-text-secondary);
 }
 </style>

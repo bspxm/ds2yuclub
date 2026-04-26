@@ -4,7 +4,7 @@ const CourseAPI = {
   // 获取近期课程
   getUpcomingCourses(days: number = 7) {
     return request<ApiResponse<CourseTable[]>>({
-      url: "/badminton/course/upcoming",
+      url: "/badminton/courses/upcoming",
       method: "get",
       params: { days },
     });

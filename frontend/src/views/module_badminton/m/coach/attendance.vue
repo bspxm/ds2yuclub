@@ -250,7 +250,6 @@ async function handleSave(schedule: ScheduleDisplay) {
       if (!status) continue;
 
       if (student.has_attended) {
-        // Update existing - find record first
         const res = await ClassAttendanceAPI.getClassAttendanceList({
           schedule_id: schedule.id,
           student_id: student.student_id,
@@ -265,7 +264,6 @@ async function handleSave(schedule: ScheduleDisplay) {
           });
         }
       } else {
-        // Create new
         await ClassAttendanceAPI.createClassAttendance({
           student_id: student.student_id,
           class_id: schedule.class_id,
@@ -311,13 +309,13 @@ onMounted(() => {
 .attendance-count {
   margin-left: 12px;
   font-size: 12px;
-  color: #999;
+  color: var(--mobile-text-muted);
 }
 
 .student-list {
   margin: 0 16px;
   overflow: hidden;
-  border: 1px solid #f0f0f0;
+  border: 1px solid var(--mobile-border);
   border-radius: 8px;
 }
 
@@ -326,7 +324,7 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 10px 12px;
-  border-bottom: 1px solid #f5f5f5;
+  border-bottom: 1px solid var(--mobile-border-light);
 }
 
 .student-row:last-child {
@@ -334,7 +332,7 @@ onMounted(() => {
 }
 
 .student-row.absent {
-  background: #fff5f5;
+  background: var(--mobile-red-bg);
 }
 
 .student-info {
@@ -346,13 +344,14 @@ onMounted(() => {
 .name {
   font-size: 14px;
   font-weight: 500;
+  color: var(--mobile-text-primary);
 }
 
 .level {
   padding: 1px 6px;
   font-size: 11px;
-  color: #999;
-  background: #f5f5f5;
+  color: var(--mobile-text-muted);
+  background: var(--mobile-gray-bg);
   border-radius: 4px;
 }
 

@@ -3,58 +3,72 @@
     <van-loading v-if="loading" size="24px" class="loading" />
 
     <template v-else-if="match">
-      <div class="match-header">
-        <div class="player-name" :class="{ isWinner: winnerId === match.player1?.id }">
-          {{ match.player1?.name || "待定" }}
+      <div class="scoreboard">
+        <div class="sb-player" :class="{ 'is-winner': winnerId === match.player1?.id }">
+          <div class="sb-name">{{ match.player1?.name || "待定" }}</div>
+          <div class="sb-score">{{ setsWon(1) }}</div>
         </div>
-        <div class="vs-text">VS</div>
-        <div class="player-name" :class="{ isWinner: winnerId === match.player2?.id }">
-          {{ match.player2?.name || "待定" }}
+        <div class="sb-vs">
+          <div class="sb-vs-text">VS</div>
+          <div class="sb-vs-sub">大比分</div>
+        </div>
+        <div class="sb-player" :class="{ 'is-winner': winnerId === match.player2?.id }">
+          <div class="sb-name">{{ match.player2?.name || "待定" }}</div>
+          <div class="sb-score">{{ setsWon(2) }}</div>
         </div>
       </div>
 
       <div class="sets-section">
-        <div v-for="(set, index) in sets" :key="index" class="set-row">
-          <div class="set-label">第{{ index + 1 }}局</div>
-          <div class="set-inputs">
+        <div class="section-label">{{ isReadonly ? "历史比分" : "局分录入" }}</div>
+
+        <div v-for="(set, index) in sets" :key="index" class="set-block">
+          <div class="set-header">
+            <span class="set-title">第{{ index + 1 }}局</span>
+            <van-button
+              v-if="!isReadonly && sets.length > 1"
+              icon="delete"
+              size="small"
+              plain
+              round
+              @click="removeSet(index)"
+            />
+          </div>
+          <div class="set-body">
             <van-field
               v-model="set.player1"
               type="digit"
               placeholder="0"
-              class="score-input"
+              class="score-field"
+              :readonly="isReadonly"
+              inputmode="numeric"
               maxlength="2"
-              @update:model-value="calculateWinner"
+              @update:model-value="!isReadonly && calculateWinner()"
             />
-            <span class="colon">:</span>
+            <span class="set-colon">:</span>
             <van-field
               v-model="set.player2"
               type="digit"
               placeholder="0"
-              class="score-input"
+              class="score-field"
+              :readonly="isReadonly"
+              inputmode="numeric"
               maxlength="2"
-              @update:model-value="calculateWinner"
+              @update:model-value="!isReadonly && calculateWinner()"
             />
           </div>
-          <van-button
-            v-if="sets.length > 1"
-            icon="delete"
-            size="small"
-            plain
-            round
-            @click="removeSet(index)"
-          />
         </div>
 
-        <van-button icon="plus" size="small" plain round class="add-set-btn" @click="addSet">
+        <van-button v-if="!isReadonly" icon="plus" block plain round class="add-set-btn" @click="addSet">
           新增一局
         </van-button>
       </div>
 
-      <div v-if="resultText" class="result-bar" :class="resultValid ? 'valid' : 'invalid'">
+      <div v-if="resultText" class="result-banner" :class="resultValid ? 'valid' : 'invalid'">
+        <van-icon :name="resultValid ? 'success' : 'cross'" />
         {{ resultText }}
       </div>
 
-      <div class="submit-area">
+      <div v-if="!isReadonly" class="submit-area">
         <van-button
           type="primary"
           block
@@ -77,7 +91,7 @@
 import { ref, computed, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { showToast, showSuccessToast } from "vant";
-import { TournamentAPIExtended } from "@/api/module_badminton/tournament";
+import TournamentAPI, { TournamentAPIExtended } from "@/api/module_badminton/tournament";
 
 const route = useRoute();
 const router = useRouter();
@@ -88,7 +102,12 @@ const matchId = computed(() => Number(route.params.matchId));
 const loading = ref(false);
 const submitting = ref(false);
 const match = ref<any>(null);
+const tournament = ref<any>(null);
 const winnerId = ref<number | null>(null);
+
+const isReadonly = computed(
+  () => match.value?.status === "completed" || tournament.value?.status === "COMPLETED"
+);
 
 interface SetScore {
   player1: string;
@@ -99,6 +118,18 @@ const sets = ref<SetScore[]>([{ player1: "", player2: "" }]);
 
 const resultValid = ref(false);
 const resultText = ref("");
+
+function setsWon(player: 1 | 2): number {
+  let count = 0;
+  for (const s of sets.value) {
+    const p1 = parseInt(s.player1) || 0;
+    const p2 = parseInt(s.player2) || 0;
+    if (p1 === 0 && p2 === 0) continue;
+    if (player === 1 && p1 > p2) count++;
+    if (player === 2 && p2 > p1) count++;
+  }
+  return count;
+}
 
 function getNumericSets() {
   return sets.value.map((s) => ({
@@ -131,11 +162,11 @@ function calculateWinner() {
 
   if (p1Wins >= needed && p1Wins > p2Wins) {
     winnerId.value = match.value?.player1?.id;
-    resultText.value = `大比分 ${p1Wins}:${p2Wins} · 胜者 ${match.value?.player1?.name}`;
+    resultText.value = `胜者 ${match.value?.player1?.name}  (${p1Wins}:${p2Wins})`;
     resultValid.value = true;
   } else if (p2Wins >= needed && p2Wins > p1Wins) {
     winnerId.value = match.value?.player2?.id;
-    resultText.value = `大比分 ${p1Wins}:${p2Wins} · 胜者 ${match.value?.player2?.name}`;
+    resultText.value = `胜者 ${match.value?.player2?.name}  (${p1Wins}:${p2Wins})`;
     resultValid.value = true;
   } else {
     resultValid.value = false;
@@ -181,11 +212,24 @@ async function handleSubmit() {
 onMounted(async () => {
   loading.value = true;
   try {
-    const res = await TournamentAPIExtended.getMatchDetail(tournamentId.value, matchId.value);
-    match.value = res.data.data;
+    const [matchRes, tournamentRes] = await Promise.all([
+      TournamentAPIExtended.getMatches(tournamentId.value),
+      TournamentAPI.getTournamentList(),
+    ]);
+    const list: any[] = matchRes.data.data || [];
+    const found = list.find((m: any) => m.id === matchId.value);
+    if (!found) {
+      showToast("比赛不存在");
+      loading.value = false;
+      return;
+    }
+    match.value = found;
+    tournament.value = (tournamentRes.data.data || []).find(
+      (t: any) => t.id === tournamentId.value
+    );
 
-    if (match.value?.scores && match.value.scores.length > 0) {
-      sets.value = match.value.scores.map((s: any) => ({
+    if (found.scores && found.scores.length > 0) {
+      sets.value = found.scores.map((s: any) => ({
         player1: String(s.player1),
         player2: String(s.player2),
       }));
@@ -201,98 +245,164 @@ onMounted(async () => {
 
 <style scoped>
 .score-page {
-  padding-bottom: 24px;
+  padding-bottom: 32px;
 }
 
 .loading {
   margin-top: 60px;
 }
 
-.match-header {
+.scoreboard {
   display: flex;
-  gap: 16px;
-  align-items: center;
-  justify-content: center;
-  padding: 24px 16px;
+  gap: 8px;
+  align-items: stretch;
+  padding: 20px 0;
 }
 
-.player-name {
-  padding: 8px 16px;
-  font-size: 16px;
-  font-weight: 600;
-  background: #f5f5f5;
-  border-radius: 8px;
+.sb-player {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 12px;
+  background: var(--mobile-scoreboard-bg);
+  border-radius: 12px;
+  min-height: 90px;
   transition: all 0.3s;
 }
 
-.player-name.isWinner {
-  color: #fff;
-  background: var(--van-success-color, #07c160);
+.sb-player.is-winner {
+  background: var(--mobile-scoreboard-winner-bg);
+  box-shadow: 0 0 0 2px var(--mobile-green);
 }
 
-.vs-text {
-  font-size: 13px;
-  color: #999;
+.sb-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--mobile-text-primary);
+  text-align: center;
+  line-height: 1.3;
+}
+
+.is-winner .sb-name {
+  color: var(--mobile-winner-text);
+}
+
+.sb-score {
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--mobile-text-primary);
+  line-height: 1;
+}
+
+.is-winner .sb-score {
+  color: var(--mobile-winner-text);
+}
+
+.sb-vs {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+}
+
+.sb-vs-text {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--mobile-text-muted);
+}
+
+.sb-vs-sub {
+  font-size: 11px;
+  color: var(--mobile-text-muted);
+  margin-top: 2px;
 }
 
 .sets-section {
-  padding: 0 16px;
+  padding: 0 0 16px;
 }
 
-.set-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
+.section-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--mobile-text-primary);
   margin-bottom: 12px;
 }
 
-.set-label {
-  width: 50px;
-  font-size: 14px;
-  color: #666;
+.set-block {
+  margin-bottom: 12px;
+  padding: 12px;
+  background: var(--mobile-set-block-bg);
+  border-radius: 10px;
+  box-shadow: 0 1px 4px var(--mobile-shimmer);
 }
 
-.set-inputs {
+.set-header {
   display: flex;
-  flex: 1;
-  gap: 6px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.set-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--mobile-text-secondary);
+}
+
+.set-body {
+  display: flex;
+  gap: 8px;
   align-items: center;
 }
 
-.score-input {
+.score-field {
   flex: 1;
   text-align: center;
+  font-size: 20px;
+  font-weight: 700;
+  border: 2px solid var(--mobile-set-block-border);
+  border-radius: 10px;
 }
 
-.colon {
-  font-size: 18px;
-  font-weight: 600;
+.set-colon {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--mobile-text-muted);
+  flex-shrink: 0;
 }
 
 .add-set-btn {
-  width: 100%;
+  margin-top: 4px;
+}
+
+.result-banner {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 16px;
   margin-bottom: 16px;
-}
-
-.result-bar {
-  padding: 10px 16px;
-  margin: 0 16px 16px;
   font-size: 14px;
-  text-align: center;
-  border-radius: 8px;
+  font-weight: 500;
+  border-radius: 10px;
 }
 
-.result-bar.valid {
-  color: #07c160;
-  background: #f0f9eb;
+.result-banner.valid {
+  color: var(--mobile-green-text);
+  background: var(--mobile-green-bg);
 }
 
-.result-bar.invalid {
-  color: #ee0a24;
-  background: #fef0f0;
+.result-banner.invalid {
+  color: var(--mobile-red-text);
+  background: var(--mobile-red-bg);
 }
 
 .submit-area {
-  padding: 16px;
+  padding: 0;
 }
 </style>

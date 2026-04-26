@@ -61,7 +61,7 @@
           />
         </div>
       </div>
-      <div v-else style=" padding: 20px;text-align: center">暂无评估数据</div>
+      <div v-else style="padding: 20px; text-align: center">暂无评估数据</div>
     </van-dialog>
   </div>
 </template>

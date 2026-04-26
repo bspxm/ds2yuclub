@@ -143,7 +143,6 @@ async function handleSubmit() {
     await AssessmentAPI.createAssessment(body as any);
     showSuccessToast("评估提交成功");
 
-    // Reset form
     for (const dim of dimensions) {
       form[dim.key] = 0;
     }
@@ -159,7 +158,7 @@ async function handleSubmit() {
 
 onMounted(async () => {
   try {
-    const res = await StudentAPI.getStudentList({ page_no: 1, page_size: 200 });
+    const res = await StudentAPI.getStudentList({ page_no: 1, page_size: 100 });
     const items = res.data.data?.items || [];
     studentOptions.value = items.map((s: any) => ({ id: s.id, name: s.name }));
     studentColumns.value = items.map((s: any) => ({ text: s.name, value: s.id }));
@@ -186,7 +185,7 @@ onMounted(async () => {
   align-items: center;
   justify-content: space-between;
   padding: 10px 12px;
-  background: #fff;
+  background: var(--mobile-dimension-bg);
   border-radius: 8px;
 }
 
@@ -194,5 +193,6 @@ onMounted(async () => {
   min-width: 48px;
   font-size: 14px;
   font-weight: 500;
+  color: var(--mobile-text-primary);
 }
 </style>

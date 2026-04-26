@@ -9,12 +9,13 @@
 -- 删除所有羽毛球相关的权限菜单(type=3)
 DELETE FROM sys_menu WHERE permission LIKE 'module_badminton:%' AND type = 3;
 
--- 删除可能残留的新分组下的所有子菜单（含移动端）
+-- 删除可能残留的新分组下的权限子菜单（只删除type=3权限，保留模块菜单）
 DELETE FROM sys_menu
 WHERE parent_id IN (
     SELECT id FROM sys_menu
     WHERE route_name IN ('BadmintonBasic', 'BadmintonTeaching', 'BadmintonBusiness', 'BadmintonView', 'BadmintonMobileCoach', 'BadmintonMobileParent')
-);
+)
+AND type = 3;
 
 -- 删除可能残留的新分组菜单（含移动端）
 DELETE FROM sys_menu
@@ -47,22 +48,22 @@ WHERE route_name IN (
 INSERT INTO sys_menu
 (name, type, "order", permission, icon, route_name, route_path, component_path, redirect, hidden, keep_alive, always_show, title, params, affix, parent_id, uuid, status, description, created_time, updated_time)
 VALUES
-('基础管理', 1, 8, NULL, 'list', 'BadmintonBasic', '/basic', NULL, '/Badminton/student', FALSE, TRUE, FALSE, '基础管理', NULL, FALSE, NULL, gen_random_uuid(), '0', '基础数据管理：学期、班级、学员', NOW(), NOW());
+('基础管理', 1, 8, NULL, 'el-icon-List', 'BadmintonBasic', '/basic', NULL, '/Badminton/student', FALSE, TRUE, FALSE, '基础管理', NULL, FALSE, NULL, gen_random_uuid(), '0', '基础数据管理：学期、班级、学员', NOW(), NOW());
 
 INSERT INTO sys_menu
 (name, type, "order", permission, icon, route_name, route_path, component_path, redirect, hidden, keep_alive, always_show, title, params, affix, parent_id, uuid, status, description, created_time, updated_time)
 VALUES
-('教学管理', 1, 9, NULL, 'reading', 'BadmintonTeaching', '/teaching', NULL, '/Badminton/course', FALSE, TRUE, FALSE, '教学管理', NULL, FALSE, NULL, gen_random_uuid(), '0', '教学管理：课程、排课、考勤、评估、分组', NOW(), NOW());
+('教学管理', 1, 9, NULL, 'el-icon-Reading', 'BadmintonTeaching', '/teaching', NULL, '/Badminton/course', FALSE, TRUE, FALSE, '教学管理', NULL, FALSE, NULL, gen_random_uuid(), '0', '教学管理：课程、排课、考勤、评估、分组', NOW(), NOW());
 
 INSERT INTO sys_menu
 (name, type, "order", permission, icon, route_name, route_path, component_path, redirect, hidden, keep_alive, always_show, title, params, affix, parent_id, uuid, status, description, created_time, updated_time)
 VALUES
-('业务管理', 1, 10, NULL, 'coordinate', 'BadmintonBusiness', '/business', NULL, '/Badminton/purchase', FALSE, TRUE, FALSE, '业务管理', NULL, FALSE, NULL, gen_random_uuid(), '0', '业务管理：报班、请假、赛事', NOW(), NOW());
+('业务管理', 1, 10, NULL, 'el-icon-Coordinate', 'BadmintonBusiness', '/business', NULL, '/Badminton/purchase', FALSE, TRUE, FALSE, '业务管理', NULL, FALSE, NULL, gen_random_uuid(), '0', '业务管理：报班、请假、赛事', NOW(), NOW());
 
 INSERT INTO sys_menu
 (name, type, "order", permission, icon, route_name, route_path, component_path, redirect, hidden, keep_alive, always_show, title, params, affix, parent_id, uuid, status, description, created_time, updated_time)
 VALUES
-('视图', 1, 11, NULL, 'eye', 'BadmintonView', '/view', NULL, '/Badminton/parent', FALSE, TRUE, FALSE, '视图', NULL, FALSE, NULL, gen_random_uuid(), '0', '视图切换：家长端、教练视图', NOW(), NOW());
+('视图', 1, 11, NULL, 'el-icon-View', 'BadmintonView', '/view', NULL, '/Badminton/parent', FALSE, TRUE, FALSE, '视图', NULL, FALSE, NULL, gen_random_uuid(), '0', '视图切换：家长端、教练视图', NOW(), NOW());
 
 -- ========================================
 -- 第四步：迁移二级菜单到对应分组
@@ -351,13 +352,13 @@ WHERE permission LIKE 'module_badminton:schedule:%';
 -- 教练移动端根菜单（挂在视图分组下）
 INSERT INTO sys_menu
 (name, type, "order", permission, icon, route_name, route_path, component_path, redirect, hidden, keep_alive, always_show, title, params, affix, parent_id, uuid, status, description, created_time, updated_time)
-SELECT '教练移动端', 2, 3, NULL, 'phone', 'BadmintonMobileCoach', '/m/badminton/coach', NULL, NULL, FALSE, TRUE, FALSE, '教练移动端', NULL, FALSE, m.id, gen_random_uuid(), '0', '教练手机端：签到、课表、比赛、评估', NOW(), NOW()
+SELECT '教练移动端', 2, 3, NULL, 'el-icon-Phone', 'BadmintonMobileCoach', '/m/badminton/coach', 'module_badminton/m/coach/home', NULL, FALSE, TRUE, FALSE, '教练移动端', NULL, FALSE, m.id, gen_random_uuid(), '0', '教练手机端：签到、课表、比赛、评估', NOW(), NOW()
 FROM sys_menu m WHERE m.route_name = 'BadmintonView' LIMIT 1;
 
 -- 家长移动端根菜单（挂在视图分组下）
 INSERT INTO sys_menu
 (name, type, "order", permission, icon, route_name, route_path, component_path, redirect, hidden, keep_alive, always_show, title, params, affix, parent_id, uuid, status, description, created_time, updated_time)
-SELECT '家长移动端', 2, 4, NULL, 'phone', 'BadmintonMobileParent', '/m/badminton/parent', NULL, NULL, FALSE, TRUE, FALSE, '家长移动端', NULL, FALSE, m.id, gen_random_uuid(), '0', '家长手机端：学习情况、比赛、H2H', NOW(), NOW()
+SELECT '家长移动端', 2, 4, NULL, 'el-icon-Phone', 'BadmintonMobileParent', '/m/badminton/parent', 'module_badminton/m/parent/student', '/m/badminton/parent/student', FALSE, TRUE, FALSE, '家长移动端', NULL, FALSE, m.id, gen_random_uuid(), '0', '家长手机端：学习情况、比赛、H2H', NOW(), NOW()
 FROM sys_menu m WHERE m.route_name = 'BadmintonView' LIMIT 1;
 
 -- ========================================

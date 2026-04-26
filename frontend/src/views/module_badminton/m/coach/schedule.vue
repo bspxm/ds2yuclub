@@ -182,13 +182,13 @@ onMounted(() => {
 }
 
 .time-range {
-  color: #666;
+  color: var(--mobile-text-secondary);
 }
 
 .count {
   margin-left: auto;
   font-size: 12px;
-  color: #999;
+  color: var(--mobile-text-muted);
 }
 
 .schedule-card {
@@ -202,7 +202,7 @@ onMounted(() => {
 .location-label {
   margin-left: 8px;
   font-size: 12px;
-  color: #999;
+  color: var(--mobile-text-muted);
 }
 
 .student-tag {
@@ -210,13 +210,13 @@ onMounted(() => {
   padding: 2px 8px;
   margin: 2px 4px 2px 0;
   font-size: 12px;
-  color: #333;
-  background: #f0f5ff;
+  color: var(--mobile-text-primary);
+  background: var(--mobile-blue-bg);
   border-radius: 4px;
 }
 
 .more-students {
   font-size: 12px;
-  color: #999;
+  color: var(--mobile-text-muted);
 }
 </style>
