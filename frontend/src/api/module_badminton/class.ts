@@ -1,9 +1,9 @@
 import request from "@/utils/request";
 
-const API_PATH = "/badminton/class_";
+const API_PATH = "/badminton/team/teams";
+const TEAM_PATH = "/badminton/team";
 
 const ClassAPI = {
-  // 创建班级
   createClass(body: ClassForm) {
     return request<ApiResponse<ClassTable>>({
       url: `${API_PATH}`,
@@ -12,7 +12,6 @@ const ClassAPI = {
     });
   },
 
-  // 班级列表（分页）
   getClassList(query: ClassPageQuery) {
     return request<ApiResponse<PageResult<ClassTable[]>>>({
       url: `${API_PATH}`,
@@ -21,7 +20,6 @@ const ClassAPI = {
     });
   },
 
-  // 班级详情
   getClassDetail(id: number) {
     return request<ApiResponse<ClassTable>>({
       url: `${API_PATH}/${id}`,
@@ -29,7 +27,6 @@ const ClassAPI = {
     });
   },
 
-  // 更新班级
   updateClass(id: number, body: ClassForm) {
     return request<ApiResponse<ClassTable>>({
       url: `${API_PATH}/${id}`,
@@ -38,7 +35,6 @@ const ClassAPI = {
     });
   },
 
-  // 删除班级（批量）
   deleteClass(body: number[]) {
     return request<ApiResponse>({
       url: `${API_PATH}`,
@@ -47,18 +43,16 @@ const ClassAPI = {
     });
   },
 
-  // 获取指定学期的所有班级
   getClassesBySemester(semester_id: number) {
     return request<ApiResponse<ClassTable[]>>({
-      url: `${API_PATH}/semester/${semester_id}`,
+      url: `${TEAM_PATH}/semester/${semester_id}`,
       method: "get",
     });
   },
 
-  // 获取班级可用时间段
   getAvailableTimeSlots(classId: number, dayOfWeek?: number) {
     return request<ApiResponse<any>>({
-      url: `${API_PATH}/${classId}/available-time-slots`,
+      url: `${TEAM_PATH}/${classId}/available-time-slots`,
       method: "get",
       params: dayOfWeek !== undefined ? { day_of_week: dayOfWeek } : {},
     });

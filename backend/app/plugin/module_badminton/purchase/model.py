@@ -11,7 +11,7 @@ from ..enums import PurchaseStatusEnum
 
 if TYPE_CHECKING:
     from ..student.model import StudentModel
-    from ..class_.model import ClassModel
+    from ..team.model import ClassModel
     from ..semester.model import SemesterModel
     from ..attendance.model import ClassAttendanceModel
 

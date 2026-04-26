@@ -14,7 +14,7 @@ from app.common.response import SuccessResponse
 from app.core.dependencies import AuthPermission, redis_getter
 from app.core.router_class import OperationLogRoute
 
-from ..class_.schema import (
+from ..team.schema import (
     ClassScheduleCreateV2Schema,
     AvailableStudentSchema,
     ClassScheduleQueryParam,
@@ -112,7 +112,7 @@ async def delete_schedule(
 
 
 @ClassScheduleRouter.get(
-    "/class/{class_id}",
+    "/team/{class_id}",
     summary="指定班级的排课记录",
     description="获取指定班级的所有排课记录",
 )
@@ -130,7 +130,7 @@ async def get_class_schedules(
 
 
 @ClassScheduleRouter.get(
-    "/class/{class_id}/upcoming",
+    "/team/{class_id}/upcoming",
     summary="指定班级的近期排课",
     description="获取指定班级的即将上课排课记录",
 )

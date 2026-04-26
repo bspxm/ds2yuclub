@@ -15,7 +15,7 @@ from app.core.logger import logger
 
 from .model import *
 from .crud import *
-from ..class_.schema import (
+from ..team.schema import (
     ClassAttendanceCreateSchema,
     ClassAttendanceUpdateSchema,
     ClassAttendanceOutSchema,
@@ -126,7 +126,7 @@ class ClassAttendanceService:
                 "is_leave": attendance.is_leave,
                 "session_deducted": attendance.session_deducted,
                 "is_auto_deduct": attendance.is_auto_deduct,
-                "notes": attendance.notes,
+                "notes": attendance.description,
                 "status": attendance.status,
                 "created_time": attendance.created_time.isoformat()
                 if attendance.created_time

@@ -9,7 +9,7 @@ from app.core.base_crud import CRUDBase
 from app.core.database import SessionDep
 
 from .model import *
-from ..class_.schema import ClassAttendanceCreateSchema, ClassAttendanceUpdateSchema
+from ..team.schema import ClassAttendanceCreateSchema, ClassAttendanceUpdateSchema
 
 # ============================================================================
 # 考勤记录 CRUD

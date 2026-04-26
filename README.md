@@ -51,7 +51,7 @@ ds2yuclub/
 │  └─ app/plugin/
 │     └─ module_badminton/    # 羽毛球业务模块
 │        ├─ student/          # 学员管理
-│        ├─ class_/           # 班级管理
+│        ├─ team/             # 班级管理
 │        ├─ course/           # 课程管理
 │        ├─ schedule/         # 排课管理
 │        ├─ purchase/         # 购买记录

@@ -12,7 +12,7 @@ from app.core.database import SessionDep
 
 from .model import *
 from .view_model import ClassScheduleListView
-from ..class_.schema import ClassScheduleCreateV2Schema
+from ..team.schema import ClassScheduleCreateV2Schema
 
 # ============================================================================
 # 排课记录 CRUD

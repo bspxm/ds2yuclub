@@ -1565,8 +1565,8 @@ onMounted(() => {
 
 .card-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
 }
 
 .data-table__toolbar {
@@ -1574,9 +1574,9 @@ onMounted(() => {
 }
 
 .pagination-container {
-  margin-top: 16px;
   display: flex;
   justify-content: flex-end;
+  margin-top: 16px;
 }
 
 .tournament-manager {
@@ -1589,18 +1589,18 @@ onMounted(() => {
 
 .toolbar {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-  gap: 12px;
   flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
 }
 
 .toolbar-left,
 .toolbar-right {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
 }
 
 .toolbar-right {
@@ -1609,8 +1609,8 @@ onMounted(() => {
 
 .match-stats {
   display: flex;
-  align-items: center;
   gap: 12px;
+  align-items: center;
   padding: 6px 16px;
   background: var(--el-fill-color-light);
   border-radius: 8px;
@@ -1618,8 +1618,8 @@ onMounted(() => {
 
 .stat-item {
   display: flex;
-  align-items: center;
   gap: 4px;
+  align-items: center;
 }
 
 .stat-label {
@@ -1628,10 +1628,10 @@ onMounted(() => {
 }
 
 .stat-value {
+  min-width: 18px;
   font-size: 16px;
   font-weight: 700;
   color: var(--el-text-color-primary);
-  min-width: 18px;
   text-align: center;
 }
 

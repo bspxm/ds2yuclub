@@ -12,7 +12,7 @@ from ..enums import ScheduleStatusEnum, ScheduleTypeEnum
 
 if TYPE_CHECKING:
     from app.api.v1.module_system.user.model import UserModel
-    from ..class_.model import ClassModel
+    from ..team.model import ClassModel
     from ..attendance.model import ClassAttendanceModel
 
 

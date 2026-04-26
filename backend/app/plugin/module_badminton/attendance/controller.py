@@ -13,7 +13,7 @@ from app.common.response import SuccessResponse
 from app.core.dependencies import AuthPermission
 from app.core.router_class import OperationLogRoute
 
-from ..class_.schema import (
+from ..team.schema import (
     ClassAttendanceCreateSchema,
     ClassAttendanceUpdateSchema,
     ClassAttendanceQueryParam,
@@ -127,7 +127,7 @@ async def class_attendances_by_student(
 
 
 @AttendanceRouter.get(
-    "/class/{class_id}",
+    "/team/{class_id}",
     summary="班级考勤记录",
     description="获取指定班级的所有考勤记录",
 )

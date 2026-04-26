@@ -12,7 +12,7 @@ from ..enums import AttendanceStatusEnum
 if TYPE_CHECKING:
     from app.api.v1.module_system.user.model import UserModel
     from ..student.model import StudentModel
-    from ..class_.model import ClassModel
+    from ..team.model import ClassModel
     from ..schedule.model import ClassScheduleModel
     from ..purchase.model import PurchaseModel
     from ..leave.model import LeaveRequestModel

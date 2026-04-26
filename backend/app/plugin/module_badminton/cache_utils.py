@@ -298,7 +298,7 @@ class BadmintonCacheWarmer:
         """预热活跃学期列表"""
         try:
             from app.plugin.module_badminton.semester.crud import SemesterCRUD
-            from app.plugin.module_badminton.class_.crud import ClassCRUD
+            from app.plugin.module_badminton.team.crud import ClassCRUD
             from app.api.v1.module_system.auth.schema import AuthSchema
             from sqlalchemy import select, or_
             from app.plugin.module_badminton.semester.model import SemesterModel

@@ -19,7 +19,7 @@ from app.core.logger import logger
 from .model import *
 from .crud import *
 from .view_model import ClassScheduleListView
-from ..class_.schema import (
+from ..team.schema import (
     ClassScheduleCreateV2Schema,
     ClassScheduleOutSchema,
     ClassScheduleQueryParam,
@@ -489,7 +489,7 @@ class ClassScheduleService:
             list[dict]: 可用学员列表
         """
         import json
-        from app.plugin.module_badminton.class_.crud import ClassCRUD
+        from app.plugin.module_badminton.team.crud import ClassCRUD
         from app.plugin.module_badminton.purchase.crud import PurchaseCRUD
 
         # 尝试从Redis缓存获取
@@ -506,7 +506,7 @@ class ClassScheduleService:
             logger.warning(f"获取缓存失败，将继续查询数据库: key={cache_key}, error={e}")
 
         # 1. 查询班级（使用视图优化）
-        from ..class_.crud import ClassListCRUD
+        from ..team.crud import ClassListCRUD
         class_query_start = time_module.time()
         if class_ids and len(class_ids) > 0:
             # 查询指定班级（使用视图）
@@ -867,7 +867,7 @@ class ClassScheduleService:
             dict: 创建结果
         """
         from app.plugin.module_badminton.semester.crud import SemesterCRUD
-        from app.plugin.module_badminton.class_.crud import ClassCRUD
+        from app.plugin.module_badminton.team.crud import ClassCRUD
         from datetime import datetime
         import json
 

@@ -58,7 +58,7 @@
         <!-- 查询、重置、展开/收起按钮 -->
         <el-form-item>
           <el-button
-            v-hasPerm="['module_badminton:class:list']"
+            v-hasPerm="['module_badminton:team:list']"
             type="primary"
             icon="search"
             @click="handleQuery"
@@ -66,7 +66,7 @@
             查询
           </el-button>
           <el-button
-            v-hasPerm="['module_badminton:class:list']"
+            v-hasPerm="['module_badminton:team:list']"
             icon="refresh"
             @click="handleResetQuery"
           >
@@ -109,7 +109,7 @@
           <el-row :gutter="10">
             <el-col :span="1.5">
               <el-button
-                v-hasPerm="['module_badminton:class:create']"
+                v-hasPerm="['module_badminton:team:create']"
                 type="success"
                 icon="plus"
                 @click="handleOpenDialog('create')"
@@ -119,7 +119,7 @@
             </el-col>
             <el-col :span="1.5">
               <el-button
-                v-hasPerm="['module_badminton:class:delete']"
+                v-hasPerm="['module_badminton:team:delete']"
                 type="danger"
                 icon="delete"
                 :disabled="selectIds.length === 0"
@@ -146,7 +146,7 @@
             <el-col :span="1.5">
               <el-tooltip content="刷新">
                 <el-button
-                  v-hasPerm="['module_badminton:class:list']"
+                  v-hasPerm="['module_badminton:team:list']"
                   type="primary"
                   icon="refresh"
                   circle
@@ -297,7 +297,7 @@
           >
             <template #default="scope">
               <el-button
-                v-hasPerm="['module_badminton:class:detail']"
+                v-hasPerm="['module_badminton:team:detail']"
                 type="info"
                 size="small"
                 link
@@ -307,7 +307,7 @@
                 详情
               </el-button>
               <el-button
-                v-hasPerm="['module_badminton:class:update']"
+                v-hasPerm="['module_badminton:team:update']"
                 type="primary"
                 size="small"
                 link
@@ -317,7 +317,7 @@
                 编辑
               </el-button>
               <el-button
-                v-hasPerm="['module_badminton:class:delete']"
+                v-hasPerm="['module_badminton:team:delete']"
                 type="danger"
                 size="small"
                 link

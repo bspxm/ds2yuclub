@@ -25,7 +25,7 @@ from .leave.model import LeaveRequestModel
 from .semester.model import SemesterModel
 # 先导入schedule模型，因为ClassModel依赖它
 from .schedule.model import ClassScheduleModel, ScheduleStatusEnum, ScheduleTypeEnum
-from .class_.model import ClassModel
+from .team.model import ClassModel
 from .purchase.model import PurchaseModel
 from .attendance.model import ClassAttendanceModel
 from .group.model import AbilityGroupModel, GroupCoachModel, GroupStudentModel

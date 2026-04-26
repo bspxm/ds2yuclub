@@ -10,7 +10,7 @@ from app.core.base_model import ModelMixin, UserMixin
 from ..enums import SemesterTypeEnum, SemesterStatusEnum
 
 if TYPE_CHECKING:
-    from ..class_.model import ClassModel
+    from ..team.model import ClassModel
     from ..purchase.model import PurchaseModel
 
 

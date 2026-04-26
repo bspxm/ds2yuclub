@@ -50,7 +50,7 @@ const ClassScheduleAPI = {
   // 获取指定班级的所有排课记录
   getClassSchedulesByClass(class_id: number) {
     return request<ApiResponse<ClassScheduleTable[]>>({
-      url: `${API_PATH}/class/${class_id}`,
+      url: `${API_PATH}/team/${class_id}`,
       method: "get",
     });
   },
