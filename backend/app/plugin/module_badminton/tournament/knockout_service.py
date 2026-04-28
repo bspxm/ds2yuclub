@@ -151,8 +151,7 @@ class KnockoutService:
                 logger.info(
                     f"[generate_bracket] 已将 {filled_count} 个新学员填充到轮空位置"
                 )
-                # 提交事务并返回更新后的对阵表
-                await auth.db.commit()
+                # 返回更新后的对阵表
                 updated_matches = await cls._get_existing_matches(tournament_id, auth)
                 return {
                     "matches": updated_matches,
@@ -338,7 +337,6 @@ class KnockoutService:
         )
 
         if not row or not row.next_match_id:
-            await auth.db.commit()
             logger.info(f"[update_match] 比赛 {match_id} 无下游比赛")
             return {"message": "比赛已更新，无下游比赛"}
 
@@ -365,10 +363,8 @@ class KnockoutService:
             update_sql, {"winner_id": winner_id, "next_match_id": next_match_id}
         )
 
-        # 提交事务
-        await auth.db.commit()
         logger.info(
-            f"[update_match] 事务已提交，胜者 {winner_id} 已晋级到比赛 {next_match_id}"
+            f"[update_match] 胜者 {winner_id} 已晋级到比赛 {next_match_id}"
         )
 
         return {"message": "比赛已更新，胜者已晋级", "next_match_id": next_match_id}
@@ -551,8 +547,6 @@ class KnockoutService:
                     f"[_save_bracket] 更新比赛 {real_id}: prev1={prev_match1_id}, prev2={prev_match2_id}, next={next_match_id}"
                 )
 
-        # 提交事务
-        await auth.db.commit()
         logger.info("[_save_bracket] 对阵表保存完成")
 
     @classmethod

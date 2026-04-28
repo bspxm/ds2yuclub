@@ -34,8 +34,8 @@
           :key="match.id"
           class="match-card"
           :class="{
-            completed: match.status === 'completed',
-            bye: match.status === 'bye',
+            completed: match.status === 'completed' || match.status === 'COMPLETED',
+            bye: match.status === 'bye' || match.status === 'BYE',
             'has-winner': match.winner_id,
             clickable: true,
           }"
@@ -96,10 +96,10 @@
           </div>
 
           <!-- 比赛状态指示器 -->
-          <div v-if="match.status === 'completed'" class="match-status">
+          <div v-if="match.status === 'completed' || match.status === 'COMPLETED'" class="match-status">
             <div class="status-dot completed"></div>
           </div>
-          <div v-else-if="match.status === 'bye'" class="match-status">
+          <div v-else-if="match.status === 'bye' || match.status === 'BYE'" class="match-status">
             <div class="status-dot bye"></div>
           </div>
         </div>
@@ -159,7 +159,7 @@ interface KnockoutMatch {
   player2: KnockoutPlayer | null;
   scores?: string;
   winner_id?: number;
-  status: "scheduled" | "completed" | "bye";
+  status: "SCHEDULED" | "COMPLETED" | "BYE" | "scheduled" | "completed" | "bye";
   prev_match1_id?: number;
   prev_match2_id?: number;
   next_match_id?: number;

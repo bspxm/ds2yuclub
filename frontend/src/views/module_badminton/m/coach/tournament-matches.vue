@@ -299,7 +299,7 @@
           </div>
 
           <div v-if="!scoreReadonly" class="submit-area">
-            <van-button type="primary" block round size="large" :loading="scoreSubmitting" :disabled="!scoreResultValid" @click="scoreHandleSubmit">确认提交</van-button>
+            <van-button type="primary" block round size="large" :disabled="!scoreResultValid" @click="scoreHandleSubmit">确认提交</van-button>
           </div>
         </div>
         <van-empty v-else description="比赛不存在" />
@@ -307,62 +307,13 @@
 
       <div v-if="viewTab === 'knockout'" class="ko-view">
         <van-loading v-if="loadingKnockout" size="24px" />
-        <template v-else-if="knockoutData?.rounds">
-          <div
-            v-for="round in knockoutData.rounds"
-            :key="round.key || round.label"
-            class="ko-round"
-          >
-            <div class="ko-round-title">{{ round.label }}</div>
-            <div
-              v-for="m in round.matches"
-              :key="m.id"
-              class="match-card"
-              @click="goMatchScore(m.id)"
-            >
-              <div class="match-players">
-                <div
-                  class="player-side"
-                  :class="{ 'is-winner': m.winner_id && m.winner_id === m.player1?.id }"
-                >
-                  <div class="player-name">
-                    {{ m.player1?.name || (m.round_number === 1 ? "轮空" : "等待对手") }}
-                  </div>
-                  <div v-if="m.scores && m.scores.length > 0" class="player-score">
-                    {{ totalScore(m.scores, 1) }}
-                  </div>
-                </div>
-                <div class="vs-section"><span class="vs-text">VS</span></div>
-                <div
-                  class="player-side"
-                  :class="{ 'is-winner': m.winner_id && m.winner_id === m.player2?.id }"
-                >
-                  <div class="player-name">
-                    {{ m.player2?.name || (m.round_number === 1 ? "轮空" : "等待对手") }}
-                  </div>
-                  <div v-if="m.scores && m.scores.length > 0" class="player-score">
-                    {{ totalScore(m.scores, 2) }}
-                  </div>
-                </div>
-              </div>
-              <div v-if="m.scores && m.scores.length > 0" class="sets-row">
-                <span
-                  v-for="(set, i) in m.scores"
-                  :key="i"
-                  class="set-badge"
-                  :class="setWinner(m, set)"
-                >
-                  {{ set.player1 }}:{{ set.player2 }}
-                </span>
-              </div>
-              <van-tag v-if="tournament?.status === 'COMPLETED' || m.status === 'completed'" type="success" round :size="'small' as any">
-                已结束
-              </van-tag>
-              <van-tag v-else-if="m.status === 'bye'" type="default" round :size="'small' as any">
-                轮空
-              </van-tag>
-              <van-tag v-else type="warning" round :size="'small' as any">待比赛</van-tag>
-            </div>
+        <template v-else-if="knockoutData?.matches?.length">
+          <div class="ko-bracket-scroll">
+            <KnockoutBracketView
+              :matches="knockoutData.matches"
+              :total-rounds="knockoutData.total_rounds"
+              @match-click="(m: any) => goMatchScore(m.id)"
+            />
           </div>
         </template>
         <van-empty v-else description="暂无淘汰赛数据" />
@@ -439,8 +390,9 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { showToast, showSuccessToast, showConfirmDialog } from "vant";
+import { showToast, showSuccessToast, showLoadingToast, closeToast, showConfirmDialog } from "vant";
 import TournamentAPI, { TournamentAPIExtended } from "@/api/module_badminton/tournament";
+import KnockoutBracketView from "@/views/module_badminton/tournament/components/KnockoutBracketView.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -461,7 +413,7 @@ const prMatches = ref<any[]>([]);
 const selectedGroupId = ref<number | null>(null);
 const showGroupPicker = ref(false);
 
-// 小组赛录入比分弹窗
+// 录入比分弹窗
 const showScoreDialog = ref(false);
 const scoreMatch = ref<any>(null);
 const scoreSets = ref<{ player1: string; player2: string }[]>([{ player1: "", player2: "" }]);
@@ -604,7 +556,13 @@ function onGroupPickerConfirm({ selectedValues }: any) {
 }
 
 function goMatchScore(matchId: number) {
-  router.push(`/m/badminton/coach/match-score/${route.params.id}/${matchId}`);
+  const found = matches.value.find((m: any) => m.id === matchId);
+  if (!found) {
+    showToast("找不到该比赛");
+    return;
+  }
+
+  openScoreDialog(found);
 }
 
 function handleMatrixCellClick(ri: number, ci: number) {
@@ -629,7 +587,7 @@ function handleMatrixCellClick(ri: number, ci: number) {
 }
 
 const scoreReadonly = computed(
-  () => scoreMatch.value?.status === "completed" || tournament.value?.status === "COMPLETED"
+  () => tournament.value?.status === "COMPLETED"
 );
 
 function scoreSetsWon(player: 1 | 2): number {
@@ -685,11 +643,20 @@ function scoreCalculateWinner() {
 
 function openScoreDialog(match: any) {
   scoreMatch.value = match;
-  if (match.scores && match.scores.length > 0) {
-    scoreSets.value = match.scores.map((s: any) => ({
-      player1: String(s.player1),
-      player2: String(s.player2),
-    }));
+  if (match.scores) {
+    if (Array.isArray(match.scores) && match.scores.length > 0) {
+      scoreSets.value = match.scores.map((s: any) => ({
+        player1: String(s.player1),
+        player2: String(s.player2),
+      }));
+    } else if (typeof match.scores === "string" && match.scores.trim()) {
+      scoreSets.value = match.scores.split(",").map((s: string) => {
+        const parts = s.trim().split("-");
+        return { player1: parts[0]?.trim() || "0", player2: parts[1]?.trim() || "0" };
+      });
+    } else {
+      scoreSets.value = [{ player1: "", player2: "" }];
+    }
   } else {
     scoreSets.value = [{ player1: "", player2: "" }];
   }
@@ -708,19 +675,44 @@ function scoreRemoveSet(index: number) {
 async function scoreHandleSubmit() {
   if (!scoreMatch.value) return;
   scoreSubmitting.value = true;
+  const loadingToast = showLoadingToast({ message: "保存中...", forbidClick: true });
   try {
     const numSets = scoreGetNumericSets();
     for (const s of numSets) {
       if (s.player1 < 0 || s.player2 < 0) {
+        closeToast();
         showToast("比分不能为负数");
         return;
       }
     }
-    await TournamentAPIExtended.recordScore(Number(route.params.id), scoreMatch.value.id, { sets: numSets });
-    showSuccessToast("比分录入成功");
+    const tid = Number(route.params.id);
+    const mid = scoreMatch.value.id;
+    if (scoreMatch.value?.round_type === "knockout") {
+      await TournamentAPIExtended.recordKnockoutScore(tid, mid, { sets: numSets }, scoreWinnerId.value!);
+    } else {
+      await TournamentAPIExtended.recordScore(tid, mid, { sets: numSets });
+    }
     showScoreDialog.value = false;
-    await loadMatches();
+
+    const roundType = scoreMatch.value?.round_type;
+    const refreshTasks: Promise<any>[] = [loadMatches()];
+
+    if (roundType === "knockout" || viewTab.value === "knockout") {
+      refreshTasks.push(loadKnockoutData());
+    }
+    if (roundType === "promotion_relegation" || viewTab.value === "position") {
+      refreshTasks.push(loadPRMatches());
+      refreshTasks.push(loadPositions());
+    }
+    if (viewTab.value === "groupStage") {
+      refreshTasks.push(loadGroupStageOnly());
+    }
+
+    await Promise.all(refreshTasks);
+    closeToast();
+    showSuccessToast({ message: "比分录入成功", className: "score-submit-toast" });
   } catch (e: any) {
+    closeToast();
     showToast(e.response?.data?.msg || "提交失败");
   } finally {
     scoreSubmitting.value = false;
@@ -728,7 +720,6 @@ async function scoreHandleSubmit() {
 }
 
 function onScoreDialogClosed() {
-  scoreMatch.value = null;
 }
 
 function totalScore(scores: any[], player: number): number {
@@ -1578,16 +1569,10 @@ onMounted(async () => {
 .ko-view {
   padding: 12px 0;
 }
-.ko-round {
-  margin-bottom: 20px;
-}
-.ko-round-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--mobile-text-primary);
-  margin-bottom: 10px;
-  padding-left: 4px;
-  border-left: 3px solid var(--mobile-green);
+.ko-bracket-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 12px;
 }
 
 /* position view */
@@ -1711,4 +1696,12 @@ onMounted(async () => {
   flex-shrink: 0;
 }
 
+</style>
+<style>
+.score-submit-toast.van-toast,
+.van-toast.van-toast--loading {
+  background: var(--el-bg-color-overlay) !important;
+  color: var(--el-text-color-primary) !important;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
+}
 </style>

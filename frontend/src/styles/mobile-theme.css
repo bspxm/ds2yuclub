@@ -50,4 +50,15 @@
   --mobile-rank-header-bg: var(--el-fill-color);
   --mobile-rank-row-border: var(--el-border-color-lighter);
   --mobile-rank-top-bg: var(--el-color-success-light-9);
+
+  /* Vant Toast & Loading 深色/浅色模式适配 */
+  --van-toast-background: rgba(50, 50, 50, 0.88);
+  --van-toast-text-color: #ffffff;
+  --van-loading-color: var(--el-color-primary);
+}
+
+/* 深色模式覆盖 */
+html.dark {
+  --van-toast-background: rgba(30, 30, 30, 0.92);
+  --van-toast-text-color: #ffffff;
 }
