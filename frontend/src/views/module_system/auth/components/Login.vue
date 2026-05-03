@@ -101,15 +101,6 @@
         <CommonWrapper>
           <div text-20px cursor-pointer class="i-svg:wechat" @click="handleWechatLogin" />
         </CommonWrapper>
-        <CommonWrapper>
-          <div text-20px cursor-pointer class="i-svg:qq" />
-        </CommonWrapper>
-        <CommonWrapper>
-          <div text-20px cursor-pointer class="i-svg:github" />
-        </CommonWrapper>
-        <CommonWrapper>
-          <div text-20px cursor-pointer class="i-svg:gitee" />
-        </CommonWrapper>
       </div>
     </div>
 

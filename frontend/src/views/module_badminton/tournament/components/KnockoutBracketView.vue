@@ -99,7 +99,10 @@
           </div>
 
           <!-- 比赛状态指示器 -->
-          <div v-if="match.status === 'completed' || match.status === 'COMPLETED'" class="match-status">
+          <div
+            v-if="match.status === 'completed' || match.status === 'COMPLETED'"
+            class="match-status"
+          >
             <div class="status-dot completed"></div>
           </div>
           <div v-else-if="match.status === 'bye' || match.status === 'BYE'" class="match-status">

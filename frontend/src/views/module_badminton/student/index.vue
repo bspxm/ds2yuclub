@@ -593,22 +593,14 @@
             </el-col>
             <el-col :span="12">
               <el-form-item label="联系人">
-                <el-input
-                  v-model="formData.emergency_contact"
-                  placeholder="请输入联系人"
-                  :maxlength="32"
-                />
+                <el-input v-model="formData.contact" placeholder="请输入联系人" :maxlength="32" />
               </el-form-item>
             </el-col>
 
             <!-- 第七行：手机号码、状态 -->
             <el-col :span="12">
               <el-form-item label="手机号码">
-                <el-input
-                  v-model="formData.emergency_phone"
-                  placeholder="请输入手机号码"
-                  :maxlength="20"
-                />
+                <el-input v-model="formData.mobile" placeholder="请输入手机号码" :maxlength="20" />
               </el-form-item>
             </el-col>
             <el-col :span="12">
@@ -877,8 +869,8 @@ const formData = reactive<StudentForm>({
   level: undefined,
   group_name: undefined,
   campus: undefined,
-  emergency_contact: undefined,
-  emergency_phone: undefined,
+  contact: undefined,
+  mobile: undefined,
   status: "0",
   description: undefined,
 });
@@ -943,8 +935,8 @@ const initialFormData: StudentForm = {
   level: undefined,
   group_name: undefined,
   campus: undefined,
-  emergency_contact: undefined,
-  emergency_phone: undefined,
+  contact: undefined,
+  mobile: undefined,
   status: "0",
   description: undefined,
 };

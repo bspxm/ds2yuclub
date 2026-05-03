@@ -1,13 +1,7 @@
 <template>
   <van-config-provider :theme="isDark ? 'dark' : 'light'">
     <div class="mobile-layout">
-      <van-nav-bar
-        :title="title"
-        :left-arrow="!isHome"
-        fixed
-        placeholder
-        @click-left="onBack"
-      >
+      <van-nav-bar :title="title" :left-arrow="!isHome" fixed placeholder @click-left="onBack">
         <template #right>
           <van-icon
             :name="themeIcon"

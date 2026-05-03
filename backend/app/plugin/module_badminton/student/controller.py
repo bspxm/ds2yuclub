@@ -12,10 +12,13 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from app.api.v1.module_system.auth.schema import AuthSchema
 from app.common.response import SuccessResponse
 from app.core.base_schema import BatchSetAvailable
-from app.core.dependencies import AuthPermission
+from app.core.dependencies import AuthPermission, get_current_user
 from app.core.exceptions import CustomException
 from app.core.router_class import OperationLogRoute
 
+from ..attendance.service import ClassAttendanceService
+from ..tournament.crud import TournamentParticipantCRUD
+from .crud import StudentCRUD, ParentStudentCRUD
 from .service import StudentService, ParentStudentService, AbilityAssessmentService
 from .schema import (
     StudentCreateSchema,
@@ -207,3 +210,237 @@ async def parent_student_delete(
     """删除关联"""
     result = await ParentStudentService.delete_service(auth, data)
     return SuccessResponse(data=result, msg="关联删除成功")
+
+
+@ParentStudentRouter.get(
+    "/list-all",
+    summary="关联列表(管理端)",
+    description="获取所有家长-学员关联列表",
+)
+async def parent_student_list_all(
+    auth: AuthSchema = Depends(
+        AuthPermission(["module_badminton:parent_student:list"])
+    ),
+) -> JSONResponse:
+    """获取所有关联（管理端）"""
+    relations = await ParentStudentCRUD(auth).list_crud(
+        order_by=[{"id": "desc"}],
+        preload=["parent", "student"],
+    )
+    result = []
+    for rel in relations:
+        result.append({
+            "id": rel.id,
+            "parent_id": rel.parent_id,
+            "student_id": rel.student_id,
+            "relation_type": rel.relation_type.value if rel.relation_type else None,
+            "is_primary": rel.is_primary,
+            "parent_name": rel.parent.name if rel.parent else "",
+            "student_name": rel.student.name if rel.student else "",
+        })
+    return SuccessResponse(data=result, msg="获取成功")
+
+
+# ============================================================================
+# 家长移动端 API（家长角色专用，基于 role.code = PARENTS 认证）
+# ============================================================================
+
+
+async def require_parent_role(auth: AuthSchema = Depends(get_current_user)) -> AuthSchema:
+    if auth.user and auth.user.is_superuser:
+        return auth
+    if auth.user and auth.user.roles:
+        for role in auth.user.roles:
+            if role.code == "PARENTS" and role.status == "0":
+                return auth
+    raise CustomException(msg="无权限操作", code=10403, status_code=403)
+
+
+@ParentStudentRouter.get(
+    "/my-students",
+    summary="我的学员(家长移动端)",
+    description="获取当前登录家长关联的所有学员",
+)
+async def parent_my_students(
+    auth: AuthSchema = Depends(require_parent_role),
+) -> JSONResponse:
+    """获取当前家长的学员（家长移动端使用）"""
+    parent_id = auth.user.id
+    result = await ParentStudentService.get_by_parent_service(auth, parent_id)
+    return SuccessResponse(data=result, msg="获取成功")
+
+
+@ParentStudentRouter.get(
+    "/my-students/{student_id}/attendances",
+    summary="我的学员考勤(家长移动端)",
+    description="获取家长关联学员的考勤记录",
+)
+async def parent_my_student_attendances(
+    student_id: int,
+    auth: AuthSchema = Depends(require_parent_role),
+) -> JSONResponse:
+    """获取家长关联学员的考勤记录"""
+    parent_id = auth.user.id
+    relations = await ParentStudentService.get_by_parent_service(auth, parent_id)
+    child_ids = [r["student"]["id"] for r in relations]
+    if student_id not in child_ids:
+        raise CustomException(msg="无权限查看该学员数据", code=10403, status_code=403)
+
+    result = await ClassAttendanceService.get_by_student_service(auth, student_id)
+    return SuccessResponse(data=result, msg="获取成功")
+
+
+@ParentStudentRouter.get(
+    "/my-students/{student_id}/tournaments",
+    summary="我的学员赛事(家长移动端)",
+    description="获取家长关联学员的赛事报名记录",
+)
+async def parent_my_student_tournaments(
+    student_id: int,
+    auth: AuthSchema = Depends(require_parent_role),
+) -> JSONResponse:
+    """获取家长关联学员的赛事报名记录"""
+    parent_id = auth.user.id
+    relations = await ParentStudentService.get_by_parent_service(auth, parent_id)
+    child_ids = [r["student"]["id"] for r in relations]
+    if student_id not in child_ids:
+        raise CustomException(msg="无权限查看该学员数据", code=10403, status_code=403)
+
+    participants = await TournamentParticipantCRUD(auth).list(
+        search={"student_id": student_id},
+        preload=["tournament"],
+        order_by=[{"id": "desc"}],
+    )
+    result = []
+    for p in participants:
+        tournament = p.tournament
+        result.append({
+            "id": p.id,
+            "tournament_id": p.tournament_id,
+            "student_id": p.student_id,
+            "is_withdrawn": p.is_withdrawn,
+            "final_rank": p.final_rank,
+            "matches_played": p.matches_played,
+            "matches_won": p.matches_won,
+            "matches_lost": p.matches_lost,
+            "tournament_name": tournament.name if tournament else "",
+            "tournament_status": tournament.status.value if tournament and tournament.status else "",
+            "start_date": tournament.start_date.isoformat() if tournament and tournament.start_date else "",
+            "end_date": tournament.end_date.isoformat() if tournament and tournament.end_date else "",
+        })
+    return SuccessResponse(data=result, msg="获取成功")
+
+
+@ParentStudentRouter.get(
+    "/my-students/{student_id}/assessments/latest",
+    summary="我的学员最新评估(家长移动端)",
+    description="获取家长关联学员的最新能力评估",
+)
+async def parent_my_student_assessment_latest(
+    student_id: int,
+    auth: AuthSchema = Depends(require_parent_role),
+) -> JSONResponse:
+    """获取家长关联学员的最新评估"""
+    parent_id = auth.user.id
+    relations = await ParentStudentService.get_by_parent_service(auth, parent_id)
+    child_ids = [r["student"]["id"] for r in relations]
+    if student_id not in child_ids:
+        raise CustomException(msg="无权限查看该学员数据", code=10403, status_code=403)
+
+    result = await AbilityAssessmentService.get_latest_service(auth, student_id)
+    if not result:
+        return SuccessResponse(data=None, msg="该学员暂无评估记录")
+    return SuccessResponse(data=result, msg="最新评估获取成功")
+
+
+@ParentStudentRouter.get(
+    "/my-students/{student_id}/assessments/history",
+    summary="我的学员评估历史(家长移动端)",
+    description="获取家长关联学员的能力评估历史",
+)
+async def parent_my_student_assessment_history(
+    student_id: int,
+    auth: AuthSchema = Depends(require_parent_role),
+    limit: int = Query(5, ge=1, le=20, description="返回记录数"),
+) -> JSONResponse:
+    parent_id = auth.user.id
+    relations = await ParentStudentService.get_by_parent_service(auth, parent_id)
+    child_ids = [r["student"]["id"] for r in relations]
+    if student_id not in child_ids:
+        raise CustomException(msg="无权限查看该学员数据", code=10403, status_code=403)
+
+    result = await AbilityAssessmentService.get_history_service(auth, student_id, limit)
+    return SuccessResponse(data=result, msg="获取成功")
+
+
+@ParentStudentRouter.get(
+    "/match-by-mobile",
+    summary="手机号匹配学员(家长端)",
+    description="根据当前家长手机号查找匹配且未绑定的学员",
+)
+async def parent_match_by_mobile(
+    auth: AuthSchema = Depends(require_parent_role),
+) -> JSONResponse:
+    mobile = auth.user.mobile
+    if not mobile:
+        return SuccessResponse(data=[], msg="当前账号未设置手机号")
+
+    students = await StudentCRUD(auth).list_crud(
+        search={"mobile": ("eq", mobile)},
+    )
+    existing = await ParentStudentCRUD(auth).get_by_parent_id_crud(auth.user.id)
+    existing_ids = {r.student_id for r in existing}
+
+    result = []
+    for s in students:
+        if s.id not in existing_ids:
+            result.append({
+                "id": s.id,
+                "name": s.name,
+                "mobile": s.mobile,
+                "level": s.level,
+                "group_name": s.group_name,
+            })
+    return SuccessResponse(data=result, msg="获取成功")
+
+
+@ParentStudentRouter.post(
+    "/self-bind",
+    summary="自助绑定学员(家长端)",
+    description="家长自助绑定手机号匹配的学员",
+)
+async def parent_self_bind(
+    data: dict,
+    auth: AuthSchema = Depends(require_parent_role),
+) -> JSONResponse:
+    student_id = data.get("student_id")
+    if not student_id:
+        raise CustomException(msg="请提供学员ID")
+
+    mobile = auth.user.mobile
+    if not mobile:
+        raise CustomException(msg="当前账号未设置手机号")
+
+    students = await StudentCRUD(auth).list_crud(
+        search={"id": ("eq", student_id), "mobile": ("eq", mobile)},
+    )
+    if not students:
+        raise CustomException(msg="该学员与您的手机号不匹配")
+
+    existing = await ParentStudentCRUD(auth).get(
+        parent_id=auth.user.id,
+        student_id=student_id,
+    )
+    if existing:
+        raise CustomException(msg="该学员已绑定")
+
+    from .schema import ParentStudentCreateSchema
+
+    create_data = ParentStudentCreateSchema(
+        parent_id=auth.user.id,
+        student_id=student_id,
+        relation_type="other",
+        is_primary=True,
+    )
+    relation = await ParentStudentService.create_service(auth, create_data)
+    return SuccessResponse(data=relation, msg="绑定成功")

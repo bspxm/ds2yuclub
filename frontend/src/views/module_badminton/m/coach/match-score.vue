@@ -58,7 +58,15 @@
           </div>
         </div>
 
-        <van-button v-if="!isReadonly" icon="plus" block plain round class="add-set-btn" @click="addSet">
+        <van-button
+          v-if="!isReadonly"
+          icon="plus"
+          block
+          plain
+          round
+          class="add-set-btn"
+          @click="addSet"
+        >
           新增一局
         </van-button>
       </div>

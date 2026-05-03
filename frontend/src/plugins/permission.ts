@@ -5,7 +5,6 @@ import router from "@/router";
 import { usePermissionStore, useUserStore } from "@/store";
 
 export function setupPermission() {
-  // 白名单路由
   const whiteList = ["/login"];
 
   router.beforeEach(async (to, from, next) => {
@@ -15,16 +14,12 @@ export function setupPermission() {
       const isLoggedIn = Auth.isLoggedIn();
 
       if (isLoggedIn) {
-        // 如果已登录但访问登录页，重定向到首页
         if (to.path === "/login") {
           next({ path: "/" });
           return;
         }
-
-        // 处理已登录用户的路由访问
         await handleAuthenticatedUser(to, from, next);
       } else {
-        // 未登录用户的处理
         if (whiteList.includes(to.path)) {
           next();
         } else {
@@ -33,7 +28,6 @@ export function setupPermission() {
         }
       }
     } catch (error) {
-      // 错误处理：重置状态并跳转登录
       console.error("Route guard error:", error);
       await useUserStore().resetAllState();
       next("/login");
@@ -41,15 +35,11 @@ export function setupPermission() {
     }
   });
 
-  // 后置守卫，确保进度条关闭
   router.afterEach(() => {
     NProgress.done();
   });
 }
 
-/**
- * 处理已登录用户的路由访问
- */
 async function handleAuthenticatedUser(
   to: RouteLocationNormalized,
   from: RouteLocationNormalized,
@@ -59,43 +49,53 @@ async function handleAuthenticatedUser(
   const userStore = useUserStore();
 
   try {
-    // 检查路由是否已生成
     if (!permissionStore.isRouteGenerated) {
       if (!userStore.basicInfo?.roles?.length) {
         await userStore.getUserInfo();
       }
 
       const dynamicRoutes = await permissionStore.generateRoutes();
-      // 添加路由到路由器
       dynamicRoutes.forEach((route: RouteRecordRaw) => {
-        router.addRoute(route);
+        if (!route.path?.startsWith("/m/")) {
+          router.addRoute(route);
+        }
       });
 
-      // 路由生成完成后，重新导航到目标路由
       next({ ...to, replace: true });
       return;
     }
 
-    // 路由已加载，检查路由是否存在
     if (to.matched.length === 0) {
       next("/404");
       return;
     }
 
-    // 角色路由分发：非管理员用户访问 PC 首页时自动跳转移动端
-    if ((to.path === "/" || to.path === "/home") && !userStore.basicInfo.is_superuser) {
-      const roles = userStore.basicInfo.roles || [];
-      const roleCodes = roles.map((r) => r.code);
+    const isSuper = !!userStore.basicInfo?.is_superuser;
+    const roles = userStore.basicInfo?.roles || [];
+    const roleCodes = roles.map((r: any) => r.code);
+    const isParent = roleCodes.includes("PARENTS");
 
-      if (roleCodes.includes("PARENTS")) {
-        next("/m/badminton/parent/student");
+    if (to.path === "/" || to.path === "/home") {
+      if (isSuper) {
+        next();
         return;
       }
-      next("/m/badminton/coach/home");
+      const target = isParent ? "/m/badminton/parent/student" : "/m/badminton/coach/home";
+      next(target);
       return;
     }
 
-    // 动态设置页面标题
+    if (to.path.startsWith("/m/")) {
+      if (isSuper) {
+        next("/home");
+        return;
+      }
+      if (to.path.startsWith("/m/badminton/parent/") && !isParent) {
+        next("/m/badminton/coach/home");
+        return;
+      }
+    }
+
     const title = (to.params.title as string) || (to.query.title as string);
     if (title) {
       to.meta.title = title;
@@ -105,7 +105,6 @@ async function handleAuthenticatedUser(
   } catch (error) {
     console.error("❌ Route guard error:", error);
     await useUserStore().resetAllState();
-    // 强制跳转到登录页
     next("/login");
     NProgress.done();
   }

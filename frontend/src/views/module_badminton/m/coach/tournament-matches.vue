@@ -122,7 +122,11 @@
                 "
               >
                 {{
-                  tournament?.status === "COMPLETED" || m.status === "completed" ? "已结束" : m.status === "active" ? "进行中" : "待比赛"
+                  tournament?.status === "COMPLETED" || m.status === "completed"
+                    ? "已结束"
+                    : m.status === "active"
+                      ? "进行中"
+                      : "待比赛"
                 }}
               </van-tag>
               <van-icon name="arrow" class="footer-arrow" />
@@ -257,19 +261,36 @@
       </div>
 
       <!-- 小组赛录入比分弹窗 -->
-      <van-popup v-model:show="showScoreDialog" position="bottom" round closeable class="score-popup" @closed="onScoreDialogClosed">
+      <van-popup
+        v-model:show="showScoreDialog"
+        position="bottom"
+        round
+        closeable
+        class="score-popup"
+        @closed="onScoreDialogClosed"
+      >
         <div v-if="scoreMatch" class="score-popup-content">
           <div class="scoreboard">
-            <div class="sb-player" :class="{ 'is-winner': scoreWinnerId === scoreMatch.player1?.id }">
-              <div class="sb-name">{{ scoreMatch.player1?.name || scoreMatch.player1?.student_name || "待定" }}</div>
+            <div
+              class="sb-player"
+              :class="{ 'is-winner': scoreWinnerId === scoreMatch.player1?.id }"
+            >
+              <div class="sb-name">
+                {{ scoreMatch.player1?.name || scoreMatch.player1?.student_name || "待定" }}
+              </div>
               <div class="sb-score">{{ scoreSetsWon(1) }}</div>
             </div>
             <div class="sb-vs">
               <div class="sb-vs-text">VS</div>
               <div class="sb-vs-sub">大比分</div>
             </div>
-            <div class="sb-player" :class="{ 'is-winner': scoreWinnerId === scoreMatch.player2?.id }">
-              <div class="sb-name">{{ scoreMatch.player2?.name || scoreMatch.player2?.student_name || "待定" }}</div>
+            <div
+              class="sb-player"
+              :class="{ 'is-winner': scoreWinnerId === scoreMatch.player2?.id }"
+            >
+              <div class="sb-name">
+                {{ scoreMatch.player2?.name || scoreMatch.player2?.student_name || "待定" }}
+              </div>
               <div class="sb-score">{{ scoreSetsWon(2) }}</div>
             </div>
           </div>
@@ -279,30 +300,84 @@
             <div v-for="(set, index) in scoreSets" :key="index" class="set-block">
               <div class="set-header">
                 <span class="set-title">第{{ index + 1 }}局</span>
-                <van-button v-if="!scoreReadonly && scoreSets.length > 1" icon="delete" size="small" plain round @click="scoreRemoveSet(index)" />
+                <van-button
+                  v-if="!scoreReadonly && scoreSets.length > 1"
+                  icon="delete"
+                  size="small"
+                  plain
+                  round
+                  @click="scoreRemoveSet(index)"
+                />
               </div>
               <div class="set-body">
-                <input v-model="set.player1" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="score-input" :readonly="scoreReadonly" maxlength="2" @input="!scoreReadonly && scoreCalculateWinner()">
+                <input
+                  v-model="set.player1"
+                  type="text"
+                  inputmode="numeric"
+                  pattern="[0-9]*"
+                  placeholder="0"
+                  class="score-input"
+                  :readonly="scoreReadonly"
+                  maxlength="2"
+                  @input="!scoreReadonly && scoreCalculateWinner()"
+                />
                 <span class="set-colon">:</span>
-                <input v-model="set.player2" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="score-input" :readonly="scoreReadonly" maxlength="2" @input="!scoreReadonly && scoreCalculateWinner()">
+                <input
+                  v-model="set.player2"
+                  type="text"
+                  inputmode="numeric"
+                  pattern="[0-9]*"
+                  placeholder="0"
+                  class="score-input"
+                  :readonly="scoreReadonly"
+                  maxlength="2"
+                  @input="!scoreReadonly && scoreCalculateWinner()"
+                />
               </div>
             </div>
-            <van-button v-if="!scoreReadonly" icon="plus" block plain round class="add-set-btn" @click="scoreSets.push({ player1: '', player2: '' })">新增一局</van-button>
+            <van-button
+              v-if="!scoreReadonly"
+              icon="plus"
+              block
+              plain
+              round
+              class="add-set-btn"
+              @click="scoreSets.push({ player1: '', player2: '' })"
+            >
+              新增一局
+            </van-button>
           </div>
 
-          <div v-if="scoreResultText" class="result-banner" :class="scoreResultValid ? 'valid' : 'invalid'">
+          <div
+            v-if="scoreResultText"
+            class="result-banner"
+            :class="scoreResultValid ? 'valid' : 'invalid'"
+          >
             <van-icon :name="scoreResultValid ? 'success' : 'cross'" />
             {{ scoreResultText }}
           </div>
 
           <div v-if="!scoreReadonly" class="submit-area">
-            <van-button type="primary" block round size="large" :disabled="!scoreResultValid" @click="scoreHandleSubmit">确认提交</van-button>
+            <van-button
+              type="primary"
+              block
+              round
+              size="large"
+              :disabled="!scoreResultValid"
+              @click="scoreHandleSubmit"
+            >
+              确认提交
+            </van-button>
           </div>
         </div>
         <van-empty v-else description="比赛不存在" />
       </van-popup>
 
-      <van-dialog v-model:show="showRegenDialog" title="重新生成淘汰赛" :show-confirm-button="false">
+      <van-dialog
+        v-model:show="showRegenDialog"
+        title="重新生成淘汰赛"
+        :show-confirm-button="false"
+      >
         <div class="regen-dialog-body">
           <van-icon name="warning-o" class="regen-warn-icon" />
           <p class="regen-msg">重新生成将清空现有对阵和比分记录，确认继续？</p>
@@ -310,7 +385,15 @@
         <template #footer>
           <div class="regen-dialog-footer">
             <van-button plain block round @click="showRegenDialog = false">取消</van-button>
-            <van-button type="danger" block round :loading="isGeneratingKnockout" @click="onRegenConfirm">确认重新生成</van-button>
+            <van-button
+              type="danger"
+              block
+              round
+              :loading="isGeneratingKnockout"
+              @click="onRegenConfirm"
+            >
+              确认重新生成
+            </van-button>
           </div>
         </template>
       </van-dialog>
@@ -352,7 +435,10 @@
               />
             </div>
           </template>
-          <van-empty v-else-if="!knockoutData?.matches?.length" description="暂无淘汰赛数据，请先生成对阵表" />
+          <van-empty
+            v-else-if="!knockoutData?.matches?.length"
+            description="暂无淘汰赛数据，请先生成对阵表"
+          />
         </template>
       </div>
 
@@ -383,23 +469,44 @@
               </div>
               <div class="pr-row">
                 <span class="pr-label">选手1</span>
-                <span class="pr-value" :class="{ 'is-winner': m.winner_id && m.winner_id === m.player1_id }">
+                <span
+                  class="pr-value"
+                  :class="{ 'is-winner': m.winner_id && m.winner_id === m.player1_id }"
+                >
                   {{ m.player1_name || "待定" }}
-                  <van-icon v-if="m.winner_id && m.winner_id === m.player1_id" name="success" class="winner-icon" />
+                  <van-icon
+                    v-if="m.winner_id && m.winner_id === m.player1_id"
+                    name="success"
+                    class="winner-icon"
+                  />
                 </span>
               </div>
               <div class="pr-row">
                 <span class="pr-label">选手2</span>
-                <span class="pr-value" :class="{ 'is-winner': m.winner_id && m.winner_id === m.player2_id }">
+                <span
+                  class="pr-value"
+                  :class="{ 'is-winner': m.winner_id && m.winner_id === m.player2_id }"
+                >
                   {{ m.player2_name || "待定" }}
-                  <van-icon v-if="m.winner_id && m.winner_id === m.player2_id" name="success" class="winner-icon" />
+                  <van-icon
+                    v-if="m.winner_id && m.winner_id === m.player2_id"
+                    name="success"
+                    class="winner-icon"
+                  />
                 </span>
               </div>
               <div class="pr-row">
                 <span class="pr-label">比分</span>
                 <span class="pr-value pr-score">
                   <template v-if="m.scores?.sets?.length">
-                    <span v-for="(set, i) in m.scores.sets" :key="i" class="pr-set" :class="prSetWinner(m, set)">{{ set.player1 || 0 }}:{{ set.player2 || 0 }}</span>
+                    <span
+                      v-for="(set, i) in m.scores.sets"
+                      :key="i"
+                      class="pr-set"
+                      :class="prSetWinner(m, set)"
+                    >
+                      {{ set.player1 || 0 }}:{{ set.player2 || 0 }}
+                    </span>
                   </template>
                   <span v-else class="pr-no-score">-</span>
                 </span>
@@ -602,9 +709,7 @@ function handleMatrixCellClick(ri: number, ci: number) {
   const pid1 = (m: any) => m.player1_id ?? m.player1?.id;
   const pid2 = (m: any) => m.player2_id ?? m.player2?.id;
   const found = matches.value.find(
-    (m: any) =>
-      (pid1(m) === p1Id && pid2(m) === p2Id) ||
-      (pid1(m) === p2Id && pid2(m) === p1Id)
+    (m: any) => (pid1(m) === p1Id && pid2(m) === p2Id) || (pid1(m) === p2Id && pid2(m) === p1Id)
   );
   if (!found) {
     showToast("找不到该对阵");
@@ -613,9 +718,7 @@ function handleMatrixCellClick(ri: number, ci: number) {
   openScoreDialog(found);
 }
 
-const scoreReadonly = computed(
-  () => tournament.value?.status === "COMPLETED"
-);
+const scoreReadonly = computed(() => tournament.value?.status === "COMPLETED");
 
 function scoreSetsWon(player: 1 | 2): number {
   let count = 0;
@@ -716,7 +819,12 @@ async function scoreHandleSubmit() {
     const mid = scoreMatch.value.id;
     const isKo = scoreMatch.value?.round_type?.toUpperCase() === "KNOCKOUT";
     if (isKo) {
-      await TournamentAPIExtended.recordKnockoutScore(tid, mid, { sets: numSets }, scoreWinnerId.value!);
+      await TournamentAPIExtended.recordKnockoutScore(
+        tid,
+        mid,
+        { sets: numSets },
+        scoreWinnerId.value!
+      );
     } else {
       await TournamentAPIExtended.recordScore(tid, mid, { sets: numSets });
     }
@@ -747,8 +855,7 @@ async function scoreHandleSubmit() {
   }
 }
 
-function onScoreDialogClosed() {
-}
+function onScoreDialogClosed() {}
 
 function totalScore(scores: any[], player: number): number {
   return scores.filter((s: any) => {

@@ -123,7 +123,7 @@ class StudentService:
             'parents': parents,
             'parent_count': student.parent_count if hasattr(student, 'parent_count') else len(parents),
             # 能力评估记录
-            'assessments': [ass.model_dump() for ass in assessments],
+            'assessments': [AbilityAssessmentOutSchema.model_validate(ass).model_dump() for ass in assessments],
             # 创建人和更新人
             'created_by': {'id': created_by.id, 'name': created_by.name} if created_by else None,
             'updated_by': {'id': updated_by.id, 'name': updated_by.name} if updated_by else None,

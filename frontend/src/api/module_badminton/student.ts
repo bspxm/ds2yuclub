@@ -141,6 +141,6 @@ export interface StudentForm extends BaseFormType {
   level?: string;
   group_name?: string;
   campus?: string;
-  emergency_contact?: string;
-  emergency_phone?: string;
+  contact?: string;
+  mobile?: string;
 }

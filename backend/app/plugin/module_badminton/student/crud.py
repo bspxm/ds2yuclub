@@ -156,8 +156,11 @@ class ParentStudentCRUD(CRUDBase[ParentStudentModel, ParentStudentCreateSchema, 
         return await self.update(id=id, data=data)
 
     async def delete_crud(self, ids: list[int]) -> None:
-        """删除关联"""
-        return await self.delete(ids=ids)
+        """删除关联（按id列删除，绕过复合主键限制）"""
+        from sqlalchemy import delete as sa_delete
+        sql = sa_delete(self.model).where(self.model.id.in_(ids))
+        await self.auth.db.execute(sql)
+        await self.auth.db.flush()
 
     async def get_by_parent_id_crud(self, parent_id: int) -> Sequence[ParentStudentModel]:
         """根据家长ID查找关联"""
@@ -242,12 +245,12 @@ class AbilityAssessmentCRUD(CRUDBase[AbilityAssessmentModel, AbilityAssessmentCr
 
     async def get_by_student_crud(self, student_id: int, limit: int = 10) -> Sequence[AbilityAssessmentModel]:
         """获取学员评估历史"""
-        return await self.list(
+        result = await self.list(
             search={"student_id": ("eq", student_id)},
             order_by=[{"assessment_date": "desc"}],
             preload=["coach"],
-            limit=limit
         )
+        return result[:limit]
 
     async def page_crud(self, offset: int, limit: int, order_by: Optional[list[dict]] = None, search: Optional[dict] = None, preload: Optional[list] = None, out_schema: Optional[type] = None) -> dict:
         """评估分页"""

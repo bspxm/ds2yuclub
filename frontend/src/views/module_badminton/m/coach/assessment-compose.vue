@@ -14,10 +14,9 @@
     <div v-if="selectedStudentId" class="dimension-section">
       <div v-if="lastAssessment" class="last-assessment-tip">
         <van-icon name="info-o" size="14" color="#1989fa" />
-        <span class="tip-text"
-          >已载入该学员 {{ formatDate(lastAssessment.assessment_date) }}
-          的评估结果，仅供参考</span
-        >
+        <span class="tip-text">
+          已载入该学员 {{ formatDate(lastAssessment.assessment_date) }} 的评估结果，仅供参考
+        </span>
       </div>
 
       <van-cell-group inset>
@@ -91,11 +90,7 @@
             {{ filterGroupName || "组别" }}
             <van-icon name="arrow-down" size="10" />
           </div>
-          <div
-            class="filter-tag"
-            :class="{ active: filterLevel }"
-            @click="showLevelPicker = true"
-          >
+          <div class="filter-tag" :class="{ active: filterLevel }" @click="showLevelPicker = true">
             {{ filterLevel || "技术水平" }}
             <van-icon name="arrow-down" size="10" />
           </div>
@@ -231,10 +226,7 @@ const filteredStudents = ref<StudentOption[]>([]);
 const allStudents = ref<StudentOption[]>([]);
 const allGroupOptions = ref<{ text: string; value: string }[]>([]);
 
-const groupColumns = computed(() => [
-  { text: "全部组别", value: "" },
-  ...allGroupOptions.value,
-]);
+const groupColumns = computed(() => [{ text: "全部组别", value: "" }, ...allGroupOptions.value]);
 
 const levelColumns = computed(() => {
   const set = new Set<string>();

@@ -37,6 +37,74 @@ const ParentStudentAPI = {
       data: body,
     });
   },
+
+  // ========== 家长移动端 API（通过认证信息获取，无需管理员权限） ==========
+
+  // 获取当前登录家长的学员
+  getMyStudents() {
+    return request<ApiResponse<ParentStudentWithStudent[]>>({
+      url: `${API_PATH}/my-students`,
+      method: "get",
+    });
+  },
+
+  // 获取家长关联学员的考勤记录
+  getMyStudentAttendances(studentId: number) {
+    return request<ApiResponse<any[]>>({
+      url: `${API_PATH}/my-students/${studentId}/attendances`,
+      method: "get",
+    });
+  },
+
+  // 获取家长关联学员的最新评估
+  getMyStudentLatestAssessment(studentId: number) {
+    return request<ApiResponse<any>>({
+      url: `${API_PATH}/my-students/${studentId}/assessments/latest`,
+      method: "get",
+    });
+  },
+
+  // 获取家长关联学员的评估历史
+  getMyStudentAssessmentHistory(studentId: number, limit: number = 5) {
+    return request<ApiResponse<any[]>>({
+      url: `${API_PATH}/my-students/${studentId}/assessments/history`,
+      method: "get",
+      params: { limit },
+    });
+  },
+
+  // 获取家长关联学员的赛事记录
+  getMyStudentTournaments(studentId: number) {
+    return request<ApiResponse<any[]>>({
+      url: `${API_PATH}/my-students/${studentId}/tournaments`,
+      method: "get",
+    });
+  },
+
+  // 获取所有关联（管理端）
+  listAll() {
+    return request<ApiResponse<any[]>>({
+      url: `${API_PATH}/list-all`,
+      method: "get",
+    });
+  },
+
+  // 根据手机号匹配学员（家长端自助）
+  matchByMobile() {
+    return request<ApiResponse<any[]>>({
+      url: `${API_PATH}/match-by-mobile`,
+      method: "get",
+    });
+  },
+
+  // 自助绑定学员（家长端）
+  selfBind(studentId: number) {
+    return request<ApiResponse<any>>({
+      url: `${API_PATH}/self-bind`,
+      method: "post",
+      data: { student_id: studentId },
+    });
+  },
 };
 
 export default ParentStudentAPI;
