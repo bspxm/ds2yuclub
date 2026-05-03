@@ -65,12 +65,20 @@ class TournamentService:
         cls, auth: AuthSchema, tournament_id: int, status: str
     ) -> dict:
         """更新赛事状态"""
-        tournament = await TournamentCRUD(auth).update_status_crud(
-            tournament_id, status
+        from sqlalchemy import update
+        from .model import TournamentModel
+
+        stmt = (
+            update(TournamentModel)
+            .where(TournamentModel.id == tournament_id)
+            .values(status=status)
+            .returning(TournamentModel)
         )
-        if not tournament:
+        result = await auth.db.execute(stmt)
+        obj = result.scalars().first()
+        if not obj:
             raise CustomException(msg="赛事不存在")
-        return TournamentOutSchema.model_validate(tournament).model_dump()
+        return {"id": obj.id, "name": obj.name, "status": obj.status}
 
     @classmethod
     async def list_service(cls, auth: AuthSchema) -> list[dict]:
@@ -624,9 +632,12 @@ class TournamentMatchService:
         participants = tournament.participants
         num_participants = len(participants)
 
-        # 分组 - 根据 group_size 自动计算分组数
-        group_size = tournament.group_size or 4
-        num_groups = (num_participants + group_size - 1) // group_size
+        # 分组
+        if tournament.tournament_type.value == "CHAMPIONSHIP" and tournament.advance_count and tournament.advance_top_n:
+            num_groups = tournament.advance_count // tournament.advance_top_n
+        else:
+            group_size = tournament.group_size or 4
+            num_groups = (num_participants + group_size - 1) // group_size
 
         # 分离种子选手和非种子选手
         seeded = [p for p in participants if p.seed_rank is not None]
@@ -776,6 +787,8 @@ class TournamentMatchService:
                 "match_number": row["match_number"],
                 "round_type": row["round_type"],
                 "status": row["status"],
+                "group_id": row["group_id"],
+                "group_name": row.get("group_name"),
                 "player1": {
                     "id": row["player1_id"],
                     "student_id": row["player1_student_id"],

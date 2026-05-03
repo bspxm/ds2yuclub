@@ -10,6 +10,8 @@ __pycache__
 .claude/
 .opencode/
 .agents/
+.codeartsdoer/
+.arts/
 
 IFLOW.md
 

@@ -66,12 +66,6 @@
       </van-tabs>
 
       <template v-if="viewTab === 'matches'">
-        <van-sticky v-if="visibleGroups.length > 1" offset-top="0">
-          <van-tabs v-model:active="activeGroup" class="group-tabs">
-            <van-tab v-for="g in visibleGroups" :key="g.id" :title="g.group_name" />
-          </van-tabs>
-        </van-sticky>
-
         <div v-if="filteredMatches.length === 0" class="empty-hint">暂无对阵</div>
         <div v-else class="match-list">
           <div
@@ -81,7 +75,10 @@
             :class="{ 'is-completed': m.status === 'completed' }"
             @click="goMatchScore(m.id)"
           >
-            <div v-if="m.round_number" class="match-round">第{{ m.round_number }}轮</div>
+            <div class="match-round">
+              <span v-if="m.group_name" class="round-group">{{ m.group_name }}</span>
+              <span v-if="m.round_number">第{{ m.round_number }}轮</span>
+            </div>
             <div class="match-players">
               <div
                 class="player-side"
@@ -207,7 +204,7 @@
                 <thead>
                   <tr>
                     <th></th>
-                    <th v-for="col in currentGroupData.matrix" :key="col.id || col.student_name">
+                    <th v-for="col in currentGroupData.matrix" :key="col.participant_id">
                       {{ col.student_name }}
                     </th>
                   </tr>
@@ -305,18 +302,58 @@
         <van-empty v-else description="比赛不存在" />
       </van-popup>
 
-      <div v-if="viewTab === 'knockout'" class="ko-view">
-        <van-loading v-if="loadingKnockout" size="24px" />
-        <template v-else-if="knockoutData?.matches?.length">
-          <div class="ko-bracket-scroll">
-            <KnockoutBracketView
-              :matches="knockoutData.matches"
-              :total-rounds="knockoutData.total_rounds"
-              @match-click="(m: any) => goMatchScore(m.id)"
-            />
+      <van-dialog v-model:show="showRegenDialog" title="重新生成淘汰赛" :show-confirm-button="false">
+        <div class="regen-dialog-body">
+          <van-icon name="warning-o" class="regen-warn-icon" />
+          <p class="regen-msg">重新生成将清空现有对阵和比分记录，确认继续？</p>
+        </div>
+        <template #footer>
+          <div class="regen-dialog-footer">
+            <van-button plain block round @click="showRegenDialog = false">取消</van-button>
+            <van-button type="danger" block round :loading="isGeneratingKnockout" @click="onRegenConfirm">确认重新生成</van-button>
           </div>
         </template>
-        <van-empty v-else description="暂无淘汰赛数据" />
+      </van-dialog>
+
+      <div v-if="viewTab === 'knockout'" class="ko-view">
+        <van-loading v-if="loadingKnockout" size="24px" />
+        <template v-else>
+          <div class="ko-toolbar">
+            <van-button size="small" round @click="loadKnockoutData">
+              <template #icon><van-icon name="replay" /></template>
+              刷新
+            </van-button>
+            <van-button
+              v-if="!knockoutData?.matches?.length"
+              type="success"
+              size="small"
+              round
+              :loading="isGeneratingKnockout"
+              @click="generateKnockout"
+            >
+              生成淘汰赛对阵
+            </van-button>
+            <van-button
+              v-else
+              size="small"
+              round
+              :loading="isGeneratingKnockout"
+              @click="handleRegenerateKnockout"
+            >
+              重新生成
+            </van-button>
+          </div>
+          <template v-if="knockoutData?.matches?.length">
+            <div class="ko-bracket-scroll">
+              <KnockoutBracketView
+                :matches="knockoutData.matches"
+                :total-rounds="knockoutData.total_rounds"
+                @match-click="(m: any) => goMatchScore(m.id)"
+              />
+            </div>
+          </template>
+          <van-empty v-else-if="!knockoutData?.matches?.length" description="暂无淘汰赛数据，请先生成对阵表" />
+        </template>
       </div>
 
       <div v-if="viewTab === 'position'" class="pos-view">
@@ -399,9 +436,9 @@ const router = useRouter();
 
 const loading = ref(false);
 const loadingKnockout = ref(false);
+const isGeneratingKnockout = ref(false);
 const matches = ref<any[]>([]);
-const groups = ref<any[]>([]);
-const activeGroup = ref(Number(route.query.group) || 0);
+
 const tournament = ref<any>(null);
 const selectedPlayerId = ref((route.query.player as string) || "");
 const filterStatus = ref((route.query.status as string) || "");
@@ -412,6 +449,7 @@ const positions = ref<any[]>([]);
 const prMatches = ref<any[]>([]);
 const selectedGroupId = ref<number | null>(null);
 const showGroupPicker = ref(false);
+const showRegenDialog = ref(false);
 
 // 录入比分弹窗
 const showScoreDialog = ref(false);
@@ -455,11 +493,6 @@ const typeLabel = computed(() => {
     SINGLE_ELIMINATION: "单败淘汰赛",
   };
   return map[tournament.value?.tournament_type] || tournament.value?.tournament_type || "";
-});
-
-const visibleGroups = computed(() => {
-  if (!selectedPlayerId.value) return groups.value;
-  return groups.value;
 });
 
 const selectedGroupName = computed(() => {
@@ -507,10 +540,6 @@ const filteredMatches = computed(() => {
     const pid = Number(selectedPlayerId.value);
     list = list.filter((m) => m.player1?.id === pid || m.player2?.id === pid);
   }
-  if (visibleGroups.value.length > 1) {
-    const group = visibleGroups.value[activeGroup.value];
-    if (group) list = list.filter((m: any) => m.group_id === group.id);
-  }
   return list;
 });
 
@@ -530,13 +559,11 @@ function syncFilters() {
   const query: Record<string, string> = {};
   if (filterStatus.value) query.status = filterStatus.value;
   if (selectedPlayerId.value) query.player = selectedPlayerId.value;
-  if (activeGroup.value) query.group = String(activeGroup.value);
   if (viewTab.value !== "matches") query.view = viewTab.value;
   router.replace({ query });
 }
 
 function onPlayerFilterChange() {
-  activeGroup.value = 0;
   syncFilters();
 }
 
@@ -687,7 +714,8 @@ async function scoreHandleSubmit() {
     }
     const tid = Number(route.params.id);
     const mid = scoreMatch.value.id;
-    if (scoreMatch.value?.round_type === "knockout") {
+    const isKo = scoreMatch.value?.round_type?.toUpperCase() === "KNOCKOUT";
+    if (isKo) {
       await TournamentAPIExtended.recordKnockoutScore(tid, mid, { sets: numSets }, scoreWinnerId.value!);
     } else {
       await TournamentAPIExtended.recordScore(tid, mid, { sets: numSets });
@@ -697,7 +725,7 @@ async function scoreHandleSubmit() {
     const roundType = scoreMatch.value?.round_type;
     const refreshTasks: Promise<any>[] = [loadMatches()];
 
-    if (roundType === "knockout" || viewTab.value === "knockout") {
+    if (roundType?.toUpperCase() === "KNOCKOUT" || viewTab.value === "knockout") {
       refreshTasks.push(loadKnockoutData());
     }
     if (roundType === "promotion_relegation" || viewTab.value === "position") {
@@ -785,18 +813,6 @@ async function loadMatches() {
     matches.value = matchRes.data.data || [];
     if (groupStageRes?.data?.data?.groups) {
       groupStageData.value = groupStageRes.data.data;
-      groups.value = groupStageData.value.groups;
-    } else {
-      const uniqueGroups = new Map();
-      for (const m of matches.value) {
-        if (m.group_id && !uniqueGroups.has(m.group_id)) {
-          uniqueGroups.set(m.group_id, {
-            id: m.group_id,
-            group_name: m.group_name || `第${uniqueGroups.size + 1}组`,
-          });
-        }
-      }
-      groups.value = Array.from(uniqueGroups.values());
     }
   } catch (e: any) {
     showToast(e.response?.data?.msg || "加载失败");
@@ -823,6 +839,56 @@ async function loadKnockoutData() {
   } finally {
     loadingKnockout.value = false;
   }
+}
+
+async function loadParticipants() {
+  try {
+    const res = await TournamentAPIExtended.getParticipants(Number(route.params.id));
+    return res.data?.data || [];
+  } catch {
+    return [];
+  }
+}
+
+async function generateKnockout() {
+  if (isGeneratingKnockout.value) return;
+  const tid = Number(route.params.id);
+  isGeneratingKnockout.value = true;
+  const loadingToast = showLoadingToast({ message: "生成中...", forbidClick: true });
+  try {
+    let res;
+    if (isChampionshipType.value) {
+      res = await TournamentAPIExtended.generateChampionshipKnockout(tid);
+    } else {
+      const participants = await loadParticipants();
+      if (participants.length < 2) {
+        closeToast();
+        showToast("参赛人数不足，无法生成淘汰赛");
+        return;
+      }
+      const participantIds = participants.map((p: any) => p.id);
+      res = await TournamentAPIExtended.generateKnockout(tid, participantIds);
+    }
+    closeToast();
+    await Promise.all([loadKnockoutData(), loadMatches()]);
+    showSuccessToast("淘汰赛对阵表生成成功");
+  } catch (e: any) {
+    closeToast();
+    showToast(e.response?.data?.msg || "生成失败");
+  } finally {
+    isGeneratingKnockout.value = false;
+  }
+}
+
+function handleRegenerateKnockout() {
+  showRegenDialog.value = true;
+}
+
+async function onRegenConfirm() {
+  showRegenDialog.value = false;
+  knockoutData.value = null;
+  loadingKnockout.value = true;
+  await generateKnockout();
 }
 
 async function loadPositions() {
@@ -852,7 +918,7 @@ function prSetWinner(m: any, set: any): string {
   return "";
 }
 
-watch([filterStatus, selectedPlayerId, activeGroup, viewTab], syncFilters);
+watch([filterStatus, selectedPlayerId, viewTab], syncFilters);
 
 onMounted(async () => {
   loading.value = true;
@@ -995,10 +1061,21 @@ onMounted(async () => {
   border-left: 4px solid var(--mobile-green);
 }
 .match-round {
+  display: flex;
+  gap: 8px;
+  align-items: center;
   font-size: 12px;
   font-weight: 500;
   color: var(--mobile-text-muted);
   margin-bottom: 8px;
+}
+.round-group {
+  display: inline-block;
+  padding: 0 6px;
+  font-weight: 600;
+  color: var(--mobile-text-secondary);
+  background: var(--mobile-gray-bg);
+  border-radius: 4px;
 }
 .match-players {
   display: flex;
@@ -1569,6 +1646,12 @@ onMounted(async () => {
 .ko-view {
   padding: 12px 0;
 }
+.ko-toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
 .ko-bracket-scroll {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -1696,6 +1779,32 @@ onMounted(async () => {
   flex-shrink: 0;
 }
 
+.regen-dialog-body {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 24px 24px 12px;
+}
+.regen-warn-icon {
+  font-size: 24px;
+  color: var(--mobile-orange, #ee0a24);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.regen-msg {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--mobile-text-secondary, #666);
+}
+.regen-dialog-footer {
+  display: flex;
+  gap: 12px;
+  padding: 0 24px 20px;
+}
+.regen-dialog-footer .van-button {
+  flex: 1;
+}
 </style>
 <style>
 .score-submit-toast.van-toast,

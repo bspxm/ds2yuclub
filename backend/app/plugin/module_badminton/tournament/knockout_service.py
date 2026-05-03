@@ -499,15 +499,16 @@ class KnockoutService:
             row = result.fetchone()
             real_id = row[0]
             id_map[temp_id] = real_id
+            match["id"] = real_id
 
             logger.info(f"[_save_bracket] 比赛临时ID {temp_id} -> 真实ID {real_id}")
 
-        # 第二步：更新所有比赛的关联ID
-        for match in matches:
-            temp_id = match["id"]
-            real_id = id_map[temp_id]
+        await auth.db.flush()
 
-            # 获取关联的真实ID
+        # 第二步：更新所有比赛的关联ID（用真实ID替换临时ID）
+        for match in matches:
+            real_id = match["id"]
+
             prev_match1_id = (
                 id_map.get(match.get("prev_match1_id"))
                 if match.get("prev_match1_id")

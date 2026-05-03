@@ -1,14 +1,17 @@
 <template>
   <div class="knockout-bracket">
-    <!-- 轮次标题 -->
-    <div class="round-headers">
-      <div v-for="round in rounds" :key="round.key" class="round-header">
-        {{ round.label }}
-      </div>
-    </div>
-
-    <!-- 对阵树容器 -->
+    <!-- 对阵树容器（含轮次标题，同步滚动） -->
     <div ref="bracketWrapper" class="bracket-wrapper">
+      <div class="round-headers" :style="{ width: containerStyle.width, height: '32px' }">
+        <div
+          v-for="round in rounds"
+          :key="round.key"
+          class="round-header"
+          :style="{ left: (round.key - 1) * ROUND_WIDTH + 'px', width: CARD_WIDTH + 'px' }"
+        >
+          {{ round.label }}
+        </div>
+      </div>
       <div class="bracket-container" :style="containerStyle">
         <!-- SVG 连线层 -->
         <svg class="bracket-lines" :width="svgWidth" :height="svgHeight">
@@ -1744,25 +1747,23 @@ function handleMatchClick(match: KnockoutMatch) {
 
 /* 轮次标题 */
 .round-headers {
-  display: flex;
-  padding-bottom: 12px;
-  margin-bottom: 20px;
+  position: relative;
+  margin-bottom: 12px;
   border-bottom: 2px solid var(--el-border-color);
 }
 
 .round-header {
-  flex-shrink: 0;
-  width: v-bind('ROUND_WIDTH + "px"');
+  position: absolute;
+  top: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 13px;
   font-weight: 600;
   color: var(--el-text-color-secondary);
-  text-align: center;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-}
-
-.round-header:last-child {
-  width: 200px;
 }
 
 /* 容器 */
