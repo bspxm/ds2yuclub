@@ -73,10 +73,8 @@
               </van-tag>
             </template>
           </van-cell>
-          <van-empty
-            v-if="recentCourses.length === 0"
-            :description="attLoading ? '加载中...' : '暂无课程记录'"
-          />
+          <van-loading v-if="attLoading" size="20px" class="att-loading" />
+          <van-empty v-else-if="recentCourses.length === 0" description="暂无课程记录" />
         </van-cell-group>
 
         <!-- 赛事信息 -->
@@ -144,34 +142,7 @@
       </div>
     </template>
 
-    <!-- 赛事详情弹窗 -->
-    <van-action-sheet
-      v-model:show="showTournamentDetail"
-      :title="selectedTournament?.tournament_name"
-    >
-      <div v-if="selectedTournament" class="tournament-detail">
-        <van-cell-group>
-          <van-cell
-            title="状态"
-            :value="tournamentStatusText(selectedTournament.tournament_status)"
-          />
-          <van-cell
-            title="日期"
-            :value="`${selectedTournament.start_date} ~ ${selectedTournament.end_date}`"
-          />
-          <van-cell
-            v-if="selectedTournament.final_rank"
-            title="最终排名"
-            :value="`第${selectedTournament.final_rank}名`"
-          />
-          <van-cell title="参赛场次" :value="selectedTournament.matches_played" />
-          <van-cell
-            title="胜/负"
-            :value="`${selectedTournament.matches_won} / ${selectedTournament.matches_lost}`"
-          />
-        </van-cell-group>
-      </div>
-    </van-action-sheet>
+    <!-- 赛事详情跳转到独立页面 -->
 
     <!-- 历史评估查看器 -->
     <van-action-sheet v-model:show="showHistoryViewer" title="历史评估">
@@ -259,8 +230,6 @@ const assessmentHistory = ref<any[]>([]);
 const activeTournaments = computed(() =>
   tournaments.value.filter((t: any) => t.tournament_status === "ACTIVE")
 );
-const showTournamentDetail = ref(false);
-const selectedTournament = ref<any>(null);
 const showLogoutDialog = ref(false);
 const matchedStudents = ref<any[]>([]);
 const bindLoading = ref<number | null>(null);
@@ -302,7 +271,12 @@ function initRadar() {
       indicator: indicators,
       center: ["50%", "50%"],
       radius: "70%",
-      axisName: { color: "#333", fontSize: 11 },
+      axisName: {
+        color:
+          getComputedStyle(document.documentElement).getPropertyValue("--van-text-color").trim() ||
+          "#333",
+        fontSize: 11,
+      },
       splitArea: { areaStyle: { color: ["rgba(245,158,11,0.02)", "rgba(245,158,11,0.06)"] } },
     },
     series: [
@@ -358,35 +332,48 @@ function tournamentTagType(status: string) {
   return map[status] || "default";
 }
 
-async function loadStudentData(sid: number) {
+function loadStudentData(sid: number) {
   attLoading.value = true;
-  try {
-    const [attStu, assessStu, tournStu, histStu] = await Promise.all([
-      ParentStudentAPI.getMyStudentAttendances(sid).catch(() => ({ data: { data: [] } })),
-      ParentStudentAPI.getMyStudentLatestAssessment(sid).catch(() => ({ data: { data: null } })),
-      ParentStudentAPI.getMyStudentTournaments(sid).catch(() => ({ data: { data: [] } })),
-      ParentStudentAPI.getMyStudentAssessmentHistory(sid).catch(() => ({ data: { data: [] } })),
-    ]);
 
-    const attList = attStu.data.data || [];
-    const now = new Date();
-    attendanceStats.value = {
-      total: attList.length,
-      present: attList.filter((a: any) => a.attendance_status === "PRESENT").length,
-      monthly: attList.filter((a: any) => {
-        const d = new Date(a.attendance_date);
-        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-      }).length,
-    };
-    recentCourses.value = attList.slice(-5).reverse();
-    latestAssessment.value = assessStu.data.data;
-    assessmentHistory.value = histStu.data.data || [];
-    tournaments.value = tournStu.data.data || [];
-  } catch {
-    showToast("加载数据失败");
-  } finally {
-    attLoading.value = false;
-  }
+  ParentStudentAPI.getMyStudentAttendances(sid)
+    .then((res) => {
+      const attList = res.data.data || [];
+      const now = new Date();
+      attendanceStats.value = {
+        total: attList.length,
+        present: attList.filter((a: any) => a.attendance_status === "PRESENT").length,
+        monthly: attList.filter((a: any) => {
+          const d = new Date(a.attendance_date);
+          return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        }).length,
+      };
+      recentCourses.value = attList.slice(-5).reverse();
+      attLoading.value = false;
+    })
+    .catch(() => {
+      attLoading.value = false;
+    });
+
+  ParentStudentAPI.getMyStudentLatestAssessment(sid)
+    .then((res) => {
+      latestAssessment.value = res.data.data;
+      if (res.data.data) {
+        nextTick(() => setTimeout(() => initRadar(), 80));
+      }
+    })
+    .catch(() => {});
+
+  ParentStudentAPI.getMyStudentTournaments(sid)
+    .then((res) => {
+      tournaments.value = res.data.data || [];
+    })
+    .catch(() => {});
+
+  ParentStudentAPI.getMyStudentAssessmentHistory(sid)
+    .then((res) => {
+      assessmentHistory.value = res.data.data || [];
+    })
+    .catch(() => {});
 }
 
 function onStudentChange() {
@@ -411,8 +398,7 @@ function goHistory() {
 }
 
 function onTournamentClick(t: any) {
-  selectedTournament.value = t;
-  showTournamentDetail.value = true;
+  router.push(`/m/badminton/parent/tournament-detail/${t.tournament_id}`);
 }
 
 async function onBind(studentId: number) {
@@ -483,12 +469,15 @@ function initHistoryRadar() {
   historyRadarInstance = echarts.init(historyRadarRef.value);
   const indicators = dimensions.map((d) => ({ name: d.label, max: 5 }));
   const value = dimensions.map((d) => viewingAssessment.value[d.key] ?? 0);
+  const textColor =
+    getComputedStyle(document.documentElement).getPropertyValue("--van-text-color").trim() ||
+    "#333";
   historyRadarInstance.setOption({
     radar: {
       indicator: indicators,
       center: ["50%", "50%"],
       radius: "70%",
-      axisName: { color: "#333", fontSize: 11 },
+      axisName: { color: textColor, fontSize: 11 },
       splitArea: { areaStyle: { color: ["rgba(245,158,11,0.02)", "rgba(245,158,11,0.06)"] } },
     },
     series: [
@@ -625,10 +614,6 @@ onMounted(async () => {
   font-size: 12px;
 }
 
-.tournament-detail {
-  padding: 16px;
-}
-
 .history-viewer {
   padding: 16px;
 }
@@ -680,5 +665,11 @@ onMounted(async () => {
 
 .logout-dialog {
   width: 300px;
+}
+
+.att-loading {
+  padding: 20px 0;
+  display: flex;
+  justify-content: center;
 }
 </style>

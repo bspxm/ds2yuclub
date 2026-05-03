@@ -94,6 +94,10 @@ export const constantRoutes: RouteRecordRaw[] = [
         meta: { title: "能力评估" },
       },
       {
+        path: "badminton/parent",
+        redirect: "/m/badminton/parent/student",
+      },
+      {
         path: "badminton/parent/student",
         name: "MobileParentStudent",
         component: () => import("@/views/module_badminton/m/parent/student.vue"),
@@ -110,6 +114,12 @@ export const constantRoutes: RouteRecordRaw[] = [
         name: "MobileParentTournamentHistory",
         component: () => import("@/views/module_badminton/m/parent/tournament-history.vue"),
         meta: { title: "历史赛事" },
+      },
+      {
+        path: "badminton/parent/tournament-detail/:tournamentId",
+        name: "MobileParentTournamentDetail",
+        component: () => import("@/views/module_badminton/m/parent/tournament-detail.vue"),
+        meta: { title: "赛事详情" },
       },
       {
         path: "badminton/parent/h2h",

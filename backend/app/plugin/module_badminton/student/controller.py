@@ -306,6 +306,8 @@ async def parent_my_student_tournaments(
     if student_id not in child_ids:
         raise CustomException(msg="无权限查看该学员数据", code=10403, status_code=403)
 
+    from sqlalchemy import text as sa_text
+
     participants = await TournamentParticipantCRUD(auth).list(
         search={"student_id": student_id},
         preload=["tournament"],
@@ -314,19 +316,41 @@ async def parent_my_student_tournaments(
     result = []
     for p in participants:
         tournament = p.tournament
+        pid = p.id
+
+        row = (
+            await auth.db.execute(
+                sa_text(
+                    "SELECT "
+                    "  COUNT(*) FILTER (WHERE status = 'COMPLETED') AS matches_played, "
+                    "  COUNT(*) FILTER (WHERE status = 'COMPLETED' AND winner_id = :pid) AS matches_won, "
+                    "  COUNT(*) FILTER (WHERE status = 'COMPLETED' AND winner_id IS NOT NULL AND winner_id != :pid2) AS matches_lost "
+                    "FROM badminton_tournament_match "
+                    "WHERE tournament_id = :tid AND (player1_id = :pid3 OR player2_id = :pid4)"
+                ),
+                {"pid": pid, "pid2": pid, "pid3": pid, "pid4": pid, "tid": p.tournament_id},
+            )
+        ).one()
+
+        played = row.matches_played or 0
+        won = row.matches_won or 0
+        lost = row.matches_lost or 0
+
         result.append({
             "id": p.id,
             "tournament_id": p.tournament_id,
             "student_id": p.student_id,
             "is_withdrawn": p.is_withdrawn,
             "final_rank": p.final_rank,
-            "matches_played": p.matches_played,
-            "matches_won": p.matches_won,
-            "matches_lost": p.matches_lost,
+            "matches_played": played,
+            "matches_won": won,
+            "matches_lost": lost,
             "tournament_name": tournament.name if tournament else "",
+            "tournament_type": tournament.tournament_type.value if tournament and tournament.tournament_type else "",
             "tournament_status": tournament.status.value if tournament and tournament.status else "",
             "start_date": tournament.start_date.isoformat() if tournament and tournament.start_date else "",
             "end_date": tournament.end_date.isoformat() if tournament and tournament.end_date else "",
+            "description": tournament.description if tournament else "",
         })
     return SuccessResponse(data=result, msg="获取成功")
 

@@ -56,7 +56,7 @@ async function handleAuthenticatedUser(
 
       const dynamicRoutes = await permissionStore.generateRoutes();
       dynamicRoutes.forEach((route: RouteRecordRaw) => {
-        if (!route.path?.startsWith("/m/")) {
+        if (route.path && route.path.startsWith("/") && !route.path.startsWith("/m/")) {
           router.addRoute(route);
         }
       });
@@ -85,11 +85,7 @@ async function handleAuthenticatedUser(
       return;
     }
 
-    if (to.path.startsWith("/m/")) {
-      if (isSuper) {
-        next("/home");
-        return;
-      }
+    if (to.path.startsWith("/m/") && !isSuper) {
       if (to.path.startsWith("/m/badminton/parent/") && !isParent) {
         next("/m/badminton/coach/home");
         return;
