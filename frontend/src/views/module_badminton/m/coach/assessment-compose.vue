@@ -7,11 +7,19 @@
         readonly
         label="学员"
         placeholder="请选择学员"
-        @click="showStudentPicker = true"
+        @click="openStudentSelector"
       />
     </van-cell-group>
 
     <div v-if="selectedStudentId" class="dimension-section">
+      <div v-if="lastAssessment" class="last-assessment-tip">
+        <van-icon name="info-o" size="14" color="#1989fa" />
+        <span class="tip-text"
+          >已载入该学员 {{ formatDate(lastAssessment.assessment_date) }}
+          的评估结果，仅供参考</span
+        >
+      </div>
+
       <van-cell-group inset>
         <van-cell title="评分维度" />
       </van-cell-group>
@@ -21,8 +29,9 @@
           <div class="dimension-label">{{ dim.label }}</div>
           <van-rate
             v-model="form[dim.key]"
-            :count="10"
+            :count="5"
             size="18px"
+            color="#f59e0b"
             void-icon="star-o"
             void-color="#eee"
           />
@@ -55,26 +64,124 @@
       </div>
     </div>
 
-    <van-popup v-model:show="showStudentPicker" position="bottom" round>
+    <!-- 学员选择弹窗 -->
+    <van-popup v-model:show="showStudentPicker" position="bottom" round :style="{ height: '85%' }">
+      <div class="student-picker">
+        <div class="picker-header">
+          <span class="picker-title">选择学员</span>
+          <van-icon name="cross" class="close-icon" @click="showStudentPicker = false" />
+        </div>
+
+        <!-- 搜索 -->
+        <van-search
+          v-model="searchName"
+          placeholder="搜索学员姓名"
+          shape="round"
+          clearable
+          @update:model-value="onSearchChange"
+        />
+
+        <!-- 筛选标签 -->
+        <div class="filter-tags">
+          <div
+            class="filter-tag"
+            :class="{ active: filterGroupName }"
+            @click="showGroupPicker = true"
+          >
+            {{ filterGroupName || "组别" }}
+            <van-icon name="arrow-down" size="10" />
+          </div>
+          <div
+            class="filter-tag"
+            :class="{ active: filterLevel }"
+            @click="showLevelPicker = true"
+          >
+            {{ filterLevel || "技术水平" }}
+            <van-icon name="arrow-down" size="10" />
+          </div>
+          <div
+            v-if="filterGroupName || filterLevel || searchName"
+            class="filter-tag reset"
+            @click="resetFilters"
+          >
+            重置
+          </div>
+        </div>
+
+        <!-- 学员列表 -->
+        <div class="student-list">
+          <van-loading v-if="loadingStudents" size="24px" class="loading" />
+          <template v-else>
+            <van-cell
+              v-for="student in filteredStudents"
+              :key="student.id"
+              clickable
+              @click="selectStudent(student)"
+            >
+              <template #title>
+                <div class="student-title">
+                  <span class="student-name">{{ student.name }}</span>
+                  <van-tag v-if="student.group_name" type="primary" class="info-tag">
+                    {{ student.group_name }}
+                  </van-tag>
+                  <van-tag v-if="student.level" type="warning" class="info-tag">
+                    {{ student.level }}
+                  </van-tag>
+                </div>
+              </template>
+              <template #right-icon>
+                <van-icon
+                  v-if="selectedStudentId === student.id"
+                  name="success"
+                  color="#1989fa"
+                  size="18"
+                />
+              </template>
+            </van-cell>
+            <van-empty v-if="filteredStudents.length === 0" description="暂无学员" />
+          </template>
+        </div>
+
+        <div class="picker-footer">
+          <van-button block round @click="showStudentPicker = false">取消</van-button>
+        </div>
+      </div>
+    </van-popup>
+
+    <!-- 组别选择器 -->
+    <van-popup v-model:show="showGroupPicker" position="bottom" round>
       <van-picker
-        :columns="studentColumns"
-        title="选择学员"
-        @confirm="onStudentConfirm"
-        @cancel="showStudentPicker = false"
+        :columns="groupColumns"
+        title="选择组别"
+        @confirm="onGroupConfirm"
+        @cancel="showGroupPicker = false"
+      />
+    </van-popup>
+
+    <!-- 技术水平选择器 -->
+    <van-popup v-model:show="showLevelPicker" position="bottom" round>
+      <van-picker
+        :columns="levelColumns"
+        title="选择技术水平"
+        @confirm="onLevelConfirm"
+        @cancel="showLevelPicker = false"
       />
     </van-popup>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from "vue";
+import { ref, reactive, onMounted, computed } from "vue";
 import { showToast, showSuccessToast } from "vant";
 import StudentAPI from "@/api/module_badminton/student";
+import GroupAPI from "@/api/module_badminton/group";
 import AssessmentAPI from "@/api/module_badminton/assessment";
 
 interface StudentOption {
   id: number;
   name: string;
+  group_name?: string;
+  level?: string;
 }
 
 interface Dimension {
@@ -111,14 +218,121 @@ const selectedStudentId = ref<number | null>(null);
 const selectedStudentName = ref("");
 const showStudentPicker = ref(false);
 const submitting = ref(false);
-const studentColumns = ref<{ text: string; value: number }[]>([]);
-const studentOptions = ref<StudentOption[]>([]);
+const lastAssessment = ref<any>(null);
 
-function onStudentConfirm({ selectedOptions }: any) {
+// 筛选相关状态
+const searchName = ref("");
+const filterGroupName = ref("");
+const filterLevel = ref("");
+const showGroupPicker = ref(false);
+const showLevelPicker = ref(false);
+const loadingStudents = ref(false);
+const filteredStudents = ref<StudentOption[]>([]);
+const allStudents = ref<StudentOption[]>([]);
+const allGroupOptions = ref<{ text: string; value: string }[]>([]);
+
+const groupColumns = computed(() => [
+  { text: "全部组别", value: "" },
+  ...allGroupOptions.value,
+]);
+
+const levelColumns = computed(() => {
+  const set = new Set<string>();
+  for (const s of allStudents.value) {
+    if (s.level) set.add(s.level);
+  }
+  const options = Array.from(set).map((l) => ({ text: l, value: l }));
+  return [{ text: "全部水平", value: "" }, ...options];
+});
+
+function onGroupConfirm({ selectedOptions }: any) {
   const option = selectedOptions[0];
-  selectedStudentId.value = option.value;
-  selectedStudentName.value = option.text;
+  filterGroupName.value = option.value;
+  showGroupPicker.value = false;
+  applyFilters();
+}
+
+function onLevelConfirm({ selectedOptions }: any) {
+  const option = selectedOptions[0];
+  filterLevel.value = option.value;
+  showLevelPicker.value = false;
+  applyFilters();
+}
+
+function resetFilters() {
+  searchName.value = "";
+  filterGroupName.value = "";
+  filterLevel.value = "";
+  applyFilters();
+}
+
+function onSearchChange() {
+  applyFilters();
+}
+
+async function applyFilters() {
+  loadingStudents.value = true;
+  try {
+    const res = await StudentAPI.getStudentList({
+      page_no: 1,
+      page_size: 100,
+      name: searchName.value || undefined,
+      group_name: filterGroupName.value || undefined,
+      level: filterLevel.value || undefined,
+    });
+    const items = res.data.data?.items || [];
+    filteredStudents.value = items.map((s: any) => ({
+      id: s.id,
+      name: s.name,
+      group_name: s.group_name,
+      level: s.level,
+    }));
+  } catch {
+    filteredStudents.value = [];
+  } finally {
+    loadingStudents.value = false;
+  }
+}
+
+function formatDate(d: string) {
+  if (!d) return "";
+  return d.split("T")[0];
+}
+
+async function loadLastAssessment(studentId: number) {
+  try {
+    const res = await AssessmentAPI.getLatestAssessment(studentId);
+    const data = res.data.data;
+    if (data) {
+      lastAssessment.value = data;
+      for (const dim of dimensions) {
+        form[dim.key] = Math.min(5, Math.max(0, Number((data as any)[dim.key]) || 0));
+      }
+      form.comments = data.comments || "";
+      return;
+    }
+  } catch {
+    // silent
+  }
+  lastAssessment.value = null;
+  for (const dim of dimensions) {
+    form[dim.key] = 0;
+  }
+  form.comments = "";
+}
+
+async function selectStudent(student: StudentOption) {
+  selectedStudentId.value = student.id;
+  selectedStudentName.value = student.name;
   showStudentPicker.value = false;
+  await loadLastAssessment(student.id);
+}
+
+async function openStudentSelector() {
+  showStudentPicker.value = true;
+  if (filteredStudents.value.length === 0) {
+    await applyFilters();
+  }
 }
 
 async function handleSubmit() {
@@ -134,7 +348,9 @@ async function handleSubmit() {
       assessment_date: new Date().toISOString().split("T")[0],
     };
     for (const dim of dimensions) {
-      body[dim.key] = form[dim.key] || 0;
+      const val = Math.min(5, Math.max(0, Number(form[dim.key]) || 0));
+      body[dim.key] = val;
+      form[dim.key] = val;
     }
     if (form.comments) {
       body.comments = form.comments;
@@ -147,6 +363,7 @@ async function handleSubmit() {
       form[dim.key] = 0;
     }
     form.comments = "";
+    lastAssessment.value = null;
     selectedStudentId.value = null;
     selectedStudentName.value = "";
   } catch (e: any) {
@@ -158,10 +375,24 @@ async function handleSubmit() {
 
 onMounted(async () => {
   try {
+    // 预加载组别选项
+    const groupRes = await GroupAPI.getGroupList({ page_no: 1, page_size: 100 });
+    const groups = groupRes.data.data?.items || [];
+    allGroupOptions.value = groups.map((g: any) => ({ text: g.name, value: g.name }));
+  } catch {
+    // silent
+  }
+
+  try {
+    // 预加载全部学员用于提取技术水平选项
     const res = await StudentAPI.getStudentList({ page_no: 1, page_size: 100 });
     const items = res.data.data?.items || [];
-    studentOptions.value = items.map((s: any) => ({ id: s.id, name: s.name }));
-    studentColumns.value = items.map((s: any) => ({ text: s.name, value: s.id }));
+    allStudents.value = items.map((s: any) => ({
+      id: s.id,
+      name: s.name,
+      group_name: s.group_name,
+      level: s.level,
+    }));
   } catch {
     // silent
   }
@@ -194,5 +425,113 @@ onMounted(async () => {
   font-size: 14px;
   font-weight: 500;
   color: var(--mobile-text-primary);
+}
+
+/* 学员选择弹窗 */
+.student-picker {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--mobile-border-light);
+}
+
+.picker-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--mobile-text-primary);
+}
+
+.close-icon {
+  position: absolute;
+  right: 16px;
+  font-size: 20px;
+  color: var(--mobile-text-muted);
+}
+
+.filter-tags {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 16px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--mobile-border-light);
+}
+
+.filter-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 5px 12px;
+  font-size: 13px;
+  color: var(--mobile-text-secondary);
+  background: var(--mobile-gray-bg);
+  border-radius: 14px;
+}
+
+.filter-tag.active {
+  color: #1989fa;
+  background: rgba(25, 137, 250, 0.1);
+}
+
+.filter-tag.reset {
+  color: #ff976a;
+  background: rgba(255, 151, 106, 0.1);
+}
+
+.student-list {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 8px;
+}
+
+.student-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.student-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--mobile-text-primary);
+}
+
+.info-tag {
+  margin-left: 2px;
+}
+
+.loading {
+  margin-top: 60px;
+  text-align: center;
+}
+
+.picker-footer {
+  padding: 10px 16px 16px;
+  border-top: 1px solid var(--mobile-border-light);
+}
+
+.last-assessment-tip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 12px 16px 4px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #1989fa;
+  background: rgba(25, 137, 250, 0.08);
+  border-radius: 6px;
+}
+
+.tip-text {
+  line-height: 1.4;
 }
 </style>
