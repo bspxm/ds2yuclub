@@ -232,43 +232,60 @@ class TournamentService:
     async def get_h2h_service(
         cls, student_id_1: int, student_id_2: int, auth: AuthSchema
     ) -> dict:
-        """获取两学员之间的H2H记录"""
-        from sqlalchemy import select, or_, and_
+        """获取两学员之间的H2H记录（通过 participant 关联学员）"""
+        from sqlalchemy import text
 
-        stmt = (
-            select(TournamentMatchModel)
-            .where(
-                or_(
-                    and_(
-                        TournamentMatchModel.player1_id == student_id_1,
-                        TournamentMatchModel.player2_id == student_id_2,
-                    ),
-                    and_(
-                        TournamentMatchModel.player1_id == student_id_2,
-                        TournamentMatchModel.player2_id == student_id_1,
-                    ),
-                ),
-                TournamentMatchModel.winner_id.isnot(None),
+        sql = text("""
+            SELECT
+                m.id,
+                m.tournament_id,
+                t.name AS tournament_name,
+                p1.id AS player1_participant_id,
+                p2.id AS player2_participant_id,
+                s1.name AS player1_name,
+                s2.name AS player2_name,
+                m.scores,
+                m.winner_id,
+                COALESCE(m.actual_start_time, m.scheduled_time, t.start_date::timestamp) AS match_time
+            FROM badminton_tournament_match m
+            JOIN badminton_tournament t ON m.tournament_id = t.id
+            JOIN badminton_tournament_participant p1 ON m.player1_id = p1.id
+            JOIN badminton_tournament_participant p2 ON m.player2_id = p2.id
+            JOIN badminton_student s1 ON p1.student_id = s1.id
+            JOIN badminton_student s2 ON p2.student_id = s2.id
+            WHERE (
+                (p1.student_id = :sid1 AND p2.student_id = :sid2)
+                OR
+                (p1.student_id = :sid2 AND p2.student_id = :sid1)
             )
-            .order_by(TournamentMatchModel.actual_start_time.desc())
-        )
-
-        result = await auth.db.execute(stmt)
-        matches = result.scalars().all()
+            AND m.winner_id IS NOT NULL
+            ORDER BY m.actual_start_time DESC
+        """)
+        result = await auth.db.execute(sql, {"sid1": student_id_1, "sid2": student_id_2})
+        rows = result.mappings().all()
 
         records = []
-        for m in matches:
+        for row in rows:
             records.append(
                 {
-                    "match_id": m.id,
-                    "tournament_id": m.tournament_id,
-                    "player1_id": m.player1_id,
-                    "player2_id": m.player2_id,
-                    "scores": m.scores,
-                    "winner_id": m.winner_id,
-                    "scheduled_time": m.scheduled_time.isoformat()
-                    if m.scheduled_time
-                    else None,
+                    "match_id": row["id"],
+                    "tournament_id": row["tournament_id"],
+                    "tournament_name": row["tournament_name"],
+                    "player1": {
+                        "id": row["player1_participant_id"],
+                        "name": row["player1_name"],
+                    },
+                    "player2": {
+                        "id": row["player2_participant_id"],
+                        "name": row["player2_name"],
+                    },
+                    "scores": row["scores"],
+                    "winner_id": row["winner_id"],
+                    "match_date": (
+                        row["match_time"].isoformat()
+                        if row["match_time"]
+                        else None
+                    ),
                 }
             )
 
@@ -276,9 +293,77 @@ class TournamentService:
             "student_id_1": student_id_1,
             "student_id_2": student_id_2,
             "total_matches": len(records),
-            "student1_wins": sum(1 for r in records if r["winner_id"] == student_id_1),
-            "student2_wins": sum(1 for r in records if r["winner_id"] == student_id_2),
+            "student1_wins": sum(
+                1 for r in records if r["winner_id"] and r["player1"]
+                and r["winner_id"] == r["player1"]["id"]
+            ),
+            "student2_wins": sum(
+                1 for r in records if r["winner_id"] and r["player2"]
+                and r["winner_id"] == r["player2"]["id"]
+            ),
             "records": records,
+        }
+
+
+    @classmethod
+    async def get_opponents_service(
+        cls, student_id: int, auth: AuthSchema
+    ) -> list[dict]:
+        """获取某学员的所有历史对手（通过 participant 关联学员）"""
+        from sqlalchemy import text
+
+        sql = text("""
+            SELECT DISTINCT
+                CASE
+                    WHEN p1.student_id = :sid THEN p2.student_id
+                    ELSE p1.student_id
+                END AS opponent_id,
+                s.name AS opponent_name
+            FROM badminton_tournament_match m
+            JOIN badminton_tournament_participant p1 ON m.player1_id = p1.id
+            JOIN badminton_tournament_participant p2 ON m.player2_id = p2.id
+            JOIN badminton_student s ON s.id = CASE
+                WHEN p1.student_id = :sid THEN p2.student_id
+                ELSE p1.student_id
+            END
+            WHERE (p1.student_id = :sid OR p2.student_id = :sid)
+              AND m.winner_id IS NOT NULL
+            ORDER BY s.name
+        """)
+        result = await auth.db.execute(sql, {"sid": student_id})
+        rows = result.mappings().all()
+        return [{"id": r["opponent_id"], "name": r["opponent_name"]} for r in rows]
+
+
+    @classmethod
+    async def get_all_h2h_service(
+        cls, student_id: int, auth: AuthSchema
+    ) -> dict:
+        """获取某学员与所有对手的全部对战记录"""
+        opponents = await cls.get_opponents_service(student_id, auth)
+
+        all_records = []
+        total_wins = 0
+        total_losses = 0
+
+        for opp in opponents:
+            h2h = await cls.get_h2h_service(student_id, opp["id"], auth)
+            opponent_name = opp["name"]
+            for r in h2h.get("records", []):
+                r["opponent_name"] = opponent_name
+                all_records.append(r)
+            total_wins += h2h.get("student1_wins", 0)
+            total_losses += h2h.get("student2_wins", 0)
+
+        all_records.sort(key=lambda x: x.get("match_date") or "", reverse=True)
+
+        return {
+            "student_id": student_id,
+            "total_matches": len(all_records),
+            "wins": total_wins,
+            "losses": total_losses,
+            "opponents": opponents,
+            "records": all_records,
         }
 
 

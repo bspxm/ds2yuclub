@@ -1,210 +1,381 @@
 <template>
   <div class="h2h-page">
-    <van-cell-group inset>
-      <van-field
-        v-model="student1Name"
-        is-link
-        readonly
-        label="学员1"
-        placeholder="请选择"
-        @click="
-          pickerTarget = 1;
-          showPicker = true;
-        "
-      />
-      <van-field
-        v-model="student2Name"
-        is-link
-        readonly
-        label="学员2"
-        placeholder="请选择"
-        @click="
-          pickerTarget = 2;
-          showPicker = true;
-        "
-      />
-    </van-cell-group>
+    <van-loading v-if="loading" size="24px" class="loading" />
 
-    <div style="padding: 12px 16px">
-      <van-button type="primary" block round :loading="loading" @click="handleQuery">
-        查询对比
-      </van-button>
-    </div>
+    <template v-else-if="data">
+      <div class="summary-card">
+        <div class="summary-student">{{ studentName }}</div>
+        <div class="summary-stats">
+          <span class="stat-item">
+            <span class="stat-value">{{ data.total_matches }}</span>
+            <span class="stat-label">总场次</span>
+          </span>
+          <span class="stat-item">
+            <span class="stat-value win">{{ data.wins }}</span>
+            <span class="stat-label">胜</span>
+          </span>
+          <span class="stat-item">
+            <span class="stat-value loss">{{ data.losses }}</span>
+            <span class="stat-label">负</span>
+          </span>
+          <span class="stat-item">
+            <span class="stat-value" :class="winRateClass">{{ winRate }}%</span>
+            <span class="stat-label">胜率</span>
+          </span>
+        </div>
+      </div>
 
-    <template v-if="h2hRecords.length > 0">
-      <van-cell-group inset>
-        <van-cell
-          title="历史对战"
-          :value="`${h2hSummary.student1Wins}胜 ${h2hSummary.student2Wins}胜`"
+      <div v-if="data.records.length === 0" class="empty-state">
+        <van-icon name="records" size="48" class="empty-icon" />
+        <p>暂无对战记录</p>
+      </div>
+
+      <div v-else class="filter-bar">
+        <van-search
+          v-model="searchQuery"
+          shape="round"
+          placeholder="搜索对手姓名"
+          clearable
         />
-      </van-cell-group>
+      </div>
 
-      <div class="record-list">
-        <div v-for="r in h2hRecords" :key="r.tournament_name + r.match_date" class="record-card">
-          <div class="record-tournament">{{ r.tournament_name }}</div>
-          <div class="record-players">
-            <span :class="{ winner: r.winner_id === r.player1?.id }">
+      <div v-if="opponentsWithRecords.length === 0 && data.records.length > 0" class="empty-state">
+        <p>未找到匹配的对手</p>
+      </div>
+
+      <div v-else class="opponent-group" v-for="opponent in opponentsWithRecords" :key="opponent.name">
+        <div class="opponent-header">
+          <span class="opponent-name">VS {{ opponent.name }}</span>
+          <span class="opponent-record" :class="opponent.recordClass">{{ opponent.record }}</span>
+        </div>
+        <div
+          v-for="r in opponent.records"
+          :key="r.match_id"
+          class="match-card"
+        >
+          <div class="match-tournament">{{ r.tournament_name }}</div>
+          <div class="match-players">
+            <span :class="{ highlight: r.player1?.name === studentName }">
               {{ r.player1?.name || "选手1" }}
             </span>
-            <span class="vs">VS</span>
-            <span :class="{ winner: r.winner_id === r.player2?.id }">
+            <span class="vs-text">VS</span>
+            <span :class="{ highlight: r.player2?.name === studentName }">
               {{ r.player2?.name || "选手2" }}
             </span>
           </div>
-          <div v-if="r.scores" class="record-scores">
-            <span v-for="(s, i) in r.scores" :key="i" class="score-item">
+          <div v-if="r.scores?.sets" class="match-scores">
+            <span v-for="(s, i) in r.scores.sets" :key="i" class="score-pill">
               {{ s.player1 }}:{{ s.player2 }}
             </span>
           </div>
-          <div class="record-date">{{ r.match_date || r.tournament_name }}</div>
+          <div class="match-meta">
+            <span
+              v-if="r.winner_id"
+              class="match-winner"
+              :class="winnerClass(r, studentName)"
+            >
+              {{ winnerLabel(r, studentName) }}
+            </span>
+            <span class="match-date">{{ formatDate(r.match_date) }}</span>
+          </div>
         </div>
       </div>
     </template>
 
-    <van-empty v-else-if="queried && !loading" description="暂无对战记录" />
-
-    <van-popup v-model:show="showPicker" position="bottom" round>
-      <van-picker
-        :columns="studentColumns"
-        title="选择学员"
-        @confirm="onStudentConfirm"
-        @cancel="showPicker = false"
-      />
-    </van-popup>
+    <van-empty v-else description="加载失败" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, computed, onMounted } from "vue";
+import { useRoute } from "vue-router";
 import { showToast } from "vant";
-import StudentAPI from "@/api/module_badminton/student";
+import ParentStudentAPI from "@/api/module_badminton/parent-student";
 import { TournamentAPIExtended } from "@/api/module_badminton/tournament";
 
-const student1Id = ref<number | null>(null);
-const student1Name = ref("");
-const student2Id = ref<number | null>(null);
-const student2Name = ref("");
-const pickerTarget = ref(1);
-const showPicker = ref(false);
-const loading = ref(false);
-const queried = ref(false);
+const route = useRoute();
 
-const studentColumns = ref<{ text: string; value: number }[]>([]);
-const studentOptions = ref<{ id: number; name: string }[]>([]);
+const loading = ref(true);
+const data = ref<any>(null);
+const studentName = ref("");
+const searchQuery = ref("");
 
-const h2hRecords = ref<any[]>([]);
-const h2hSummary = ref({ student1Wins: 0, student2Wins: 0 });
+const winRate = computed(() => {
+  if (!data.value || data.value.total_matches === 0) return 0;
+  return Math.round((data.value.wins / data.value.total_matches) * 100);
+});
 
-function onStudentConfirm({ selectedOptions }: any) {
-  const option = selectedOptions[0];
-  if (pickerTarget.value === 1) {
-    student1Id.value = option.value;
-    student1Name.value = option.text;
-  } else {
-    student2Id.value = option.value;
-    student2Name.value = option.text;
+const winRateClass = computed(() => {
+  const r = winRate.value;
+  if (r >= 60) return "win";
+  if (r <= 30) return "loss";
+  return "";
+});
+
+const opponentsWithRecords = computed(() => {
+  if (!data.value) return [];
+  const map = new Map<string, any[]>();
+  for (const r of data.value.records) {
+    const name = r.opponent_name || "未知";
+    if (!map.has(name)) map.set(name, []);
+    map.get(name)!.push(r);
   }
-  showPicker.value = false;
+  const q = searchQuery.value.trim().toLowerCase();
+  const result: any[] = [];
+  for (const [name, records] of map) {
+    if (q && !name.toLowerCase().includes(q)) continue;
+    const wins = records.filter(
+      (r: any) =>
+        (r.player1?.name === studentName.value && r.winner_id === r.player1?.id) ||
+        (r.player2?.name === studentName.value && r.winner_id === r.player2?.id)
+    ).length;
+    const total = records.length;
+    const losses = total - wins;
+    let recordClass = "";
+    if (wins > losses) recordClass = "positive";
+    else if (losses > wins) recordClass = "negative";
+    result.push({
+      name,
+      records,
+      record: `${wins}胜 ${losses}负`,
+      recordClass,
+    });
+  }
+  result.sort((a, b) => a.name.localeCompare(b.name, "zh"));
+  return result;
+});
+
+function formatDate(d: string | null) {
+  if (!d) return "—";
+  return d.split("T")[0];
 }
 
-async function handleQuery() {
-  if (!student1Id.value || !student2Id.value) {
-    showToast("请选择两个学员");
-    return;
-  }
-  if (student1Id.value === student2Id.value) {
-    showToast("请选择不同的学员");
-    return;
-  }
+function winnerClass(r: any, student: string) {
+  const studentWon =
+    (r.player1?.name === student && r.winner_id === r.player1?.id) ||
+    (r.player2?.name === student && r.winner_id === r.player2?.id);
+  return studentWon ? "win-text" : "lose-text";
+}
 
-  loading.value = true;
-  queried.value = true;
-  try {
-    const res = await TournamentAPIExtended.getH2H(student1Id.value, student2Id.value);
-    const records = res.data.data || [];
-    h2hRecords.value = records;
-    h2hSummary.value = {
-      student1Wins: records.filter((r: any) => r.winner_id === r.player1?.id).length,
-      student2Wins: records.filter((r: any) => r.winner_id === r.player2?.id).length,
-    };
-  } catch {
-    h2hRecords.value = [];
-    h2hSummary.value = { student1Wins: 0, student2Wins: 0 };
-  } finally {
-    loading.value = false;
-  }
+function winnerLabel(r: any, student: string) {
+  const studentWon =
+    (r.player1?.name === student && r.winner_id === r.player1?.id) ||
+    (r.player2?.name === student && r.winner_id === r.player2?.id);
+  return studentWon ? "胜" : "负";
 }
 
 onMounted(async () => {
+  const studentId = Number(route.query.student_id);
+  if (!studentId) {
+    loading.value = false;
+    return;
+  }
   try {
-    const res = await StudentAPI.getStudentList({ page_no: 1, page_size: 200 });
-    const items = res.data.data?.items || [];
-    studentOptions.value = items.map((s: any) => ({ id: s.id, name: s.name }));
-    studentColumns.value = items.map((s: any) => ({ text: s.name, value: s.id }));
-  } catch {
-    // silent
+    const [detailRes, h2hRes] = await Promise.all([
+      ParentStudentAPI.getMyStudents(),
+      TournamentAPIExtended.getAllH2H(studentId),
+    ]);
+    const relations = detailRes.data.data || [];
+    const match = relations.find((r: any) => r.student.id === studentId);
+    studentName.value = match?.student?.name || `学员${studentId}`;
+    data.value = h2hRes.data.data;
+  } catch (e) {
+    console.error("H2H load failed", e);
+    showToast("加载失败");
+  } finally {
+    loading.value = false;
   }
 });
 </script>
 
 <style scoped>
 .h2h-page {
+  min-height: 100vh;
   padding-bottom: 24px;
 }
 
-.record-list {
-  padding: 8px 16px;
+.loading {
+  margin-top: 60px;
 }
 
-.record-card {
-  padding: 12px;
-  margin-bottom: 10px;
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+.summary-card {
+  margin: 12px 16px;
+  padding: 20px 16px;
+  background: var(--mobile-card-bg);
+  border-radius: 12px;
+  box-shadow: 0 1px 4px var(--mobile-shimmer);
 }
 
-.record-tournament {
+.summary-student {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--mobile-text-primary);
+  margin-bottom: 14px;
+}
+
+.summary-stats {
+  display: flex;
+  gap: 0;
+  text-align: center;
+}
+
+.stat-item {
+  flex: 1;
+  border-right: 1px solid var(--mobile-border);
+}
+
+.stat-item:last-child {
+  border-right: none;
+}
+
+.stat-value {
+  display: block;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--mobile-text-primary);
+}
+
+.stat-value.win {
+  color: var(--mobile-green);
+}
+
+.stat-value.loss {
+  color: var(--mobile-red);
+}
+
+.stat-label {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--mobile-text-muted);
+}
+
+.empty-state {
+  padding: 60px 0;
+  text-align: center;
+  color: var(--mobile-text-muted);
+}
+
+.empty-icon {
+  margin-bottom: 12px;
+  color: var(--mobile-text-muted);
+  opacity: 0.4;
+}
+
+.opponent-group {
+  margin: 0 16px 16px;
+}
+
+.opponent-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
   margin-bottom: 8px;
-  font-size: 13px;
+  background: var(--mobile-card-bg);
+  border-radius: 10px;
+  box-shadow: 0 1px 4px var(--mobile-shimmer);
+}
+
+.opponent-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--mobile-text-primary);
+}
+
+.opponent-record {
+  font-size: 12px;
   font-weight: 500;
 }
 
-.record-players {
+.opponent-record.positive {
+  color: var(--mobile-green);
+}
+
+.opponent-record.negative {
+  color: var(--mobile-red);
+}
+
+.filter-bar {
+  margin: 0 12px 8px;
+}
+
+.filter-bar :deep(.van-search) {
+  padding: 0;
+}
+
+.match-card {
+  padding: 12px 14px;
+  margin-bottom: 6px;
+  background: var(--mobile-card-bg);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px var(--mobile-shimmer);
+}
+
+.match-tournament {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--mobile-text-muted);
+  margin-bottom: 6px;
+}
+
+.match-players {
   display: flex;
-  gap: 12px;
+  gap: 10px;
+  align-items: center;
   justify-content: center;
   font-size: 14px;
+  font-weight: 500;
+  color: var(--mobile-text-primary);
 }
 
-.record-players .winner {
-  font-weight: 600;
-  color: #07c160;
+.match-players .highlight {
+  font-weight: 700;
 }
 
-.vs {
-  font-size: 12px;
-  color: #999;
+.vs-text {
+  font-size: 11px;
+  color: var(--mobile-text-muted);
 }
 
-.record-scores {
+.match-scores {
   display: flex;
   gap: 6px;
   justify-content: center;
-  margin-top: 6px;
+  margin-top: 8px;
 }
 
-.score-item {
-  padding: 2px 8px;
-  font-size: 12px;
-  background: #f5f5f5;
+.score-pill {
+  padding: 2px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mobile-text-primary);
+  background: var(--mobile-gray-bg);
   border-radius: 4px;
 }
 
-.record-date {
-  margin-top: 6px;
+.match-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+.match-winner {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.match-winner.win-text {
+  color: var(--mobile-green);
+}
+
+.match-winner.lose-text {
+  color: var(--mobile-red);
+}
+
+.match-date {
   font-size: 11px;
-  color: #999;
-  text-align: center;
+  color: var(--mobile-text-muted);
 }
 </style>

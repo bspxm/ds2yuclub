@@ -273,6 +273,28 @@ async def get_h2h(
 
 
 @TournamentRouter.get(
+    "/opponents", summary="历史对手查询", description="查询某学员的所有历史对阵对手"
+)
+async def get_opponents(
+    student_id: int = Query(..., description="学员ID"),
+    auth: AuthSchema = Depends(AuthPermission(["module_badminton:tournament:list"])),
+) -> JSONResponse:
+    result = await TournamentService.get_opponents_service(student_id, auth)
+    return SuccessResponse(data=result, msg="对手列表获取成功")
+
+
+@TournamentRouter.get(
+    "/h2h/all", summary="全部H2H记录", description="获取某学员与所有对手的全部对战记录"
+)
+async def get_all_h2h(
+    student_id: int = Query(..., description="学员ID"),
+    auth: AuthSchema = Depends(AuthPermission(["module_badminton:tournament:list"])),
+) -> JSONResponse:
+    result = await TournamentService.get_all_h2h_service(student_id, auth)
+    return SuccessResponse(data=result, msg="全部对战记录获取成功")
+
+
+@TournamentRouter.get(
     "/{tournament_id}/knockout",
     summary="获取淘汰赛数据",
     description="获取单败淘汰赛的对阵树数据",

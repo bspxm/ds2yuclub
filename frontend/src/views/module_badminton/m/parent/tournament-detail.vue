@@ -120,10 +120,11 @@
                       <template v-if="ri !== ci">
                         <div class="gs-matrix-cell-inner">
                           <template v-if="result">
-                            <div class="gs-matrix-score">{{ result.score }}</div>
+                            <div class="gs-matrix-detail">{{ result.detail_score || '-' }}</div>
                             <div class="gs-matrix-result">
                               {{ result.win ? "胜" : result.draw ? "平" : "负" }}
                             </div>
+                            <div class="gs-matrix-score">{{ result.score }}</div>
                           </template>
                           <template v-else>
                             <span class="gs-matrix-pending">-</span>
@@ -577,9 +578,6 @@ onMounted(async () => {
   color: var(--mobile-text-primary);
   background: var(--mobile-matrix-td-bg);
 }
-.gs-matrix-cell {
-  min-width: 52px;
-}
 .gs-matrix-cell.win {
   background: var(--mobile-matrix-win-bg);
 }
@@ -589,10 +587,21 @@ onMounted(async () => {
 .gs-matrix-cell.draw {
   background: var(--mobile-matrix-draw-bg);
 }
+.gs-matrix-cell {
+  min-width: 76px;
+}
 .gs-matrix-score {
   font-weight: 600;
   font-size: 14px;
   color: var(--mobile-text-primary);
+}
+.gs-matrix-detail {
+  font-size: 10px;
+  color: var(--mobile-text-secondary);
+  margin-top: 1px;
+  white-space: normal;
+  word-break: break-all;
+  line-height: 1.3;
 }
 .gs-matrix-result {
   font-size: 10px;

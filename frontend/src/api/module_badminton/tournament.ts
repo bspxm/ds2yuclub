@@ -342,6 +342,24 @@ const TournamentAPIExtended = {
     });
   },
 
+  // 获取某学员的所有历史对手
+  getOpponents(studentId: number) {
+    return request<ApiResponse<{ id: number; name: string }[]>>({
+      url: `/badminton/tournament/opponents`,
+      method: "get",
+      params: { student_id: studentId },
+    });
+  },
+
+  // 获取某学员与所有对手的全部对战记录
+  getAllH2H(studentId: number) {
+    return request<ApiResponse<any>>({
+      url: `/badminton/tournament/h2h/all`,
+      method: "get",
+      params: { student_id: studentId },
+    });
+  },
+
   // 抢位赛：初始化位置
   initPositions(tournamentId: number) {
     return request<ApiResponse<any[]>>({

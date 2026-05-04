@@ -104,6 +104,7 @@
           </van-cell>
           <van-empty v-if="activeTournaments.length === 0" description="暂无进行中的赛事" />
           <van-cell title="查看历史赛事" is-link @click="goHistory" />
+          <van-cell title="查看历史胜负关系" is-link @click="goH2H" />
         </van-cell-group>
 
         <!-- 能力评估 -->
@@ -394,6 +395,13 @@ function goHistory() {
   const sid = student.value?.id;
   if (sid) {
     router.push(`/m/badminton/parent/tournament-history?student_id=${sid}`);
+  }
+}
+
+function goH2H() {
+  const sid = student.value?.id;
+  if (sid) {
+    router.push(`/m/badminton/parent/h2h?student_id=${sid}`);
   }
 }
 
