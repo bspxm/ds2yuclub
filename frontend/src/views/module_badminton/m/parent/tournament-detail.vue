@@ -120,7 +120,7 @@
                       <template v-if="ri !== ci">
                         <div class="gs-matrix-cell-inner">
                           <template v-if="result">
-                            <div class="gs-matrix-detail">{{ result.detail_score || '-' }}</div>
+                            <div class="gs-matrix-detail">{{ result.detail_score || "-" }}</div>
                             <div class="gs-matrix-result">
                               {{ result.win ? "胜" : result.draw ? "平" : "负" }}
                             </div>

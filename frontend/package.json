@@ -76,6 +76,7 @@
     "codemirror": "^5.65.19",
     "codemirror-editor-vue3": "^2.8.0",
     "dayjs": "^1.11.13",
+    "default-passive-events": "^4.0.0",
     "echarts": "^5.6.0",
     "element-plus": "^2.10.4",
     "exceljs": "^4.4.0",

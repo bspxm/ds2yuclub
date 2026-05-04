@@ -31,28 +31,24 @@
       </div>
 
       <div v-else class="filter-bar">
-        <van-search
-          v-model="searchQuery"
-          shape="round"
-          placeholder="搜索对手姓名"
-          clearable
-        />
+        <van-search v-model="searchQuery" shape="round" placeholder="搜索对手姓名" clearable />
       </div>
 
       <div v-if="opponentsWithRecords.length === 0 && data.records.length > 0" class="empty-state">
         <p>未找到匹配的对手</p>
       </div>
 
-      <div v-else class="opponent-group" v-for="opponent in opponentsWithRecords" :key="opponent.name">
+      <div
+        v-for="opponent in opponentsWithRecords"
+        v-else
+        :key="opponent.name"
+        class="opponent-group"
+      >
         <div class="opponent-header">
           <span class="opponent-name">VS {{ opponent.name }}</span>
           <span class="opponent-record" :class="opponent.recordClass">{{ opponent.record }}</span>
         </div>
-        <div
-          v-for="r in opponent.records"
-          :key="r.match_id"
-          class="match-card"
-        >
+        <div v-for="r in opponent.records" :key="r.match_id" class="match-card">
           <div class="match-tournament">{{ r.tournament_name }}</div>
           <div class="match-players">
             <span :class="{ highlight: r.player1?.name === studentName }">
@@ -69,11 +65,7 @@
             </span>
           </div>
           <div class="match-meta">
-            <span
-              v-if="r.winner_id"
-              class="match-winner"
-              :class="winnerClass(r, studentName)"
-            >
+            <span v-if="r.winner_id" class="match-winner" :class="winnerClass(r, studentName)">
               {{ winnerLabel(r, studentName) }}
             </span>
             <span class="match-date">{{ formatDate(r.match_date) }}</span>

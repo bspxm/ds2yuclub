@@ -272,14 +272,17 @@ async function applyFilters() {
       group_name: filterGroupName.value || undefined,
       level: filterLevel.value || undefined,
     });
+    console.log("applyFilters response:", res.data);
     const items = res.data.data?.items || [];
+    console.log("applyFilters items count:", items.length, items);
     filteredStudents.value = items.map((s: any) => ({
       id: s.id,
       name: s.name,
       group_name: s.group_name,
       level: s.level,
     }));
-  } catch {
+  } catch (e) {
+    console.error("applyFilters error:", e);
     filteredStudents.value = [];
   } finally {
     loadingStudents.value = false;

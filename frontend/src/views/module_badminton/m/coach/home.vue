@@ -47,7 +47,30 @@
           </div>
         </div>
       </div>
+
+      <van-button round block type="danger" class="logout-btn" @click="onLogout">
+        退出登录
+      </van-button>
     </template>
+
+    <van-dialog
+      v-model:show="showLogoutDialog"
+      title=""
+      :show-confirm-button="false"
+      class="logout-dialog"
+    >
+      <div class="logout-body">
+        <van-icon name="info-o" class="logout-icon" />
+        <div class="logout-title">退出登录</div>
+        <div class="logout-desc">确定要退出当前账号吗？</div>
+      </div>
+      <div class="logout-footer">
+        <van-button round block @click="showLogoutDialog = false">取消</van-button>
+        <van-button round block type="danger" style="margin-top: 10px" @click="confirmLogout">
+          退出
+        </van-button>
+      </div>
+    </van-dialog>
   </div>
 </template>
 
@@ -86,6 +109,17 @@ function getGreeting(): string {
 
 const greeting = ref("");
 const todayStr = ref("");
+const showLogoutDialog = ref(false);
+
+function onLogout() {
+  showLogoutDialog.value = true;
+}
+
+async function confirmLogout() {
+  showLogoutDialog.value = false;
+  await userStore.logout();
+  router.replace("/login");
+}
 
 function updateTime() {
   const now = new Date();
@@ -256,5 +290,42 @@ onMounted(() => {
 .action-item span {
   font-size: 12px;
   color: var(--mobile-text-secondary);
+}
+
+.logout-btn {
+  margin-top: 24px;
+}
+
+.logout-body {
+  padding: 32px 24px 24px;
+  text-align: center;
+}
+
+.logout-icon {
+  font-size: 48px;
+  color: var(--van-danger-color, #ee0a24);
+}
+
+.logout-title {
+  margin-top: 12px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--mobile-text-primary);
+}
+
+.logout-desc {
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--mobile-text-muted);
+}
+
+.logout-footer {
+  padding: 0 24px 24px;
+}
+
+.logout-dialog {
+  :deep(.van-dialog__content) {
+    padding: 0;
+  }
 }
 </style>

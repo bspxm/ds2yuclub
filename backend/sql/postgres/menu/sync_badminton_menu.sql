@@ -21,6 +21,16 @@ AND type = 3;
 DELETE FROM sys_menu
 WHERE route_name IN ('BadmintonBasic', 'BadmintonTeaching', 'BadmintonBusiness', 'BadmintonView', 'BadmintonMobileCoach', 'BadmintonMobileParent');
 
+-- 删除可能残留的移动端子页面（新旧路由名），避免名称冲突
+DELETE FROM sys_menu WHERE route_name IN (
+    'MobileParentStudent', 'MobileParentTournament', 'MobileParentTournamentHistory', 'MobileParentTournamentDetail', 'MobileParentH2H',
+    'MobileCoachHome', 'MobileCoachAttendance', 'MobileCoachSchedule',
+    'MobileCoachTournamentList', 'MobileCoachTournamentMatches', 'MobileCoachMatchScore', 'MobileCoachAssessment',
+    'DynMobileParentStudent', 'DynMobileParentTournament', 'DynMobileParentTournamentHistory', 'DynMobileParentTournamentDetail', 'DynMobileParentH2H',
+    'DynMobileCoachHome', 'DynMobileCoachAttendance', 'DynMobileCoachSchedule',
+    'DynMobileCoachTournamentList', 'DynMobileCoachTournamentMatches', 'DynMobileCoachMatchScore', 'DynMobileCoachAssessment'
+);
+
 -- ========================================
 -- 第二步：重置旧菜单结构
 -- ========================================
@@ -312,19 +322,19 @@ FROM sys_menu m WHERE m.route_name = 'BadmintonAttendance';
 
 -- 排课记录权限
 INSERT INTO sys_menu (name, type, "order", permission, hidden, keep_alive, always_show, affix, parent_id, uuid, status, description, created_time, updated_time)
-SELECT '查询排课', 3, 1, 'module_badminton:class_schedule:list', FALSE, FALSE, TRUE, FALSE, m.id, gen_random_uuid(), '0', '查询排课信息', NOW(), NOW()
+SELECT '查询排课', 3, 1, 'module_badminton:class-schedule:list', FALSE, FALSE, TRUE, FALSE, m.id, gen_random_uuid(), '0', '查询排课信息', NOW(), NOW()
 FROM sys_menu m WHERE m.route_name = 'BadmintonSchedule';
 INSERT INTO sys_menu (name, type, "order", permission, hidden, keep_alive, always_show, affix, parent_id, uuid, status, description, created_time, updated_time)
-SELECT '新增排课', 3, 2, 'module_badminton:class_schedule:create', FALSE, FALSE, TRUE, FALSE, m.id, gen_random_uuid(), '0', '新增排课信息', NOW(), NOW()
+SELECT '新增排课', 3, 2, 'module_badminton:class-schedule:create', FALSE, FALSE, TRUE, FALSE, m.id, gen_random_uuid(), '0', '新增排课信息', NOW(), NOW()
 FROM sys_menu m WHERE m.route_name = 'BadmintonSchedule';
 INSERT INTO sys_menu (name, type, "order", permission, hidden, keep_alive, always_show, affix, parent_id, uuid, status, description, created_time, updated_time)
-SELECT '修改排课', 3, 3, 'module_badminton:class_schedule:update', FALSE, FALSE, TRUE, FALSE, m.id, gen_random_uuid(), '0', '修改排课信息', NOW(), NOW()
+SELECT '修改排课', 3, 3, 'module_badminton:class-schedule:update', FALSE, FALSE, TRUE, FALSE, m.id, gen_random_uuid(), '0', '修改排课信息', NOW(), NOW()
 FROM sys_menu m WHERE m.route_name = 'BadmintonSchedule';
 INSERT INTO sys_menu (name, type, "order", permission, hidden, keep_alive, always_show, affix, parent_id, uuid, status, description, created_time, updated_time)
-SELECT '删除排课', 3, 4, 'module_badminton:class_schedule:delete', FALSE, FALSE, TRUE, FALSE, m.id, gen_random_uuid(), '0', '删除排课信息', NOW(), NOW()
+SELECT '删除排课', 3, 4, 'module_badminton:class-schedule:delete', FALSE, FALSE, TRUE, FALSE, m.id, gen_random_uuid(), '0', '删除排课信息', NOW(), NOW()
 FROM sys_menu m WHERE m.route_name = 'BadmintonSchedule';
 INSERT INTO sys_menu (name, type, "order", permission, hidden, keep_alive, always_show, affix, parent_id, uuid, status, description, created_time, updated_time)
-SELECT '详情排课', 3, 5, 'module_badminton:class_schedule:detail', FALSE, FALSE, TRUE, FALSE, m.id, gen_random_uuid(), '0', '查看排课详情', NOW(), NOW()
+SELECT '详情排课', 3, 5, 'module_badminton:class-schedule:detail', FALSE, FALSE, TRUE, FALSE, m.id, gen_random_uuid(), '0', '查看排课详情', NOW(), NOW()
 FROM sys_menu m WHERE m.route_name = 'BadmintonSchedule';
 
 -- 能力分组权限
@@ -357,7 +367,7 @@ UPDATE sys_menu SET permission = REPLACE(permission, 'module_badminton:leave:', 
 WHERE permission LIKE 'module_badminton:leave:%';
 UPDATE sys_menu SET permission = REPLACE(permission, 'module_badminton:attendance:', 'module_badminton:class_attendance:'), updated_time = NOW()
 WHERE permission LIKE 'module_badminton:attendance:%';
-UPDATE sys_menu SET permission = REPLACE(permission, 'module_badminton:schedule:', 'module_badminton:class_schedule:'), updated_time = NOW()
+UPDATE sys_menu SET permission = REPLACE(permission, 'module_badminton:schedule:', 'module_badminton:class-schedule:'), updated_time = NOW()
 WHERE permission LIKE 'module_badminton:schedule:%';
 
 -- ========================================
@@ -367,13 +377,13 @@ WHERE permission LIKE 'module_badminton:schedule:%';
 -- 教练移动端根菜单（挂在视图分组下）
 INSERT INTO sys_menu
 (name, type, "order", permission, icon, route_name, route_path, component_path, redirect, hidden, keep_alive, always_show, title, params, affix, parent_id, uuid, status, description, created_time, updated_time)
-SELECT '教练移动端', 2, 3, NULL, 'el-icon-Phone', 'BadmintonMobileCoach', '/m/badminton/coach', 'module_badminton/m/coach/home', NULL, FALSE, TRUE, FALSE, '教练移动端', NULL, FALSE, m.id, gen_random_uuid(), '0', '教练手机端：签到、课表、比赛、评估', NOW(), NOW()
+SELECT '教练移动端', 2, 3, NULL, 'el-icon-Phone', 'BadmintonMobileCoach', '/m/badminton/coach', 'module_badminton/m/coach/home', NULL, TRUE, TRUE, FALSE, '教练移动端', NULL, FALSE, m.id, gen_random_uuid(), '0', '教练手机端：签到、课表、比赛、评估', NOW(), NOW()
 FROM sys_menu m WHERE m.route_name = 'BadmintonView' LIMIT 1;
 
 -- 家长移动端根菜单（挂在视图分组下）
 INSERT INTO sys_menu
 (name, type, "order", permission, icon, route_name, route_path, component_path, redirect, hidden, keep_alive, always_show, title, params, affix, parent_id, uuid, status, description, created_time, updated_time)
-SELECT '家长移动端', 2, 4, NULL, 'el-icon-Phone', 'BadmintonMobileParent', '/m/badminton/parent', 'module_badminton/m/parent/student', '/m/badminton/parent/student', FALSE, TRUE, FALSE, '家长移动端', NULL, FALSE, m.id, gen_random_uuid(), '0', '家长手机端：学习情况、比赛、H2H', NOW(), NOW()
+SELECT '家长移动端', 2, 4, NULL, 'el-icon-Phone', 'BadmintonMobileParent', '/m/badminton/parent', 'module_badminton/m/parent/student', '/m/badminton/parent/student', TRUE, TRUE, FALSE, '家长移动端', NULL, FALSE, m.id, gen_random_uuid(), '0', '家长手机端：学习情况、比赛、H2H', NOW(), NOW()
 FROM sys_menu m WHERE m.route_name = 'BadmintonView' LIMIT 1;
 
 -- ========================================
@@ -413,60 +423,65 @@ FROM sys_menu m WHERE m.route_name = 'BadmintonMobileParent';
 
 -- 家长移动端子页面
 INSERT INTO sys_menu (name, type, "order", permission, icon, route_name, route_path, component_path, redirect, hidden, keep_alive, always_show, title, params, affix, parent_id, uuid, status, description, created_time, updated_time)
-SELECT '学习情况', 2, 1, NULL, NULL, 'MobileParentStudent', 'student', 'module_badminton/m/parent/student', NULL, FALSE, TRUE, FALSE, '学习情况', NULL, FALSE, m.id, gen_random_uuid(), '0', '查看学员学习情况', NOW(), NOW()
+SELECT '学习情况', 2, 1, NULL, NULL, 'DynMobileParentStudent', 'student', 'module_badminton/m/parent/student', NULL, TRUE, TRUE, FALSE, '学习情况', NULL, FALSE, m.id, gen_random_uuid(), '0', '查看学员学习情况', NOW(), NOW()
 FROM sys_menu m WHERE m.route_name = 'BadmintonMobileParent'
-AND NOT EXISTS (SELECT 1 FROM sys_menu WHERE route_name = 'MobileParentStudent');
+AND NOT EXISTS (SELECT 1 FROM sys_menu WHERE route_name = 'DynMobileParentStudent');
 
 INSERT INTO sys_menu (name, type, "order", permission, icon, route_name, route_path, component_path, redirect, hidden, keep_alive, always_show, title, params, affix, parent_id, uuid, status, description, created_time, updated_time)
-SELECT '比赛结果', 2, 2, NULL, NULL, 'MobileParentTournament', 'tournament', 'module_badminton/m/parent/tournament', NULL, FALSE, TRUE, FALSE, '比赛结果', NULL, FALSE, m.id, gen_random_uuid(), '0', '查看比赛结果', NOW(), NOW()
+SELECT '比赛结果', 2, 2, NULL, NULL, 'DynMobileParentTournament', 'tournament', 'module_badminton/m/parent/tournament', NULL, TRUE, TRUE, FALSE, '比赛结果', NULL, FALSE, m.id, gen_random_uuid(), '0', '查看比赛结果', NOW(), NOW()
 FROM sys_menu m WHERE m.route_name = 'BadmintonMobileParent'
-AND NOT EXISTS (SELECT 1 FROM sys_menu WHERE route_name = 'MobileParentTournament');
+AND NOT EXISTS (SELECT 1 FROM sys_menu WHERE route_name = 'DynMobileParentTournament');
 
 INSERT INTO sys_menu (name, type, "order", permission, icon, route_name, route_path, component_path, redirect, hidden, keep_alive, always_show, title, params, affix, parent_id, uuid, status, description, created_time, updated_time)
-SELECT '历史赛事', 2, 3, NULL, NULL, 'MobileParentTournamentHistory', 'tournament-history', 'module_badminton/m/parent/tournament-history', NULL, FALSE, TRUE, FALSE, '历史赛事', NULL, FALSE, m.id, gen_random_uuid(), '0', '查看历史赛事', NOW(), NOW()
+SELECT '历史赛事', 2, 3, NULL, NULL, 'DynMobileParentTournamentHistory', 'tournament-history', 'module_badminton/m/parent/tournament-history', NULL, TRUE, TRUE, FALSE, '历史赛事', NULL, FALSE, m.id, gen_random_uuid(), '0', '查看历史赛事', NOW(), NOW()
 FROM sys_menu m WHERE m.route_name = 'BadmintonMobileParent'
-AND NOT EXISTS (SELECT 1 FROM sys_menu WHERE route_name = 'MobileParentTournamentHistory');
+AND NOT EXISTS (SELECT 1 FROM sys_menu WHERE route_name = 'DynMobileParentTournamentHistory');
 
 INSERT INTO sys_menu (name, type, "order", permission, icon, route_name, route_path, component_path, redirect, hidden, keep_alive, always_show, title, params, affix, parent_id, uuid, status, description, created_time, updated_time)
-SELECT '学员H2H', 2, 4, NULL, NULL, 'MobileParentH2H', 'h2h', 'module_badminton/m/parent/h2h', NULL, FALSE, TRUE, FALSE, '学员H2H', NULL, FALSE, m.id, gen_random_uuid(), '0', '学员历史对战H2H对比', NOW(), NOW()
+SELECT '学员H2H', 2, 4, NULL, NULL, 'DynMobileParentH2H', 'h2h', 'module_badminton/m/parent/h2h', NULL, TRUE, TRUE, FALSE, '学员H2H', NULL, FALSE, m.id, gen_random_uuid(), '0', '学员历史对战H2H对比', NOW(), NOW()
 FROM sys_menu m WHERE m.route_name = 'BadmintonMobileParent'
-AND NOT EXISTS (SELECT 1 FROM sys_menu WHERE route_name = 'MobileParentH2H');
+AND NOT EXISTS (SELECT 1 FROM sys_menu WHERE route_name = 'DynMobileParentH2H');
+
+INSERT INTO sys_menu (name, type, "order", permission, icon, route_name, route_path, component_path, redirect, hidden, keep_alive, always_show, title, params, affix, parent_id, uuid, status, description, created_time, updated_time)
+SELECT '赛事详情', 2, 5, NULL, NULL, 'DynMobileParentTournamentDetail', 'tournament-detail/:tournamentId', 'module_badminton/m/parent/tournament-detail', NULL, TRUE, TRUE, FALSE, '赛事详情', NULL, FALSE, m.id, gen_random_uuid(), '0', '查看赛事详情', NOW(), NOW()
+FROM sys_menu m WHERE m.route_name = 'BadmintonMobileParent'
+AND NOT EXISTS (SELECT 1 FROM sys_menu WHERE route_name = 'DynMobileParentTournamentDetail');
 
 -- 教练移动端子页面
 INSERT INTO sys_menu (name, type, "order", permission, icon, route_name, route_path, component_path, redirect, hidden, keep_alive, always_show, title, params, affix, parent_id, uuid, status, description, created_time, updated_time)
-SELECT '教练首页', 2, 1, NULL, NULL, 'MobileCoachHome', 'home', 'module_badminton/m/coach/home', NULL, FALSE, TRUE, FALSE, '教练首页', NULL, FALSE, m.id, gen_random_uuid(), '0', '教练手机端首页', NOW(), NOW()
+SELECT '教练首页', 2, 1, NULL, NULL, 'DynMobileCoachHome', 'home', 'module_badminton/m/coach/home', NULL, TRUE, TRUE, FALSE, '教练首页', NULL, FALSE, m.id, gen_random_uuid(), '0', '教练手机端首页', NOW(), NOW()
 FROM sys_menu m WHERE m.route_name = 'BadmintonMobileCoach'
-AND NOT EXISTS (SELECT 1 FROM sys_menu WHERE route_name = 'MobileCoachHome');
+AND NOT EXISTS (SELECT 1 FROM sys_menu WHERE route_name = 'DynMobileCoachHome');
 
 INSERT INTO sys_menu (name, type, "order", permission, icon, route_name, route_path, component_path, redirect, hidden, keep_alive, always_show, title, params, affix, parent_id, uuid, status, description, created_time, updated_time)
-SELECT '点名签到', 2, 2, NULL, NULL, 'MobileCoachAttendance', 'attendance', 'module_badminton/m/coach/attendance', NULL, FALSE, TRUE, FALSE, '点名签到', NULL, FALSE, m.id, gen_random_uuid(), '0', '移动端点名签到', NOW(), NOW()
+SELECT '点名签到', 2, 2, NULL, NULL, 'DynMobileCoachAttendance', 'attendance', 'module_badminton/m/coach/attendance', NULL, TRUE, TRUE, FALSE, '点名签到', NULL, FALSE, m.id, gen_random_uuid(), '0', '移动端点名签到', NOW(), NOW()
 FROM sys_menu m WHERE m.route_name = 'BadmintonMobileCoach'
-AND NOT EXISTS (SELECT 1 FROM sys_menu WHERE route_name = 'MobileCoachAttendance');
+AND NOT EXISTS (SELECT 1 FROM sys_menu WHERE route_name = 'DynMobileCoachAttendance');
 
 INSERT INTO sys_menu (name, type, "order", permission, icon, route_name, route_path, component_path, redirect, hidden, keep_alive, always_show, title, params, affix, parent_id, uuid, status, description, created_time, updated_time)
-SELECT '我的课表', 2, 3, NULL, NULL, 'MobileCoachSchedule', 'schedule', 'module_badminton/m/coach/schedule', NULL, FALSE, TRUE, FALSE, '我的课表', NULL, FALSE, m.id, gen_random_uuid(), '0', '移动端查看课表', NOW(), NOW()
+SELECT '我的课表', 2, 3, NULL, NULL, 'DynMobileCoachSchedule', 'schedule', 'module_badminton/m/coach/schedule', NULL, TRUE, TRUE, FALSE, '我的课表', NULL, FALSE, m.id, gen_random_uuid(), '0', '移动端查看课表', NOW(), NOW()
 FROM sys_menu m WHERE m.route_name = 'BadmintonMobileCoach'
-AND NOT EXISTS (SELECT 1 FROM sys_menu WHERE route_name = 'MobileCoachSchedule');
+AND NOT EXISTS (SELECT 1 FROM sys_menu WHERE route_name = 'DynMobileCoachSchedule');
 
 INSERT INTO sys_menu (name, type, "order", permission, icon, route_name, route_path, component_path, redirect, hidden, keep_alive, always_show, title, params, affix, parent_id, uuid, status, description, created_time, updated_time)
-SELECT '赛事列表', 2, 4, NULL, NULL, 'MobileCoachTournamentList', 'tournament-list', 'module_badminton/m/coach/tournament-list', NULL, FALSE, TRUE, FALSE, '赛事列表', NULL, FALSE, m.id, gen_random_uuid(), '0', '移动端比赛列表', NOW(), NOW()
+SELECT '赛事列表', 2, 4, NULL, NULL, 'DynMobileCoachTournamentList', 'tournament-list', 'module_badminton/m/coach/tournament-list', NULL, TRUE, TRUE, FALSE, '赛事列表', NULL, FALSE, m.id, gen_random_uuid(), '0', '移动端比赛列表', NOW(), NOW()
 FROM sys_menu m WHERE m.route_name = 'BadmintonMobileCoach'
-AND NOT EXISTS (SELECT 1 FROM sys_menu WHERE route_name = 'MobileCoachTournamentList');
+AND NOT EXISTS (SELECT 1 FROM sys_menu WHERE route_name = 'DynMobileCoachTournamentList');
 
 INSERT INTO sys_menu (name, type, "order", permission, icon, route_name, route_path, component_path, redirect, hidden, keep_alive, always_show, title, params, affix, parent_id, uuid, status, description, created_time, updated_time)
-SELECT '对阵列表', 2, 5, NULL, NULL, 'MobileCoachTournamentMatches', 'tournament-matches/:id', 'module_badminton/m/coach/tournament-matches', NULL, FALSE, TRUE, FALSE, '对阵列表', NULL, FALSE, m.id, gen_random_uuid(), '0', '对阵列表', NOW(), NOW()
+SELECT '对阵列表', 2, 5, NULL, NULL, 'DynMobileCoachTournamentMatches', 'tournament-matches/:id', 'module_badminton/m/coach/tournament-matches', NULL, TRUE, TRUE, FALSE, '对阵列表', NULL, FALSE, m.id, gen_random_uuid(), '0', '对阵列表', NOW(), NOW()
 FROM sys_menu m WHERE m.route_name = 'BadmintonMobileCoach'
-AND NOT EXISTS (SELECT 1 FROM sys_menu WHERE route_name = 'MobileCoachTournamentMatches');
+AND NOT EXISTS (SELECT 1 FROM sys_menu WHERE route_name = 'DynMobileCoachTournamentMatches');
 
 INSERT INTO sys_menu (name, type, "order", permission, icon, route_name, route_path, component_path, redirect, hidden, keep_alive, always_show, title, params, affix, parent_id, uuid, status, description, created_time, updated_time)
-SELECT '录入比分', 2, 6, NULL, NULL, 'MobileCoachMatchScore', 'match-score/:tournamentId/:matchId', 'module_badminton/m/coach/match-score', NULL, FALSE, TRUE, FALSE, '录入比分', NULL, FALSE, m.id, gen_random_uuid(), '0', '录入比分', NOW(), NOW()
+SELECT '录入比分', 2, 6, NULL, NULL, 'DynMobileCoachMatchScore', 'match-score/:tournamentId/:matchId', 'module_badminton/m/coach/match-score', NULL, TRUE, TRUE, FALSE, '录入比分', NULL, FALSE, m.id, gen_random_uuid(), '0', '录入比分', NOW(), NOW()
 FROM sys_menu m WHERE m.route_name = 'BadmintonMobileCoach'
-AND NOT EXISTS (SELECT 1 FROM sys_menu WHERE route_name = 'MobileCoachMatchScore');
+AND NOT EXISTS (SELECT 1 FROM sys_menu WHERE route_name = 'DynMobileCoachMatchScore');
 
 INSERT INTO sys_menu (name, type, "order", permission, icon, route_name, route_path, component_path, redirect, hidden, keep_alive, always_show, title, params, affix, parent_id, uuid, status, description, created_time, updated_time)
-SELECT '能力评估', 2, 7, NULL, NULL, 'MobileCoachAssessment', 'assessment', 'module_badminton/m/coach/assessment-compose', NULL, FALSE, TRUE, FALSE, '能力评估', NULL, FALSE, m.id, gen_random_uuid(), '0', '移动端学员能力评估', NOW(), NOW()
+SELECT '能力评估', 2, 7, NULL, NULL, 'DynMobileCoachAssessment', 'assessment', 'module_badminton/m/coach/assessment-compose', NULL, TRUE, TRUE, FALSE, '能力评估', NULL, FALSE, m.id, gen_random_uuid(), '0', '移动端学员能力评估', NOW(), NOW()
 FROM sys_menu m WHERE m.route_name = 'BadmintonMobileCoach'
-AND NOT EXISTS (SELECT 1 FROM sys_menu WHERE route_name = 'MobileCoachAssessment');
+AND NOT EXISTS (SELECT 1 FROM sys_menu WHERE route_name = 'DynMobileCoachAssessment');
 
 -- ========================================
 -- 第十二步：分配移动端菜单到角色
@@ -477,7 +492,7 @@ INSERT INTO sys_role_menus (role_id, menu_id)
 SELECT r.id, m.id
 FROM sys_role r, sys_menu m
 WHERE r.code = 'PARENTS'
-AND (m.route_name = 'BadmintonMobileParent' OR m.route_name LIKE 'MobileParent%')
+AND (m.route_name = 'BadmintonMobileParent' OR m.route_name LIKE 'DynMobileParent%')
 AND NOT EXISTS (SELECT 1 FROM sys_role_menus WHERE role_id = r.id AND menu_id = m.id);
 
 -- 教练移动端菜单分配给教练角色
@@ -485,7 +500,15 @@ INSERT INTO sys_role_menus (role_id, menu_id)
 SELECT r.id, m.id
 FROM sys_role r, sys_menu m
 WHERE r.code = 'COACH'
-AND (m.route_name = 'BadmintonMobileCoach' OR m.route_name LIKE 'MobileCoach%')
+AND (m.route_name = 'BadmintonMobileCoach' OR m.route_name LIKE 'DynMobileCoach%')
+AND NOT EXISTS (SELECT 1 FROM sys_role_menus WHERE role_id = r.id AND menu_id = m.id);
+
+-- 排课管理权限分配给教练角色（教练移动端需要调用排课接口）
+INSERT INTO sys_role_menus (role_id, menu_id)
+SELECT r.id, m.id
+FROM sys_role r, sys_menu m
+WHERE r.code = 'COACH'
+AND m.permission LIKE 'module_badminton:class-schedule:%'
 AND NOT EXISTS (SELECT 1 FROM sys_role_menus WHERE role_id = r.id AND menu_id = m.id);
 
 -- ========================================
