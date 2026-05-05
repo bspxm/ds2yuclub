@@ -92,53 +92,45 @@ class UserModel(ModelMixin, UserMixin):
     dept: Mapped["DeptModel | None"] = relationship(
         back_populates="users",
         foreign_keys=[dept_id],
-        lazy="selectin"
+        lazy="noload"
     )
     roles: Mapped[list["RoleModel"]] = relationship(
         secondary="sys_user_roles",
         back_populates="users",
-        lazy="selectin"
+        lazy="noload"
     )
     positions: Mapped[list["PositionModel"]] = relationship(
         secondary="sys_user_positions",
         back_populates="users",
-        lazy="selectin"
+        lazy="noload"
     )
 
     # ============================================================================
     # 羽毛球模块关联关系
     # ============================================================================
-    
+
     # 作为家长关联的学员
     students: Mapped[list["StudentModel"]] = relationship(
         secondary="badminton_parent_student",
         back_populates="parents",
-        lazy="selectin",
+        lazy="noload",
         overlaps="student"
     )
-    
+
     # 作为教练评估的记录
     assessments_as_coach: Mapped[list["AbilityAssessmentModel"]] = relationship(
         back_populates="coach",
-        lazy="selectin",
+        lazy="noload",
         cascade="all, delete-orphan",
         foreign_keys="AbilityAssessmentModel.coach_id"
     )
-    
+
     # 作为教练的能力分组记录
     groups: Mapped[list["AbilityGroupModel"]] = relationship(
         secondary="badminton_group_coach",
         back_populates="coaches",
-        lazy="selectin",
+        lazy="noload",
         overlaps="coach"
-    )
-    
-    # 作为教练的课程记录
-    courses_as_coach: Mapped[list["CourseModel"]] = relationship(
-        back_populates="coach_user",
-        lazy="selectin",
-        cascade="all, delete-orphan",
-        foreign_keys="CourseModel.coach_id"
     )
     
     # 作为教练的班级记录
@@ -178,7 +170,7 @@ class UserModel(ModelMixin, UserMixin):
         "UserModel",
         foreign_keys="UserModel.created_id",
         remote_side="UserModel.id",
-        lazy="selectin",
+        lazy="noload",
         uselist=False,
         viewonly=True  # 防止级联操作
     )
@@ -187,7 +179,7 @@ class UserModel(ModelMixin, UserMixin):
         "UserModel",
         foreign_keys="UserModel.updated_id",
         remote_side="UserModel.id",
-        lazy="selectin",
+        lazy="noload",
         uselist=False,
         viewonly=True  # 防止级联操作
     )

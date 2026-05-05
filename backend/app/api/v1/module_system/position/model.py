@@ -24,5 +24,5 @@ class PositionModel(ModelMixin, UserMixin):
     users: Mapped[list["UserModel"]] = relationship(
         secondary="sys_user_positions",
         back_populates="positions",
-        lazy="selectin"
+        lazy="noload"
     )

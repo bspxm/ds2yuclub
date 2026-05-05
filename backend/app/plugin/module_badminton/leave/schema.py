@@ -19,6 +19,5 @@ from ..enums import (
 class LeaveRequestCreateSchema(BaseModel):
     """请假申请创建模型"""
     student_id: int = Field(..., description="学员ID")
-    course_id: int = Field(..., description="课程ID")
     leave_date: DateStr = Field(..., description="请假日期")
     reason: str = Field(..., description="请假原因")

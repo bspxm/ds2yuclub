@@ -30,15 +30,10 @@ class LeaveRequestService:
     @classmethod
     async def submit_service(cls, auth: AuthSchema, leave_data: dict) -> dict:
         """提交请假申请"""
-        # 检查学员和课程是否存在
         student = await StudentCRUD(auth).get_by_id_crud(leave_data["student_id"])
         if not student:
             raise CustomException(msg="学员不存在")
-        
-        course = await CourseCRUD(auth).get(id=leave_data["course_id"])
-        if not course:
-            raise CustomException(msg="课程不存在")
-        
+
         leave = await LeaveRequestCRUD(auth).submit_crud(leave_data)
         return SimpleResponse(
             success=True,
@@ -64,41 +59,18 @@ class LeaveRequestService:
     @classmethod
     async def get_pending_service(cls, auth: AuthSchema) -> list[dict]:
         """获取待审核的请假申请"""
-        from datetime import datetime, timedelta
-        
         requests = await LeaveRequestCRUD(auth).get_pending_requests_crud()
-        
+
         result = []
         for req in requests:
-            # 获取课程信息
-            course = req.course
-            
-            # 组合课程开始时间：start_date + class_time
-            if course.start_date and course.class_time:
-                start_datetime = datetime.combine(course.start_date, course.class_time)
-                start_time_str = start_datetime.strftime('%Y-%m-%d %H:%M:%S')
-                
-                # 计算课程结束时间：开始时间 + 课程时长
-                end_datetime = start_datetime + timedelta(minutes=course.duration_minutes)
-                end_time_str = end_datetime.strftime('%Y-%m-%d %H:%M:%S')
-            else:
-                start_time_str = None
-                end_time_str = None
-            
             result.append({
                 "id": req.id,
                 "student": StudentOutSchema.model_validate(req.student).model_dump(),
-                "course": {
-                    "id": course.id,
-                    "name": course.name,
-                    "start_time": start_time_str,
-                    "end_time": end_time_str
-                },
                 "leave_date": req.leave_date,
-                "reason": req.reason,
-                "status": req.status,
+                "reason": req.leave_reason,
+                "status": req.leave_status,
                 "created_by": req.created_by.username if req.created_by else None,
                 "created_time": req.created_time
             })
-        
+
         return result

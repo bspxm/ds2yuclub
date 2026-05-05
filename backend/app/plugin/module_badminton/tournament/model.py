@@ -94,13 +94,13 @@ class TournamentModel(ModelMixin, UserMixin):
 
     # 关联关系
     groups: Mapped[list["TournamentGroupModel"]] = relationship(
-        back_populates="tournament", lazy="selectin", cascade="all, delete-orphan"
+        back_populates="tournament", lazy="noload", cascade="all, delete-orphan"
     )
     participants: Mapped[list["TournamentParticipantModel"]] = relationship(
-        back_populates="tournament", lazy="selectin", cascade="all, delete-orphan"
+        back_populates="tournament", lazy="noload", cascade="all, delete-orphan"
     )
     matches: Mapped[list["TournamentMatchModel"]] = relationship(
-        back_populates="tournament", lazy="selectin", cascade="all, delete-orphan"
+        back_populates="tournament", lazy="noload", cascade="all, delete-orphan"
     )
 
 
@@ -127,13 +127,13 @@ class TournamentGroupModel(ModelMixin):
 
     # 关联关系
     tournament: Mapped["TournamentModel"] = relationship(
-        back_populates="groups", foreign_keys=[tournament_id], lazy="selectin"
+        back_populates="groups", foreign_keys=[tournament_id], lazy="noload"
     )
     participants: Mapped[list["TournamentParticipantModel"]] = relationship(
-        back_populates="group", lazy="selectin", cascade="all, delete-orphan"
+        back_populates="group", lazy="noload", cascade="all, delete-orphan"
     )
     matches: Mapped[list["TournamentMatchModel"]] = relationship(
-        back_populates="group", lazy="selectin", cascade="all, delete-orphan"
+        back_populates="group", lazy="noload", cascade="all, delete-orphan"
     )
 
 
@@ -205,15 +205,15 @@ class TournamentParticipantModel(ModelMixin):
 
     # 关联关系
     tournament: Mapped["TournamentModel"] = relationship(
-        back_populates="participants", foreign_keys=[tournament_id], lazy="selectin"
+        back_populates="participants", foreign_keys=[tournament_id], lazy="noload"
     )
     group: Mapped[Optional["TournamentGroupModel"]] = relationship(
-        back_populates="participants", foreign_keys=[group_id], lazy="selectin"
+        back_populates="participants", foreign_keys=[group_id], lazy="noload"
     )
     student: Mapped["StudentModel"] = relationship(
         back_populates="tournament_participations",
         foreign_keys=[student_id],
-        lazy="selectin",
+        lazy="noload",
     )
 
 
@@ -321,17 +321,17 @@ class TournamentMatchModel(ModelMixin):
 
     # 关联关系
     tournament: Mapped["TournamentModel"] = relationship(
-        back_populates="matches", foreign_keys=[tournament_id], lazy="selectin"
+        back_populates="matches", foreign_keys=[tournament_id], lazy="noload"
     )
     group: Mapped[Optional["TournamentGroupModel"]] = relationship(
-        back_populates="matches", foreign_keys=[group_id], lazy="selectin"
+        back_populates="matches", foreign_keys=[group_id], lazy="noload"
     )
     player1: Mapped["TournamentParticipantModel"] = relationship(
-        foreign_keys=[player1_id], lazy="selectin"
+        foreign_keys=[player1_id], lazy="noload"
     )
     player2: Mapped["TournamentParticipantModel"] = relationship(
-        foreign_keys=[player2_id], lazy="selectin"
+        foreign_keys=[player2_id], lazy="noload"
     )
     winner: Mapped[Optional["TournamentParticipantModel"]] = relationship(
-        foreign_keys=[winner_id], lazy="selectin"
+        foreign_keys=[winner_id], lazy="noload"
     )

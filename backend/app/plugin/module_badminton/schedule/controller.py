@@ -70,6 +70,87 @@ async def create_schedule_v2(
 
 
 @ClassScheduleRouter.get(
+    "/available-students",
+    summary="获取可用学员列表",
+    description="获取可排课的学员列表（根据课时包配置筛选）",
+)
+async def get_available_students(
+    semester_id: int = Query(..., description="学期ID"),
+    schedule_date: str = Query(..., description="排课日期（YYYY-MM-DD格式）"),
+    time_slots: str = Query(..., description="时间段JSON配置（JSON字符串格式）"),
+    class_ids: Optional[str] = Query(
+        None,
+        description="班级ID列表（逗号分隔，可选，如果未提供则查询该学期下所有班级）",
+    ),
+    auth: AuthSchema = Depends(
+        AuthPermission(["module_badminton:class-schedule:list"])
+    ),
+    redis: Redis = Depends(redis_getter),
+) -> JSONResponse:
+    """
+    获取可用学员列表
+
+    筛选逻辑：
+    1. 查询指定班级（如果未提供则查询该学期下所有班级）的购买记录
+    2. 筛选 selected_time_slots 包含任一时间段代码的购买记录
+    3. 检查学员是否有剩余课时
+    4. 检查排课日期是否在购买记录的有效期内
+    5. 返回符合条件的学员列表
+    """
+    import json
+    from datetime import datetime
+
+    # 解析日期
+    try:
+        parsed_date = datetime.strptime(schedule_date, "%Y-%m-%d").date()
+    except ValueError:
+        from fastapi import HTTPException
+
+        raise HTTPException(
+            status_code=400, detail="日期格式错误，请使用YYYY-MM-DD格式"
+        )
+
+    # 解析时间段JSON
+    try:
+        time_slots_dict = json.loads(time_slots)
+    except json.JSONDecodeError:
+        from fastapi import HTTPException
+
+        raise HTTPException(
+            status_code=400, detail="时间段配置格式错误，请使用JSON格式"
+        )
+
+    # 解析班级ID列表（如果提供）
+    class_ids_list = None
+    if class_ids:
+        try:
+            class_ids_list = [int(x.strip()) for x in class_ids.split(",")]
+        except ValueError:
+            from fastapi import HTTPException
+
+            raise HTTPException(
+                status_code=400, detail="班级ID格式错误，请使用逗号分隔的数字"
+            )
+
+    result = await ClassScheduleService.get_available_students_service(
+        auth=auth,
+        redis=redis,
+        semester_id=semester_id,
+        schedule_date=parsed_date,
+        time_slots=time_slots_dict,
+        class_ids=class_ids_list,
+    )
+    return JSONResponse(
+        content={
+            "code": 0,
+            "msg": "可用学员列表获取成功",
+            "data": result,
+            "success": True,
+        }
+    )
+
+
+@ClassScheduleRouter.get(
     "/{id}", summary="排课记录详情", description="获取排课记录详情"
 )
 async def get_schedule(
@@ -157,87 +238,6 @@ async def get_upcoming_schedules(
 
     result = await ClassScheduleService.list_service(auth, search, order_by)
     return SuccessResponse(data=result, msg="近期排课记录获取成功")
-
-
-@ClassScheduleRouter.get(
-    "/available-students",
-    summary="获取可用学员列表",
-    description="获取可排课的学员列表（根据课时包配置筛选）",
-)
-async def get_available_students(
-    semester_id: int = Query(..., description="学期ID"),
-    schedule_date: str = Query(..., description="排课日期（YYYY-MM-DD格式）"),
-    time_slots: str = Query(..., description="时间段JSON配置（JSON字符串格式）"),
-    class_ids: Optional[str] = Query(
-        None,
-        description="班级ID列表（逗号分隔，可选，如果未提供则查询该学期下所有班级）",
-    ),
-    auth: AuthSchema = Depends(
-        AuthPermission(["module_badminton:class-schedule:list"])
-    ),
-    redis: Redis = Depends(redis_getter),
-) -> JSONResponse:
-    """
-    获取可用学员列表
-
-    筛选逻辑：
-    1. 查询指定班级（如果未提供则查询该学期下所有班级）的购买记录
-    2. 筛选 selected_time_slots 包含任一时间段代码的购买记录
-    3. 检查学员是否有剩余课时
-    4. 检查排课日期是否在购买记录的有效期内
-    5. 返回符合条件的学员列表
-    """
-    import json
-    from datetime import datetime
-
-    # 解析日期
-    try:
-        parsed_date = datetime.strptime(schedule_date, "%Y-%m-%d").date()
-    except ValueError:
-        from fastapi import HTTPException
-
-        raise HTTPException(
-            status_code=400, detail="日期格式错误，请使用YYYY-MM-DD格式"
-        )
-
-    # 解析时间段JSON
-    try:
-        time_slots_dict = json.loads(time_slots)
-    except json.JSONDecodeError:
-        from fastapi import HTTPException
-
-        raise HTTPException(
-            status_code=400, detail="时间段配置格式错误，请使用JSON格式"
-        )
-
-    # 解析班级ID列表（如果提供）
-    class_ids_list = None
-    if class_ids:
-        try:
-            class_ids_list = [int(x.strip()) for x in class_ids.split(",")]
-        except ValueError:
-            from fastapi import HTTPException
-
-            raise HTTPException(
-                status_code=400, detail="班级ID格式错误，请使用逗号分隔的数字"
-            )
-
-    result = await ClassScheduleService.get_available_students_service(
-        auth=auth,
-        redis=redis,
-        semester_id=semester_id,
-        schedule_date=parsed_date,
-        time_slots=time_slots_dict,
-        class_ids=class_ids_list,
-    )
-    return JSONResponse(
-        content={
-            "code": 0,
-            "msg": "可用学员列表获取成功",
-            "data": result,
-            "success": True,
-        }
-    )
 
 
 @ClassScheduleRouter.get(

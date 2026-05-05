@@ -82,22 +82,22 @@ class PurchaseModel(ModelMixin, UserMixin):
         "StudentModel",
         back_populates="purchases",
         foreign_keys=[student_id],
-        lazy="selectin"
+        lazy="noload"
     )
     class_ref: Mapped[Any] = relationship(
         "ClassModel",
         back_populates="purchases",
         foreign_keys=[class_id],
-        lazy="selectin"
+        lazy="noload"
     )
     semester: Mapped[Any] = relationship(
         "SemesterModel",
         back_populates="purchases",
         foreign_keys=[semester_id],
-        lazy="selectin"
+        lazy="noload"
     )
     attendance_records: Mapped[list["ClassAttendanceModel"]] = relationship(
         back_populates="purchase",
-        lazy="selectin",
+        lazy="noload",
         cascade="all, delete-orphan"
     )

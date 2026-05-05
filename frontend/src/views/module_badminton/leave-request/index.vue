@@ -13,9 +13,6 @@
         <el-form-item prop="student_name" label="学员姓名">
           <el-input v-model="queryFormData.student_name" placeholder="请输入学员姓名" clearable />
         </el-form-item>
-        <el-form-item prop="course_name" label="课程名称">
-          <el-input v-model="queryFormData.course_name" placeholder="请输入课程名称" clearable />
-        </el-form-item>
         <el-form-item prop="status" label="请假状态">
           <el-select
             v-model="queryFormData.status"
@@ -161,7 +158,6 @@
             </template>
           </el-table-column>
           <el-table-column prop="student_name" label="学员姓名" min-width="120" />
-          <el-table-column prop="course_name" label="课程名称" min-width="150" />
           <el-table-column prop="leave_date" label="请假日期" min-width="120" />
           <el-table-column prop="reason" label="请假原因" min-width="200" show-overflow-tooltip />
           <el-table-column prop="status" label="状态" min-width="100">
@@ -264,21 +260,6 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="课程" prop="course_id">
-          <el-select
-            v-model="formData.course_id"
-            placeholder="请选择课程"
-            style="width: 100%"
-            filterable
-          >
-            <el-option
-              v-for="course in courseOptions"
-              :key="course.value"
-              :label="course.label"
-              :value="course.value"
-            />
-          </el-select>
-        </el-form-item>
         <el-form-item label="请假日期" prop="leave_date">
           <el-date-picker
             v-model="formData.leave_date"
@@ -339,7 +320,6 @@ const queryFormData = reactive({
   page_no: 1,
   page_size: 10,
   student_name: undefined as string | undefined,
-  course_name: undefined as string | undefined,
   status: undefined as string | undefined,
   leave_date_range: undefined as any,
 });
@@ -348,7 +328,6 @@ const queryFormData = reactive({
 const formData = reactive({
   id: undefined as number | undefined,
   student_id: undefined as string | undefined,
-  course_id: undefined as string | undefined,
   leave_date: undefined as string | undefined,
   reason: undefined as string | undefined,
 });
@@ -362,8 +341,6 @@ const dialogVisible = reactive({
 
 // 学员选项
 const studentOptions = ref<Array<{ value: string; label: string }>>([]);
-// 课程选项
-const courseOptions = ref<Array<{ value: string; label: string }>>([]);
 
 // 日期范围临时变量
 const leaveDateRange = ref<[Date, Date] | []>([]);
@@ -371,7 +348,6 @@ const leaveDateRange = ref<[Date, Date] | []>([]);
 // 表单验证规则
 const rules: FormRules = {
   student_id: [{ required: true, message: "请选择学员", trigger: "blur" }],
-  course_id: [{ required: true, message: "请选择课程", trigger: "blur" }],
   leave_date: [{ required: true, message: "请选择请假日期", trigger: "blur" }],
   reason: [
     { required: true, message: "请输入请假原因", trigger: "blur" },
@@ -476,7 +452,6 @@ async function resetForm() {
   Object.assign(formData, {
     id: undefined,
     student_id: undefined,
-    course_id: undefined,
     leave_date: undefined,
     reason: undefined,
   });
@@ -617,7 +592,6 @@ async function loadingData() {
         {
           id: 1,
           student_name: "张三",
-          course_name: "周一基础班",
           leave_date: "2026-01-20",
           reason: "生病发烧",
           status: "pending",
@@ -628,7 +602,6 @@ async function loadingData() {
         {
           id: 2,
           student_name: "李四",
-          course_name: "周三提高班",
           leave_date: "2026-01-19",
           reason: "家庭事务",
           status: "approved",
@@ -657,19 +630,8 @@ async function loadStudentOptions() {
   ];
 }
 
-// 加载课程选项
-async function loadCourseOptions() {
-  // TODO: 调用API获取课程列表
-  courseOptions.value = [
-    { value: "1", label: "周一基础班" },
-    { value: "2", label: "周三提高班" },
-    { value: "3", label: "周五进阶班" },
-  ];
-}
-
 onMounted(() => {
   loadStudentOptions();
-  loadCourseOptions();
   loadingData();
 });
 </script>

@@ -129,62 +129,8 @@
         </ElCard>
       </ElCol>
 
-      <!-- 右侧：近期课程安排 + 能力评估 -->
+      <!-- 右侧：能力评估 -->
       <ElCol :xl="8" :lg="8" :md="12" :sm="12" :xs="24">
-        <!-- 近期课程安排 -->
-        <ElCard shadow="hover" class="mb-4">
-          <template #header>
-            <div class="flex justify-between items-center">
-              <span class="font-bold">近期课程安排</span>
-              <ElButton type="primary" link @click="handleViewAllCourses">查看全部</ElButton>
-            </div>
-          </template>
-          <el-empty v-if="recentCourses.length === 0" :image-size="80" description="暂无课程安排" />
-          <div v-else class="course-list">
-            <div
-              v-for="course in recentCourses"
-              :key="course.id"
-              class="course-item mb-3 p-3 border rounded hover:shadow transition-shadow"
-            >
-              <div class="flex justify-between items-start mb-2">
-                <span class="font-medium">{{ course.course_name }}</span>
-                <el-tag size="small" :type="getCourseStatusTagType(course.status)">
-                  {{ getCourseStatusText(course.status) }}
-                </el-tag>
-              </div>
-              <div class="text-sm mb-1">
-                <el-icon class="mr-1">
-                  <Calendar />
-                </el-icon>
-                {{ formatDateTime(course.start_time) }}
-              </div>
-              <div class="text-sm mb-2">
-                <el-icon class="mr-1">
-                  <Clock />
-                </el-icon>
-                时长: {{ course.duration }}分钟
-              </div>
-              <div class="text-sm text-gray-600 line-clamp-2">
-                {{ course.description || "暂无描述" }}
-              </div>
-              <div class="flex justify-between items-center mt-2">
-                <span class="text-xs text-gray-500">
-                  {{ course.instructor_name || "待定教练" }}
-                </span>
-                <ElButton
-                  v-if="course.id"
-                  size="small"
-                  type="primary"
-                  link
-                  @click="handleViewCourseDetail(course.id)"
-                >
-                  详情
-                </ElButton>
-              </div>
-            </div>
-          </div>
-        </ElCard>
-
         <!-- 能力评估概览 -->
         <ElCard shadow="hover">
           <template #header>
@@ -251,12 +197,10 @@ defineOptions({
 import { ref, onMounted, computed } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
-import { Calendar, Clock } from "@element-plus/icons-vue";
 import { useUserStoreHook } from "@/store/modules/user.store";
 import ParentStudentAPI from "@/api/module_badminton/parent-student";
 import { StudentTable } from "@/api/module_badminton/student";
 import TournamentAPI, { TournamentTable } from "@/api/module_badminton/tournament";
-import CourseAPI, { CourseTable } from "@/api/module_badminton/course";
 import AssessmentAPI, { AssessmentTable } from "@/api/module_badminton/assessment";
 
 const router = useRouter();
@@ -285,8 +229,6 @@ const welcome = computed(() => {
 const currentStudent = ref<StudentTable | null>(null);
 // 近期比赛
 const recentTournaments = ref<TournamentTable[]>([]);
-// 近期课程
-const recentCourses = ref<CourseTable[]>([]);
 // 能力评估
 const abilityAssessment = ref<AssessmentTable | null>(null);
 
@@ -339,13 +281,6 @@ const loadStudentRelatedData = async (studentId: number) => {
     // 加载近期比赛 - API不支持参数，获取全部后过滤
     const tournamentResponse = await TournamentAPI.getTournamentList();
     recentTournaments.value = (tournamentResponse.data.data?.items || []).slice(0, 5);
-
-    // 加载近期课程 - 使用正确的查询参数
-    const courseResponse = await CourseAPI.getCourseList({
-      page_no: 1,
-      page_size: 5,
-    });
-    recentCourses.value = courseResponse.data.data.items;
 
     // 加载最新能力评估
     const assessmentResponse = await AssessmentAPI.getAssessmentList({
@@ -449,38 +384,6 @@ const getTournamentFormatText = (format?: string) => {
   }
 };
 
-// 获取课程状态标签类型
-const getCourseStatusTagType = (status?: string) => {
-  switch (status) {
-    case "scheduled":
-      return "info";
-    case "in_progress":
-      return "warning";
-    case "completed":
-      return "success";
-    case "cancelled":
-      return "danger";
-    default:
-      return "info";
-  }
-};
-
-// 获取课程状态文本
-const getCourseStatusText = (status?: string) => {
-  switch (status) {
-    case "scheduled":
-      return "已安排";
-    case "in_progress":
-      return "进行中";
-    case "completed":
-      return "已完成";
-    case "cancelled":
-      return "已取消";
-    default:
-      return "未知";
-  }
-};
-
 // 获取维度颜色
 const getDimensionColor = (score: number) => {
   if (score >= 4) return "#67C23A";
@@ -525,29 +428,6 @@ const handleViewTournamentDetail = (tournamentId: number) => {
     });
 };
 
-// 查看所有课程
-const handleViewAllCourses = () => {
-  router
-    .push({
-      name: "CourseList",
-    })
-    .catch(() => {
-      ElMessage.warning("查看课程列表功能暂未实现");
-    });
-};
-
-// 查看课程详情
-const handleViewCourseDetail = (courseId: number) => {
-  router
-    .push({
-      name: "CourseDetail",
-      params: { id: courseId },
-    })
-    .catch(() => {
-      ElMessage.warning("查看课程详情功能暂未实现");
-    });
-};
-
 // 查看能力评估详情
 const handleViewAssessmentDetail = () => {
   if (currentStudent.value?.id) {
@@ -582,11 +462,6 @@ onMounted(() => {
     background-color: var(--el-fill-color-light);
     border: 1px solid var(--el-border-color);
     border-radius: 6px;
-  }
-
-  .course-item {
-    background-color: var(--el-fill-color-light);
-    border-color: var(--el-border-color);
   }
 
   .dimension-item {

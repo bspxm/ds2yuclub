@@ -1064,7 +1064,7 @@ async function loadSemesters() {
   try {
     const response = await SemesterAPI.getSemesterList({ page_no: 1, page_size: 100 });
 
-    semesterList.value = response.data.data.items || [];
+    semesterList.value = (response.data.data.items || []).filter((s: any) => s.status === "active");
   } catch (error: any) {
     console.error("加载学期列表失败:", error);
   }
@@ -1614,8 +1614,8 @@ async function handleSubmit() {
     }
   }
 
-  // 保存表单数据副本（排除student_ids，由API处理）
-  const { student_ids: _student_ids, ...submitData } = formDataV2;
+  // 保存表单数据副本（包含student_ids，后端自动创建考勤记录）
+  const submitData = { ...formDataV2 };
 
   // 保存操作类型和ID
   const operationType = dialogVisible.type;

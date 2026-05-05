@@ -72,7 +72,7 @@ class ClassModel(ModelMixin, UserMixin):
     # 状态信息
     class_status: Mapped[ClassStatusEnum] = mapped_column(
         Enum(ClassStatusEnum, values_callable=lambda x: [e.value for e in x]),
-        default=ClassStatusEnum.PENDING,
+        default=ClassStatusEnum.ACTIVE,
         nullable=False,
         comment='班级状态'
     )
@@ -90,27 +90,27 @@ class ClassModel(ModelMixin, UserMixin):
     semester: Mapped["SemesterModel"] = relationship(
         back_populates="classes",
         foreign_keys=[semester_id],
-        lazy="selectin"
+        lazy="noload"
     )
     coach_user: Mapped["UserModel"] = relationship(
         foreign_keys=[coach_id],
-        lazy="selectin"
+        lazy="noload"
     )
     schedules: Mapped[list[Any]] = relationship(
         "ClassScheduleModel",
         back_populates="class_ref",
-        lazy="selectin",
+        lazy="noload",
         cascade="all, delete-orphan"
     )
     purchases: Mapped[list[Any]] = relationship(
         "PurchaseModel",
         back_populates="class_ref",
-        lazy="selectin",
+        lazy="noload",
         cascade="all, delete-orphan"
     )
     attendance_records: Mapped[list[Any]] = relationship(
         "ClassAttendanceModel",
         back_populates="class_ref",
-        lazy="selectin",
+        lazy="noload",
         cascade="all, delete-orphan"
     )

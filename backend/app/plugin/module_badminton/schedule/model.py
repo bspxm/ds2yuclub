@@ -106,23 +106,23 @@ class ClassScheduleModel(ModelMixin, UserMixin):
         "ClassModel",
         back_populates="schedules",
         foreign_keys=[class_id],
-        lazy="selectin"
+        lazy="noload"
     )
     coach_user: Mapped["UserModel"] = relationship(
         foreign_keys=[coach_id],
-        lazy="selectin"
+        lazy="noload"
     )
     original_schedule: Mapped["ClassScheduleModel"] = relationship(
         foreign_keys=[original_schedule_id],
         remote_side="ClassScheduleModel.id",
-        lazy="selectin"
+        lazy="noload"
     )
     makeup_schedule: Mapped["ClassScheduleModel"] = relationship(
         foreign_keys=[makeup_for_schedule_id],
-        lazy="selectin"
+        lazy="noload"
     )
     attendance_records: Mapped[list["ClassAttendanceModel"]] = relationship(
         back_populates="schedule",
-        lazy="selectin",
+        lazy="noload",
         cascade="all, delete-orphan"
     )

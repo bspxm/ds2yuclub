@@ -31,11 +31,8 @@
             style="width: 120px"
             clearable
           >
-            <el-option value="planning" label="规划中" />
             <el-option value="active" label="进行中" />
             <el-option value="completed" label="已结束" />
-            <el-option value="settled" label="已结算" />
-            <el-option value="archived" label="已归档" />
           </el-select>
         </el-form-item>
         <el-form-item v-if="isExpand" prop="start_date" label="开始日期范围">
@@ -433,11 +430,8 @@
                   placeholder="请选择学期状态"
                   style="width: 100%"
                 >
-                  <el-option value="planning" label="规划中" />
                   <el-option value="active" label="进行中" />
                   <el-option value="completed" label="已结束" />
-                  <el-option value="settled" label="已结算" />
-                  <el-option value="archived" label="已归档" />
                 </el-select>
               </el-form-item>
             </el-col>
@@ -478,7 +472,7 @@ defineOptions({
   inheritAttrs: false,
 });
 
-import { ref, reactive, onMounted } from "vue";
+import { ref, reactive, onMounted, watch } from "vue";
 import { ElMessage, ElMessageBox, ElNotification } from "element-plus";
 import { QuestionFilled, ArrowUp, ArrowDown } from "@element-plus/icons-vue";
 import { formatToDateTime } from "@/utils/dateUtil";
@@ -518,19 +512,13 @@ function formatDateTime(timestamp: any): string {
 
 // 状态显示映射（与后端 SemesterStatusEnum 保持一致）
 const statusMap: Record<string, string> = {
-  planning: "规划中",
   active: "进行中",
   completed: "已结束",
-  settled: "已结算",
-  archived: "已归档",
 };
 
 const statusTypeMap: Record<string, string> = {
-  planning: "info",
   active: "success",
   completed: "warning",
-  settled: "info",
-  archived: "info",
 };
 import DatePicker from "@/components/DatePicker/index.vue";
 import SemesterAPI, {
@@ -602,7 +590,7 @@ const formData = reactive<SemesterForm>({
   start_date: "",
   end_date: "",
   week_count: 16,
-  status: "planning",
+  status: "active",
   description: undefined,
 });
 
@@ -612,6 +600,41 @@ const dialogVisible = reactive({
   visible: false,
   type: "create" as "create" | "update" | "detail",
 });
+
+// 计算自然周数（从开始日期所在周的周一到结束日期所在周的周日）
+function calculateNaturalWeeks(startDate: string, endDate: string): number {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  // 获取开始日期所在周的周一
+  const startDay = start.getDay(); // 0=周日, 1=周一...
+  const daysToMonday = startDay === 0 ? 6 : startDay - 1;
+  const monday = new Date(start);
+  monday.setDate(start.getDate() - daysToMonday);
+  monday.setHours(0, 0, 0, 0);
+
+  // 获取结束日期所在周的周日
+  const endDay = end.getDay();
+  const daysToSunday = endDay === 0 ? 0 : 7 - endDay;
+  const sunday = new Date(end);
+  sunday.setDate(end.getDate() + daysToSunday);
+  sunday.setHours(0, 0, 0, 0);
+
+  const diffTime = sunday.getTime() - monday.getTime();
+  const diffDays = diffTime / (1000 * 60 * 60 * 24);
+
+  return Math.floor(diffDays / 7) + 1;
+}
+
+// 监听日期变化，自动计算总周数（仅在新建时）
+watch(
+  () => [formData.start_date, formData.end_date],
+  ([start, end]) => {
+    if (dialogVisible.type === "create" && start && end) {
+      formData.week_count = calculateNaturalWeeks(start as string, end as string);
+    }
+  }
+);
 
 // 表单验证规则
 const rules = reactive({
@@ -661,7 +684,7 @@ const initialFormData: SemesterForm = {
   start_date: "",
   end_date: "",
   week_count: 16,
-  status: "planning",
+  status: "active",
   description: undefined,
 };
 

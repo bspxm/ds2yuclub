@@ -229,36 +229,21 @@ class SemesterService:
                 data=SemesterOutSchema.model_validate(semester).model_dump(mode='json')
             ).model_dump()
         
-        # 2. 如果没有进行中的学期，查找未开始的学期（按开始日期升序，找到即将开始的）
-        planning_semesters = await SemesterCRUD(auth).list_crud(
-            search={"status": SemesterStatusEnum.PLANNING},
-            order_by=[{"start_date": "asc"}]
-        )
-        
-        if planning_semesters:
-            # 返回即将开始的学期
-            semester = planning_semesters[0]
-            return SimpleResponse(
-                success=True,
-                message="获取即将开始的学期成功",
-                data=SemesterOutSchema.model_validate(semester).model_dump(mode='json')
-            ).model_dump()
-        
-        # 3. 如果都没有，返回最近结束的学期
-        ended_semesters = await SemesterCRUD(auth).list_crud(
-            search={"status": SemesterStatusEnum.ENDED},
+        # 2. 如果没有进行中的学期，返回最近结束的学期
+        completed_semesters = await SemesterCRUD(auth).list_crud(
+            search={"status": SemesterStatusEnum.COMPLETED},
             order_by=[{"end_date": "desc"}]
         )
-        
-        if ended_semesters:
-            semester = ended_semesters[0]
+
+        if completed_semesters:
+            semester = completed_semesters[0]
             return SimpleResponse(
                 success=True,
                 message="获取最近结束的学期成功",
                 data=SemesterOutSchema.model_validate(semester).model_dump(mode='json')
             ).model_dump()
-        
-        # 4. 没有任何学期
+
+        # 3. 没有任何学期
         raise CustomException(msg="系统中暂无学期信息，请先创建学期")
 
     @classmethod

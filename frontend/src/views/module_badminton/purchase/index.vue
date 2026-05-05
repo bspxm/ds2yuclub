@@ -46,11 +46,11 @@
             style="width: 120px"
             clearable
           >
-            <el-option value="ACTIVE" label="生效中" />
-            <el-option value="COMPLETED" label="已完成" />
-            <el-option value="EXPIRED" label="已过期" />
-            <el-option value="SETTLED" label="已结算" />
-            <el-option value="CANCELLED" label="已取消" />
+            <el-option value="active" label="生效中" />
+            <el-option value="completed" label="已完成" />
+            <el-option value="expired" label="已过期" />
+            <el-option value="settled" label="已结算" />
+            <el-option value="cancelled" label="已取消" />
           </el-select>
         </el-form-item>
         <el-form-item prop="semester_id" label="学期">
@@ -648,11 +648,11 @@
                     placeholder="请选择购买状态"
                     style="width: 100%"
                   >
-                    <el-option value="ACTIVE" label="生效中" />
-                    <el-option value="COMPLETED" label="已完成" />
-                    <el-option value="EXPIRED" label="已过期" />
-                    <el-option value="SETTLED" label="已结算" />
-                    <el-option value="CANCELLED" label="已取消" />
+                    <el-option value="active" label="生效中" />
+                    <el-option value="completed" label="已完成" />
+                    <el-option value="expired" label="已过期" />
+                    <el-option value="settled" label="已结算" />
+                    <el-option value="cancelled" label="已取消" />
                   </el-select>
                 </el-form-item>
               </el-col>
@@ -1220,7 +1220,7 @@ const formData = reactive<PurchaseForm>({
   purchase_date: "",
   start_date: "",
   end_date: "",
-  status: "ACTIVE",
+  status: "active",
   description: undefined,
   selected_time_slots: { 周一: [], 周二: [], 周三: [], 周四: [], 周五: [], 周六: [], 周日: [] },
 });
@@ -1710,7 +1710,7 @@ const initialFormData: PurchaseForm = {
   purchase_date: "",
   start_date: "",
   end_date: "",
-  status: "ACTIVE",
+  status: "active",
   description: undefined,
   selected_time_slots: { 周一: [], 周二: [], 周三: [], 周四: [], 周五: [], 周六: [], 周日: [] },
 };

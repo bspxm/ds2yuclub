@@ -12,10 +12,10 @@ from ..enums import GenderEnum, HandednessEnum, RelationTypeEnum
 if TYPE_CHECKING:
     from app.api.v1.module_system.user.model import UserModel
     from ..tournament.model import TournamentParticipantModel
-    from ..course.model import StudentCourseModel
     from ..purchase.model import PurchaseModel
     from ..attendance.model import ClassAttendanceModel
     from ..group.model import AbilityGroupModel
+    from ..leave.model import LeaveRequestModel
 
 
 class StudentModel(ModelMixin, UserMixin):
@@ -54,38 +54,38 @@ class StudentModel(ModelMixin, UserMixin):
     # 关联关系
     parents: Mapped[list["UserModel"]] = relationship(
         secondary="badminton_parent_student",
-        lazy="selectin",
+        lazy="noload",
         back_populates="students",
         overlaps="parent"
     )
     assessments: Mapped[list["AbilityAssessmentModel"]] = relationship(
         back_populates="student",
-        lazy="selectin",
+        lazy="noload",
         cascade="all, delete-orphan"
     )
     tournament_participations: Mapped[list["TournamentParticipantModel"]] = relationship(
         back_populates="student",
-        lazy="selectin",
+        lazy="noload",
         cascade="all, delete-orphan"
     )
-    course_enrollments: Mapped[list["StudentCourseModel"]] = relationship(
+    leave_records: Mapped[list["LeaveRequestModel"]] = relationship(
         back_populates="student",
-        lazy="selectin",
+        lazy="noload",
         cascade="all, delete-orphan"
     )
     purchases: Mapped[list["PurchaseModel"]] = relationship(
         back_populates="student",
-        lazy="selectin",
+        lazy="noload",
         cascade="all, delete-orphan"
     )
     attendance_records: Mapped[list["ClassAttendanceModel"]] = relationship(
         back_populates="student",
-        lazy="selectin",
+        lazy="noload",
         cascade="all, delete-orphan"
     )
     groups: Mapped[list["AbilityGroupModel"]] = relationship(
         secondary="badminton_group_student",
-        lazy="selectin",
+        lazy="noload",
         back_populates="students",
         overlaps="group"
     )
@@ -122,12 +122,12 @@ class ParentStudentModel(ModelMixin):
     # 关联关系
     parent: Mapped["UserModel"] = relationship(
         foreign_keys=[parent_id],
-        lazy="selectin",
+        lazy="noload",
         overlaps="students"
     )
     student: Mapped["StudentModel"] = relationship(
         foreign_keys=[student_id],
-        lazy="selectin",
+        lazy="noload",
         overlaps="parents"
     )
 
@@ -174,9 +174,9 @@ class AbilityAssessmentModel(ModelMixin, UserMixin):
     student: Mapped["StudentModel"] = relationship(
         back_populates="assessments",
         foreign_keys=[student_id],
-        lazy="selectin"
+        lazy="noload"
     )
     coach: Mapped[Optional["UserModel"]] = relationship(
         foreign_keys=[coach_id],
-        lazy="selectin"
+        lazy="noload"
     )

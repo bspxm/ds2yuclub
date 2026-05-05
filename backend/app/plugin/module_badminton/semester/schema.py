@@ -28,7 +28,7 @@ class SemesterCreateSchema(BaseModel):
     start_date: date = Field(..., description='开始日期')
     end_date: date = Field(..., description='结束日期')
     week_count: int = Field(default=0, description='总周数')
-    status: SemesterStatusEnum = Field(default=SemesterStatusEnum.PLANNING, description='学期状态')
+    status: SemesterStatusEnum = Field(default=SemesterStatusEnum.ACTIVE, description='学期状态')
     is_current: bool = Field(default=False, description='是否当前学期')
     settlement_date: Optional[date] = Field(None, description='结算日期')
     carry_over_enabled: bool = Field(default=True, description='允许课时结转')

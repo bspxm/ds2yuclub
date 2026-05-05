@@ -45,7 +45,7 @@ UPDATE sys_menu
 SET parent_id = (SELECT id FROM sys_menu WHERE route_name = 'Badminton' AND parent_id IS NULL),
     updated_time = NOW()
 WHERE route_name IN (
-    'BadmintonStudent', 'BadmintonParent', 'BadmintonTournament', 'BadmintonCourse',
+    'BadmintonStudent', 'BadmintonParent', 'BadmintonTournament',
     'BadmintonAssessment', 'BadmintonLeaveRequest', 'BadmintonSemester', 'BadmintonTeam',
     'BadmintonPurchase', 'BadmintonAttendance', 'BadmintonSchedule', 'BadmintonGroup',
     'BadmintonCoachSchedule'
@@ -63,7 +63,7 @@ VALUES
 INSERT INTO sys_menu
 (name, type, "order", permission, icon, route_name, route_path, component_path, redirect, hidden, keep_alive, always_show, title, params, affix, parent_id, uuid, status, description, created_time, updated_time)
 VALUES
-('教学管理', 1, 9, NULL, 'el-icon-Reading', 'BadmintonTeaching', '/teaching', NULL, '/Badminton/course', FALSE, TRUE, FALSE, '教学管理', NULL, FALSE, NULL, gen_random_uuid(), '0', '教学管理：课程、排课、考勤、评估、分组', NOW(), NOW());
+('教学管理', 1, 9, NULL, 'el-icon-Reading', 'BadmintonTeaching', '/teaching', NULL, '/Badminton/schedule', FALSE, TRUE, FALSE, '教学管理', NULL, FALSE, NULL, gen_random_uuid(), '0', '教学管理：排课、考勤、评估、分组', NOW(), NOW());
 
 INSERT INTO sys_menu
 (name, type, "order", permission, icon, route_name, route_path, component_path, redirect, hidden, keep_alive, always_show, title, params, affix, parent_id, uuid, status, description, created_time, updated_time)
@@ -87,14 +87,12 @@ UPDATE sys_menu SET parent_id = (SELECT id FROM sys_menu WHERE route_name = 'Bad
 WHERE route_name = 'BadmintonSemester';
 
 UPDATE sys_menu SET parent_id = (SELECT id FROM sys_menu WHERE route_name = 'BadmintonTeaching' LIMIT 1), "order" = 1, updated_time = NOW()
-WHERE route_name = 'BadmintonCourse';
-UPDATE sys_menu SET parent_id = (SELECT id FROM sys_menu WHERE route_name = 'BadmintonTeaching' LIMIT 1), "order" = 2, updated_time = NOW()
 WHERE route_name = 'BadmintonSchedule';
-UPDATE sys_menu SET parent_id = (SELECT id FROM sys_menu WHERE route_name = 'BadmintonTeaching' LIMIT 1), "order" = 3, updated_time = NOW()
+UPDATE sys_menu SET parent_id = (SELECT id FROM sys_menu WHERE route_name = 'BadmintonTeaching' LIMIT 1), "order" = 2, updated_time = NOW()
 WHERE route_name = 'BadmintonAttendance';
-UPDATE sys_menu SET parent_id = (SELECT id FROM sys_menu WHERE route_name = 'BadmintonTeaching' LIMIT 1), "order" = 4, updated_time = NOW()
+UPDATE sys_menu SET parent_id = (SELECT id FROM sys_menu WHERE route_name = 'BadmintonTeaching' LIMIT 1), "order" = 3, updated_time = NOW()
 WHERE route_name = 'BadmintonAssessment';
-UPDATE sys_menu SET parent_id = (SELECT id FROM sys_menu WHERE route_name = 'BadmintonTeaching' LIMIT 1), "order" = 5, updated_time = NOW()
+UPDATE sys_menu SET parent_id = (SELECT id FROM sys_menu WHERE route_name = 'BadmintonTeaching' LIMIT 1), "order" = 4, updated_time = NOW()
 WHERE route_name = 'BadmintonGroup';
 
 UPDATE sys_menu SET parent_id = (SELECT id FROM sys_menu WHERE route_name = 'BadmintonBusiness' LIMIT 1), "order" = 1, updated_time = NOW()
@@ -200,23 +198,6 @@ FROM sys_menu m WHERE m.route_name = 'BadmintonTournament';
 INSERT INTO sys_menu (name, type, "order", permission, hidden, keep_alive, always_show, affix, parent_id, uuid, status, description, created_time, updated_time)
 SELECT '模拟比赛', 3, 9, 'module_badminton:tournament:simulate', FALSE, FALSE, TRUE, FALSE, m.id, gen_random_uuid(), '0', '模拟比赛', NOW(), NOW()
 FROM sys_menu m WHERE m.route_name = 'BadmintonTournament';
-
--- 课程管理权限
-INSERT INTO sys_menu (name, type, "order", permission, hidden, keep_alive, always_show, affix, parent_id, uuid, status, description, created_time, updated_time)
-SELECT '查询课程', 3, 1, 'module_badminton:course:list', FALSE, FALSE, TRUE, FALSE, m.id, gen_random_uuid(), '0', '查询课程信息', NOW(), NOW()
-FROM sys_menu m WHERE m.route_name = 'BadmintonCourse';
-INSERT INTO sys_menu (name, type, "order", permission, hidden, keep_alive, always_show, affix, parent_id, uuid, status, description, created_time, updated_time)
-SELECT '新增课程', 3, 2, 'module_badminton:course:create', FALSE, FALSE, TRUE, FALSE, m.id, gen_random_uuid(), '0', '新增课程信息', NOW(), NOW()
-FROM sys_menu m WHERE m.route_name = 'BadmintonCourse';
-INSERT INTO sys_menu (name, type, "order", permission, hidden, keep_alive, always_show, affix, parent_id, uuid, status, description, created_time, updated_time)
-SELECT '编辑课程', 3, 3, 'module_badminton:course:update', FALSE, FALSE, TRUE, FALSE, m.id, gen_random_uuid(), '0', '编辑课程信息', NOW(), NOW()
-FROM sys_menu m WHERE m.route_name = 'BadmintonCourse';
-INSERT INTO sys_menu (name, type, "order", permission, hidden, keep_alive, always_show, affix, parent_id, uuid, status, description, created_time, updated_time)
-SELECT '删除课程', 3, 4, 'module_badminton:course:delete', FALSE, FALSE, TRUE, FALSE, m.id, gen_random_uuid(), '0', '删除课程信息', NOW(), NOW()
-FROM sys_menu m WHERE m.route_name = 'BadmintonCourse';
-INSERT INTO sys_menu (name, type, "order", permission, hidden, keep_alive, always_show, affix, parent_id, uuid, status, description, created_time, updated_time)
-SELECT '详情课程', 3, 5, 'module_badminton:course:detail', FALSE, FALSE, TRUE, FALSE, m.id, gen_random_uuid(), '0', '查看课程详情', NOW(), NOW()
-FROM sys_menu m WHERE m.route_name = 'BadmintonCourse';
 
 -- 能力评估权限
 INSERT INTO sys_menu (name, type, "order", permission, hidden, keep_alive, always_show, affix, parent_id, uuid, status, description, created_time, updated_time)

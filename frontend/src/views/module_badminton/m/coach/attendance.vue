@@ -1,13 +1,6 @@
 <template>
   <div class="attendance-page">
-    <van-cell-group inset>
-      <van-cell
-        title="选择日期"
-        :label="formatDate(selectedDate)"
-        is-link
-        @click="showDatePicker = true"
-      />
-    </van-cell-group>
+    <div class="date-header">{{ formatDate(selectedDate) }}</div>
 
     <van-loading v-if="loading" size="24px" class="loading" />
 
@@ -39,7 +32,7 @@
             v-for="student in schedule.students"
             :key="student.student_id"
             class="student-row"
-            :class="{ absent: getAttendanceStatus(student) === 'ABSENT' }"
+            :class="{ absent: getAttendanceStatus(schedule.id, student) === 'absent' }"
           >
             <div class="student-info">
               <span class="name">{{ student.student_name }}</span>
@@ -47,26 +40,32 @@
             </div>
             <div class="status-buttons">
               <van-button
-                :type="getAttendanceStatus(student) === 'PRESENT' ? 'success' : 'default'"
+                :type="
+                  getAttendanceStatus(schedule.id, student) === 'present' ? 'success' : 'default'
+                "
                 size="small"
                 round
-                @click="setStudentStatus(schedule.id, student.student_id, 'PRESENT')"
+                @click="setStudentStatus(schedule.id, student.student_id, 'present')"
               >
                 出勤
               </van-button>
               <van-button
-                :type="getAttendanceStatus(student) === 'ABSENT' ? 'danger' : 'default'"
+                :type="
+                  getAttendanceStatus(schedule.id, student) === 'absent' ? 'danger' : 'default'
+                "
                 size="small"
                 round
-                @click="setStudentStatus(schedule.id, student.student_id, 'ABSENT')"
+                @click="setStudentStatus(schedule.id, student.student_id, 'absent')"
               >
                 缺勤
               </van-button>
               <van-button
-                :type="getAttendanceStatus(student) === 'LEAVE' ? 'warning' : 'default'"
+                :type="
+                  getAttendanceStatus(schedule.id, student) === 'leave' ? 'warning' : 'default'
+                "
                 size="small"
                 round
-                @click="setStudentStatus(schedule.id, student.student_id, 'LEAVE')"
+                @click="setStudentStatus(schedule.id, student.student_id, 'leave')"
               >
                 请假
               </van-button>
@@ -87,37 +86,32 @@
         </div>
       </div>
     </template>
-
-    <van-action-sheet v-model:show="showDatePicker" title="选择日期">
-      <van-date-picker
-        :min-date="minDate"
-        :max-date="maxDate"
-        :default-date="defaultDate"
-        @confirm="onDateConfirm"
-        @cancel="showDatePicker = false"
-      />
-    </van-action-sheet>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
+import { useRoute } from "vue-router";
 import { showToast } from "vant";
 import { useUserStore } from "@/store";
 import CoachScheduleAPI from "@/api/module_badminton/coach-schedule";
 import ClassAttendanceAPI from "@/api/module_badminton/class-attendance";
 
+const route = useRoute();
 const userStore = useUserStore();
 const currentUser = computed(() => userStore.getBasicInfo);
 
-const selectedDate = ref(new Date());
-const showDatePicker = ref(false);
+function parseDateParam(dateStr: string | string[] | undefined): Date {
+  if (typeof dateStr === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    const [y, m, d] = dateStr.split("-").map(Number);
+    return new Date(y, m - 1, d);
+  }
+  return new Date();
+}
+
+const selectedDate = ref(parseDateParam(route.query.date));
 const loading = ref(false);
 const saving = ref<number | null>(null);
-
-const minDate = new Date(2020, 0, 1);
-const maxDate = new Date();
-const defaultDate = new Date();
 
 interface ScheduleDisplay {
   id: number;
@@ -155,8 +149,8 @@ function getScheduleKey(scheduleId: number): string {
   return `schedule_${scheduleId}`;
 }
 
-function getAttendanceStatus(student: StudentDisplay): string {
-  const map = statusMap.value[getScheduleKey(0)];
+function getAttendanceStatus(scheduleId: number, student: StudentDisplay): string {
+  const map = statusMap.value[getScheduleKey(scheduleId)];
   if (map && map[student.student_id]) {
     return map[student.student_id];
   }
@@ -171,13 +165,6 @@ function setStudentStatus(scheduleId: number, studentId: number, status: string)
     statusMap.value[getScheduleKey(scheduleId)] = {};
   }
   statusMap.value[getScheduleKey(scheduleId)][studentId] = status;
-}
-
-function onDateConfirm({ selectedValues }: { selectedValues: number[] }) {
-  const [year, month, day] = selectedValues;
-  selectedDate.value = new Date(year, month - 1, day);
-  showDatePicker.value = false;
-  loadData();
 }
 
 async function loadData() {
@@ -212,7 +199,7 @@ async function loadData() {
           english_name: stu.english_name,
           level: stu.level,
           has_attended: stu.has_attended,
-          attendance_status: stu.attendance_status || (stu.has_attended ? "PRESENT" : ""),
+          attendance_status: stu.attendance_status || (stu.has_attended ? "present" : ""),
         }));
 
         result.push({
@@ -244,36 +231,48 @@ async function handleSave(schedule: ScheduleDisplay) {
     const dateStr = formatDate(selectedDate.value);
     const scheduleMap = statusMap.value[getScheduleKey(schedule.id)] || {};
 
-    for (const student of schedule.students) {
-      const status = scheduleMap[student.student_id] || (student.has_attended ? "PRESENT" : "");
-
-      if (!status) continue;
-
-      if (student.has_attended) {
-        const res = await ClassAttendanceAPI.getClassAttendanceList({
-          schedule_id: schedule.id,
-          student_id: student.student_id,
-          page_no: 1,
-          page_size: 1,
-        });
-        const items = res.data.data?.items || [];
-        if (items.length > 0 && items[0].id) {
-          await ClassAttendanceAPI.updateClassAttendance(items[0].id, {
-            attendance_status: status,
-            attendance_date: dateStr,
-          });
-        }
-      } else {
-        await ClassAttendanceAPI.createClassAttendance({
-          student_id: student.student_id,
-          class_id: schedule.class_id,
-          schedule_id: schedule.id,
-          attendance_date: dateStr,
-          attendance_status: status,
-        });
+    // 1. 一次性查出该排课的所有现有考勤记录
+    const res = await ClassAttendanceAPI.getClassAttendanceList({
+      schedule_id: schedule.id,
+      page_no: 1,
+      page_size: 100,
+    });
+    const existingItems = res.data.data?.items || [];
+    const existingMap = new Map<number, number>(); // student_id -> attendance_id
+    for (const item of existingItems) {
+      if (item.student_id && item.id) {
+        existingMap.set(item.student_id, item.id);
       }
     }
 
+    // 2. 并行执行所有创建/更新
+    const promises: Promise<any>[] = [];
+    for (const student of schedule.students) {
+      const status = scheduleMap[student.student_id] || (student.has_attended ? "present" : "");
+      if (!status) continue;
+
+      const attendanceId = existingMap.get(student.student_id);
+      if (attendanceId) {
+        promises.push(
+          ClassAttendanceAPI.updateClassAttendance(attendanceId, {
+            attendance_status: status,
+            attendance_date: dateStr,
+          })
+        );
+      } else {
+        promises.push(
+          ClassAttendanceAPI.createClassAttendance({
+            student_id: student.student_id,
+            class_id: schedule.class_id,
+            schedule_id: schedule.id,
+            attendance_date: dateStr,
+            attendance_status: status,
+          })
+        );
+      }
+    }
+
+    await Promise.all(promises);
     showToast("保存成功");
     await loadData();
   } catch (e: any) {
@@ -291,6 +290,13 @@ onMounted(() => {
 <style scoped>
 .attendance-page {
   padding-bottom: 24px;
+}
+
+.date-header {
+  padding: 16px 16px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--mobile-text-primary);
 }
 
 .loading {

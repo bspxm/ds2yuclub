@@ -7,7 +7,7 @@ import time as time_module
 from datetime import date, datetime, timedelta
 from typing import Optional, List, Dict, Any
 from redis.asyncio.client import Redis
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload, noload
 
 from app.api.v1.module_system.user.service import UserService
 from ..student.service import StudentService
@@ -36,6 +36,15 @@ from ..response import SimpleResponse
 from app.api.v1.module_system.auth.schema import AuthSchema
 from app.api.v1.module_system.dict.service import DictDataService
 from ..cache_utils import get_time_slot_dict_with_cache, BadmintonCache, BadmintonCacheKeys, CacheExpireTime
+
+
+def _schedule_preload_options() -> list:
+    """构建排课记录的预加载选项，使用 noload("*") 阻止级联加载"""
+    return [
+        selectinload(ClassScheduleModel.class_ref).noload("*"),
+        selectinload(ClassScheduleModel.coach_user).noload("*"),
+    ]
+
 
 # ============================================================================
 # 羽毛球时间段代码映射（支持扩展到J，无数量限制）
@@ -163,7 +172,7 @@ class ClassScheduleService:
         schedules = await ClassScheduleCRUD(auth).list_crud(
             search=search,
             order_by=order_by,
-            preload=["class_ref", "coach_user"]
+            preload=_schedule_preload_options()
         )
         return [ClassScheduleOutSchema.model_validate(schedule).model_dump() for schedule in schedules]
 
@@ -421,7 +430,7 @@ class ClassScheduleService:
         # 获取原排课记录
         original_schedule = await ClassScheduleCRUD(auth).get_by_id_crud(
             id=schedule_id,
-            preload=["class_ref"]
+            preload=_schedule_preload_options()
         )
         if not original_schedule:
             raise CustomException(msg="原排课记录不存在")
@@ -664,7 +673,7 @@ class ClassScheduleService:
         # 1. 获取排课记录
         schedule = await ClassScheduleCRUD(auth).get_by_id_crud(
             id=schedule_id,
-            preload=["class_ref"]
+            preload=_schedule_preload_options()
         )
         if not schedule:
             raise CustomException(msg="排课记录不存在")

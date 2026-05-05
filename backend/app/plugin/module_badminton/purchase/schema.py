@@ -32,7 +32,7 @@ class PurchaseCreateSchema(BaseModel):
     actual_price: float = Field(..., description='实付价格')
     discount_rate: float = Field(default=1.0, description='折扣率')
     purchase_notes: Optional[str] = Field(None, description='购买备注')
-    status: str = Field(default='ACTIVE', description='购买状态')
+    status: PurchaseStatusEnum = Field(default=PurchaseStatusEnum.ACTIVE, description='购买状态')
     description: Optional[str] = Field(None, description='描述')
     selected_time_slots: Optional[dict[str, list[str]]] = Field(None, description='已选上课时间段（星期+代码格式）')
 
@@ -131,6 +131,7 @@ class PurchaseUpdateSchema(PurchaseCreateSchema):
     total_sessions: Optional[int] = Field(None, description='购买总课时')
     valid_from: Optional[date] = Field(None, description='有效期开始')
     valid_until: Optional[date] = Field(None, description='有效期截止')
+    status: Optional[PurchaseStatusEnum] = Field(None, description='购买状态')
 
 class PurchaseOutSchema(PurchaseCreateSchema, BaseSchema, UserBySchema):
     """购买记录响应模型"""

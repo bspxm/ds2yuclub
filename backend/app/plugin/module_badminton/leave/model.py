@@ -11,7 +11,7 @@ from ..enums import LeaveStatusEnum
 
 if TYPE_CHECKING:
     from app.api.v1.module_system.user.model import UserModel
-    from ..course.model import StudentCourseModel
+    from ..student.model import StudentModel
 
 
 class LeaveRequestModel(ModelMixin):
@@ -20,14 +20,14 @@ class LeaveRequestModel(ModelMixin):
     """
     __tablename__: str = 'badminton_leave_record'
     __table_args__: dict[str, str] = ({'comment': '请假记录表'})
-    __loader_options__: list[str] = ["student_course", "processed_by"]
+    __loader_options__: list[str] = ["processed_by"]
 
-    student_course_id: Mapped[int] = mapped_column(
+    student_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey('badminton_student_course.id', ondelete="CASCADE", onupdate="CASCADE"),
+        ForeignKey('badminton_student.id', ondelete="CASCADE", onupdate="CASCADE"),
         nullable=False,
         index=True,
-        comment="学员报班ID"
+        comment="学员ID"
     )
     
     # 请假信息
@@ -51,12 +51,12 @@ class LeaveRequestModel(ModelMixin):
     process_notes: Mapped[str | None] = mapped_column(Text, nullable=True, comment="处理备注")
     
     # 关联关系
-    student_course: Mapped["StudentCourseModel"] = relationship(
+    student: Mapped["StudentModel"] = relationship(
         back_populates="leave_records",
-        foreign_keys=[student_course_id],
-        lazy="selectin"
+        foreign_keys=[student_id],
+        lazy="noload"
     )
     processed_by: Mapped[Optional["UserModel"]] = relationship(
         foreign_keys=[processed_by_id],
-        lazy="selectin"
+        lazy="noload"
     )

@@ -31,24 +31,28 @@ class ClassAttendanceModel(ModelMixin, UserMixin):
         Integer,
         ForeignKey('badminton_student.id', ondelete="CASCADE", onupdate="CASCADE"),
         nullable=False,
+        index=True,
         comment='学员ID'
     )
     class_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey('badminton_class.id', ondelete="RESTRICT", onupdate="CASCADE"),
         nullable=False,
+        index=True,
         comment='班级ID'
     )
     schedule_id: Mapped[int | None] = mapped_column(
         Integer,
         ForeignKey('badminton_class_schedule.id', ondelete="SET NULL", onupdate="CASCADE"),
         nullable=True,
+        index=True,
         comment='排课记录ID'
     )
     purchase_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey('badminton_purchase.id', ondelete="RESTRICT", onupdate="CASCADE"),
         nullable=False,
+        index=True,
         comment='购买记录ID'
     )
     
@@ -117,41 +121,41 @@ class ClassAttendanceModel(ModelMixin, UserMixin):
     student: Mapped["StudentModel"] = relationship(
         back_populates="attendance_records",
         foreign_keys=[student_id],
-        lazy="selectin"
+        lazy="noload"
     )
     class_ref: Mapped[Any] = relationship(
         "ClassModel",
         back_populates="attendance_records",
         foreign_keys=[class_id],
-        lazy="selectin"
+        lazy="noload"
     )
     schedule: Mapped[Any] = relationship(
         "ClassScheduleModel",
         back_populates="attendance_records",
         foreign_keys=[schedule_id],
-        lazy="selectin"
+        lazy="noload"
     )
     purchase: Mapped[Any] = relationship(
         "PurchaseModel",
         back_populates="attendance_records",
         foreign_keys=[purchase_id],
-        lazy="selectin"
+        lazy="noload"
     )
     coach_user: Mapped["UserModel"] = relationship(
         foreign_keys=[coach_id],
-        lazy="selectin"
+        lazy="noload"
     )
     leave_record: Mapped["LeaveRequestModel"] = relationship(
         foreign_keys=[leave_id],
-        lazy="selectin"
+        lazy="noload"
     )
     original_attendance: Mapped["ClassAttendanceModel"] = relationship(
         foreign_keys=[original_attendance_id],
         remote_side="ClassAttendanceModel.id",
-        lazy="selectin"
+        lazy="noload"
     )
     makeup_attendance: Mapped["ClassAttendanceModel"] = relationship(
         foreign_keys=[original_attendance_id],
-        lazy="selectin",
+        lazy="noload",
         overlaps="original_attendance"
     )

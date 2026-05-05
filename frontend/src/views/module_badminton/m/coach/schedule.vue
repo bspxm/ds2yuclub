@@ -79,15 +79,13 @@
       </div>
     </template>
 
-    <van-action-sheet v-model:show="showDatePicker" title="选择日期">
-      <van-date-picker
-        :min-date="minDate"
-        :max-date="maxDate"
-        :default-date="defaultDate"
-        @confirm="onDateConfirm"
-        @cancel="showDatePicker = false"
-      />
-    </van-action-sheet>
+    <van-calendar
+      v-model:show="showDatePicker"
+      :min-date="minDate"
+      :max-date="maxDate"
+      :default-date="selectedDate"
+      @confirm="onDateConfirm"
+    />
   </div>
 </template>
 
@@ -107,7 +105,6 @@ const loading = ref(false);
 
 const minDate = new Date(2020, 0, 1);
 const maxDate = new Date();
-const defaultDate = new Date();
 
 interface TimeSlot {
   time_slot_code: string;
@@ -130,9 +127,8 @@ function totalStudents(slot: TimeSlot): number {
   return slot.schedules.reduce((sum: number, s: any) => sum + (s.student_count || 0), 0);
 }
 
-function onDateConfirm({ selectedValues }: { selectedValues: number[] }) {
-  const [year, month, day] = selectedValues;
-  selectedDate.value = new Date(year, month - 1, day);
+function onDateConfirm(date: Date) {
+  selectedDate.value = date;
   showDatePicker.value = false;
   loadData();
 }

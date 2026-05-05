@@ -5,7 +5,7 @@ attendance模块 - Service服务层
 from datetime import date, datetime, timedelta
 from typing import Optional, List, Dict, Any
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload, noload
 
 from app.api.v1.module_system.user.service import UserService
 from app.core.base_crud import CRUDBase
@@ -26,6 +26,18 @@ from ..response import SimpleResponse
 
 from app.api.v1.module_system.auth.schema import AuthSchema
 
+
+def _attendance_preload_options() -> list:
+    """构建考勤记录的预加载选项，使用 noload("*") 阻止级联加载"""
+    return [
+        selectinload(ClassAttendanceModel.student).noload("*"),
+        selectinload(ClassAttendanceModel.class_ref).noload("*"),
+        selectinload(ClassAttendanceModel.schedule).noload("*"),
+        selectinload(ClassAttendanceModel.purchase).noload("*"),
+        selectinload(ClassAttendanceModel.coach_user).noload("*"),
+    ]
+
+
 # ============================================================================
 # 考勤记录管理服务
 # ============================================================================
@@ -39,15 +51,7 @@ class ClassAttendanceService:
         """获取考勤记录详情"""
         attendance = await ClassAttendanceCRUD(auth).get_by_id_crud(
             id=attendance_id,
-            preload=[
-                "student",
-                "class_ref",
-                "schedule",
-                "purchase",
-                "coach_user",
-                "created_by",
-                "updated_by",
-            ],
+            preload=_attendance_preload_options(),
         )
         if not attendance:
             raise CustomException(msg="考勤记录不存在")
@@ -64,7 +68,7 @@ class ClassAttendanceService:
         attendances = await ClassAttendanceCRUD(auth).list_crud(
             search=search,
             order_by=order_by,
-            preload=["student", "class_ref", "schedule", "purchase", "coach_user"],
+            preload=_attendance_preload_options(),
         )
         return [
             ClassAttendanceOutSchema.model_validate(attendance).model_dump()
@@ -81,6 +85,9 @@ class ClassAttendanceService:
         order_by: Optional[list[dict]] = None,
     ) -> dict:
         """考勤记录分页查询"""
+        import time as time_module
+        total_start = time_module.time()
+
         # 将QueryParam对象转换为字典
         if isinstance(search, ClassAttendanceQueryParam):
             search_dict = vars(search)
@@ -91,14 +98,17 @@ class ClassAttendanceService:
         offset = (page_no - 1) * page_size
 
         # 不使用 out_schema，直接获取原始对象以避免加载过多关联数据
+        crud_start = time_module.time()
         result = await ClassAttendanceCRUD(auth).page_crud(
             offset=offset,
             limit=page_size,
             order_by=order_by_list,
             search=search_dict,
-            preload=["student", "class_ref", "schedule", "purchase", "coach_user"],
+            preload=_attendance_preload_options(),
             out_schema=None,
         )
+        crud_end = time_module.time()
+        logger.info(f"[考勤分页] CRUD查询耗时: {crud_end - crud_start:.3f}秒, 结果数: {len(result['items'])}")
 
         # 手动构建返回数据，只包含必要的字段
         items = []
@@ -186,6 +196,42 @@ class ClassAttendanceService:
         """创建考勤记录"""
         from datetime import timedelta
         from ..enums import AttendanceStatusEnum
+        from app.plugin.module_badminton.schedule.model import ClassScheduleModel
+        from app.plugin.module_badminton.purchase.model import PurchaseModel
+        from sqlalchemy import select, and_
+
+        # 从排课记录补全缺失字段
+        data_dict = data.model_dump()
+        schedule_id = data_dict.get("schedule_id")
+        if schedule_id:
+            schedule = await auth.db.get(ClassScheduleModel, schedule_id)
+            if schedule:
+                if not data_dict.get("start_time"):
+                    data_dict["start_time"] = schedule.start_time
+                if not data_dict.get("end_time"):
+                    data_dict["end_time"] = schedule.end_time
+                if not data_dict.get("duration_minutes"):
+                    data_dict["duration_minutes"] = schedule.duration_minutes or 90
+                if not data_dict.get("coach_id"):
+                    data_dict["coach_id"] = schedule.coach_id
+                if not data_dict.get("class_id"):
+                    data_dict["class_id"] = schedule.class_id
+
+        # 从购买记录补全 purchase_id
+        if not data_dict.get("purchase_id"):
+            purchase_query = select(PurchaseModel).where(
+                and_(
+                    PurchaseModel.student_id == data_dict.get("student_id"),
+                    PurchaseModel.class_id == data_dict.get("class_id"),
+                    PurchaseModel.remaining_sessions > 0
+                )
+            ).order_by(PurchaseModel.created_time.desc())
+            purchase_result = await auth.db.execute(purchase_query)
+            purchase = purchase_result.scalars().first()
+            if purchase:
+                data_dict["purchase_id"] = purchase.id
+
+        data = ClassAttendanceCreateSchema(**data_dict)
 
         # 检查考勤记录是否重复（同一学员、同一班级、同一时间）
         # TODO: 实现重复考勤检查
@@ -306,7 +352,7 @@ class ClassAttendanceService:
         search = {"student_id": ("eq", student_id)}
         attendances = await ClassAttendanceCRUD(auth).list_crud(
             search=search,
-            preload=["student", "class_ref", "schedule", "purchase", "coach_user"],
+            preload=_attendance_preload_options(),
         )
         return [
             ClassAttendanceOutSchema.model_validate(attendance).model_dump()
@@ -319,7 +365,7 @@ class ClassAttendanceService:
         search = {"class_id": ("eq", class_id)}
         attendances = await ClassAttendanceCRUD(auth).list_crud(
             search=search,
-            preload=["student", "class_ref", "schedule", "purchase", "coach_user"],
+            preload=_attendance_preload_options(),
         )
         return [
             ClassAttendanceOutSchema.model_validate(attendance).model_dump()

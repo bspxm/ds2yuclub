@@ -7,7 +7,7 @@ from typing import Optional, List, Dict, Any
 
 from pydantic import BaseModel, ConfigDict
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload, noload
 
 from app.api.v1.module_system.user.service import UserService
 from app.core.base_crud import BaseCRUD
@@ -32,6 +32,21 @@ class SimpleOutSchema(BaseModel):
     """简单的输出Schema，只包含id字段"""
     model_config = ConfigDict(from_attributes=True)
     id: int
+
+def _student_preload_options() -> list:
+    """构建学员的预加载选项，使用 noload("*") 阻止级联加载"""
+    return [
+        selectinload(StudentModel.parents).noload("*"),
+    ]
+
+
+def _assessment_preload_options() -> list:
+    """构建能力评估的预加载选项，使用 noload("*") 阻止级联加载"""
+    return [
+        selectinload(AbilityAssessmentModel.student).noload("*"),
+        selectinload(AbilityAssessmentModel.coach).noload("*"),
+    ]
+
 
 # ============================================================================
 # 学员管理服务
@@ -138,7 +153,7 @@ class StudentService:
         students = await StudentCRUD(auth).list_crud(
             search=search_dict,
             order_by=order_by,
-            preload=["parents"]
+            preload=_student_preload_options()
         )
         return [StudentOutSchema.model_validate(student).model_dump() for student in students]
 
@@ -623,7 +638,7 @@ class AbilityAssessmentService:
         assessments = await AbilityAssessmentCRUD(auth).list_crud(
             search=search_dict,
             order_by=order_by,
-            preload=["student", "coach", "created_by", "updated_by"]
+            preload=_assessment_preload_options()
         )
         return [AbilityAssessmentOutSchema.model_validate(ass).model_dump() for ass in assessments if ass is not None]
 
@@ -642,7 +657,7 @@ class AbilityAssessmentService:
             limit=page_size,
             order_by=order_by_list,
             search=search_dict,
-            preload=["student", "coach", "created_by", "updated_by"],
+            preload=_assessment_preload_options(),
             out_schema=AbilityAssessmentOutSchema  # 使用out_schema自动处理序列化
         )
 

@@ -18,6 +18,31 @@ if TYPE_CHECKING:
     from sqlalchemy.engine import Result
 
 ModelType = TypeVar("ModelType", bound=MappedBase)
+
+
+def _convert_strings_to_native(obj_dict: dict) -> dict:
+    """将字典中的日期/时间字符串转换为原生 Python 类型，供 SQLAlchemy 使用"""
+    from datetime import datetime
+    import re
+
+    result = {}
+    for key, value in obj_dict.items():
+        if isinstance(value, str):
+            # 日期格式: YYYY-MM-DD
+            if re.match(r'^\d{4}-\d{2}-\d{2}$', value):
+                try:
+                    value = datetime.strptime(value, '%Y-%m-%d').date()
+                except ValueError:
+                    pass
+            # 时间格式: HH:MM:SS 或 HH:MM
+            elif re.match(r'^\d{2}:\d{2}(:\d{2})?$', value):
+                try:
+                    fmt = '%H:%M:%S' if len(value) == 8 else '%H:%M'
+                    value = datetime.strptime(value, fmt).time()
+                except ValueError:
+                    pass
+        result[key] = value
+    return result
 CreateSchemaType = TypeVar("CreateSchemaType", bound=BaseModel)
 UpdateSchemaType = TypeVar("UpdateSchemaType", bound=BaseModel)
 OutSchemaType = TypeVar("OutSchemaType", bound=BaseModel)
@@ -181,6 +206,10 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         - CustomException: 查询失败时抛出异常
         """
         try:
+            import time as _time
+
+            # 构建查询条件
+            t0 = _time.time()
             conditions = await self.__build_conditions(**search) if search else []
             order = order_by or [{"id": "asc"}]
             sql = (
@@ -189,7 +218,9 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
             # 应用预加载选项
             for opt in self.__loader_options(preload):
                 sql = sql.options(opt)
+            # 权限过滤
             sql = await self.__filter_permissions(sql)
+            t1 = _time.time()
 
             # 优化count查询：使用主键计数而非全表扫描
             mapper = sa_inspect(self.model)
@@ -205,17 +236,25 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
                 count_sql = count_sql.where(*conditions)
             count_sql = await self.__filter_permissions(count_sql)
 
+            # 执行count查询
             total_result = await self.auth.db.execute(count_sql)
             total = total_result.scalar() or 0
+            t2 = _time.time()
 
+            # 执行主查询（含selectinload）
             result: Result = await self.auth.db.execute(sql.offset(offset).limit(limit))
             objs = result.scalars().all()
+            t3 = _time.time()
 
             # 根据 out_schema 是否为 None 决定如何处理 items
             if out_schema is not None:
                 items = [out_schema.model_validate(obj).model_dump() for obj in objs]
             else:
                 items = list(objs)
+            t4 = _time.time()
+
+            from app.core.logger import log as _log
+            _log.info(f"[page] 条件构建+权限过滤: {t1-t0:.3f}s | count查询: {t2-t1:.3f}s | 主查询+selectinload: {t3-t2:.3f}s | 结果处理: {t4-t3:.3f}s | 总计: {t4-t0:.3f}s")
 
             return {
                 "page_no": offset // limit + 1 if limit else 1,
@@ -242,6 +281,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         """
         try:
             obj_dict = data if isinstance(data, dict) else data.model_dump()
+            obj_dict = _convert_strings_to_native(obj_dict)
             obj = self.model(**obj_dict)
 
             # 设置字段值（只检查一次current_user）
@@ -278,6 +318,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
                 if isinstance(data, dict)
                 else data.model_dump(exclude_unset=True, exclude={"id"})
             )
+            obj_dict = _convert_strings_to_native(obj_dict)
             obj = await self.get(id=id)
             if not obj:
                 raise CustomException(msg="更新对象不存在")
@@ -292,14 +333,6 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
 
             await self.auth.db.flush()
             await self.auth.db.refresh(obj)
-
-            # 权限二次确认：flush后再次验证对象仍在权限范围内
-            # 防止并发修改导致的权限逃逸（如其他事务修改了created_id）
-            verify_obj = await self.get(id=id)
-            if not verify_obj:
-                # 对象已被删除或权限已失效
-                raise CustomException(msg="更新失败，对象不存在或无权限访问")
-
             return obj
         except Exception as e:
             raise CustomException(msg=f"更新失败: {e!s}")
@@ -475,23 +508,26 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
 
         # 合并所有需要预加载的选项
         all_preloads = set(model_loader_options)
+        extra_options: list[Any] = []
         if preload:
             for opt in preload:
                 if isinstance(opt, str):
                     all_preloads.add(opt)
+                else:
+                    extra_options.append(opt)
         elif preload == []:
             # 如果明确指定空列表，则不使用任何预加载
             all_preloads = set()
 
-        # 处理所有预加载选项
+        # 处理字符串预加载选项
         for opt in all_preloads:
             if isinstance(opt, str):
                 # 使用selectinload来避免在异步环境中的MissingGreenlet错误
                 if hasattr(self.model, opt):
                     options.append(selectinload(getattr(self.model, opt)))
-            else:
-                # 直接使用非字符串的加载选项
-                options.append(opt)
+
+        # 追加非字符串的加载选项（如链式selectinload）
+        options.extend(extra_options)
 
         return options
 

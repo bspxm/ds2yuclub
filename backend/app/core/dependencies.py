@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from app.api.v1.module_system.auth.schema import AuthSchema
 from app.api.v1.module_system.user.crud import UserCRUD
+from app.api.v1.module_system.role.model import RoleModel
 from app.api.v1.module_system.user.model import UserModel
 from app.common.enums import RedisInitKeyConfig
 from app.core.database import async_db_session
@@ -87,14 +88,15 @@ async def get_current_user(
     username = user_info.get("user_name")
     if not username:
         raise CustomException(msg="认证已失效", code=10401, status_code=401)
-    # 获取用户信息，使用深层预加载确保RoleModel.creator被正确加载
+    # 获取用户信息，预加载角色及角色的部门权限，避免权限过滤时的N+1查询
     user = await UserCRUD(auth).get_by_username_crud(
         username=username,
         preload=[
-            "dept",
-            selectinload(UserModel.roles),
-            "positions",
-            "created_by"
+            selectinload(UserModel.dept),
+            selectinload(UserModel.roles).selectinload(RoleModel.depts),
+            selectinload(UserModel.roles).selectinload(RoleModel.menus),
+            selectinload(UserModel.positions),
+            selectinload(UserModel.created_by),
         ]
     )
     if not user:

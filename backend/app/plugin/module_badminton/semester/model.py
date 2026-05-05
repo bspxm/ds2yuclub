@@ -39,7 +39,7 @@ class SemesterModel(ModelMixin, UserMixin):
     # 学期状态
     status: Mapped[SemesterStatusEnum] = mapped_column(
         Enum(SemesterStatusEnum, values_callable=lambda x: [e.value for e in x]),
-        default=SemesterStatusEnum.PLANNING,
+        default=SemesterStatusEnum.ACTIVE,
         nullable=False,
         comment='学期状态'
     )

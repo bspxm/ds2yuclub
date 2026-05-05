@@ -309,14 +309,11 @@ class BadmintonCacheWarmer:
             if not db:
                 raise ValueError("warmup_active_semesters 需要数据库会话参数 db")
 
-            # 尝试多种状态：active, planning（只要是未归档的学期）
+            # 查询进行中的学期
             stmt = (
                 select(SemesterModel)
                 .where(
-                    or_(
-                        SemesterModel.status == "active",
-                        SemesterModel.status == "planning"
-                    )
+                    SemesterModel.status == "active"
                 )
                 .order_by(SemesterModel.start_date.desc())
             )

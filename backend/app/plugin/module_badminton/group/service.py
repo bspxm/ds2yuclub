@@ -6,6 +6,7 @@ from typing import Optional
 from pydantic import BaseModel
 
 from sqlalchemy import select, update
+from sqlalchemy.orm import selectinload, noload
 
 from app.core.base_crud import BaseCRUD
 from app.core.database import async_db_session
@@ -29,6 +30,14 @@ from app.core.base_schema import BatchSetAvailable
 class SimpleOutSchema(BaseModel):
     """简单的输出Schema，只包含id字段"""
     id: int
+
+
+def _group_preload_options() -> list:
+    """构建能力分组的预加载选项，使用 noload("*") 阻止级联加载"""
+    return [
+        selectinload(AbilityGroupModel.coaches).noload("*"),
+        selectinload(AbilityGroupModel.students).noload("*"),
+    ]
 
 
 # ============================================================================
@@ -123,7 +132,7 @@ class AbilityGroupService:
         groups = await AbilityGroupCRUD(auth).list_crud(
             search=search_dict,
             order_by=order_by,
-            preload=["coaches", "students"]
+            preload=_group_preload_options()
         )
         
         # 手动构建返回数据，避免 Pydantic 自动访问懒加载属性

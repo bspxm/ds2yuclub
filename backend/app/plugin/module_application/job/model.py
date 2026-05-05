@@ -30,7 +30,7 @@ class JobModel(ModelMixin, UserMixin):
     # 关联关系
     job_logs: Mapped[list['JobLogModel'] | None] = relationship(
         back_populates="job",
-        lazy="selectin"
+        lazy="noload"
     )
 
 
@@ -62,5 +62,5 @@ class JobLogModel(ModelMixin):
 
     job: Mapped["JobModel | None"] = relationship(
         back_populates="job_logs",
-        lazy="selectin"
+        lazy="noload"
     )

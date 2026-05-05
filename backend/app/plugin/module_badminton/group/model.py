@@ -26,13 +26,13 @@ class AbilityGroupModel(ModelMixin, UserMixin):
     # 关联关系
     coaches: Mapped[list["UserModel"]] = relationship(
         secondary="badminton_group_coach",
-        lazy="selectin",
+        lazy="noload",
         back_populates="groups",
         overlaps="coach"
     )
     students: Mapped[list["StudentModel"]] = relationship(
         secondary="badminton_group_student",
-        lazy="selectin",
+        lazy="noload",
         back_populates="groups",
         overlaps="student"
     )
@@ -61,12 +61,12 @@ class GroupCoachModel(ModelMixin):
     # 关联关系
     group: Mapped["AbilityGroupModel"] = relationship(
         foreign_keys=[group_id],
-        lazy="selectin",
+        lazy="noload",
         overlaps="coaches,groups"
     )
     coach: Mapped["UserModel"] = relationship(
         foreign_keys=[coach_id],
-        lazy="selectin",
+        lazy="noload",
         overlaps="groups"
     )
 
@@ -94,11 +94,11 @@ class GroupStudentModel(ModelMixin):
     # 关联关系
     group: Mapped["AbilityGroupModel"] = relationship(
         foreign_keys=[group_id],
-        lazy="selectin",
+        lazy="noload",
         overlaps="students"
     )
     student: Mapped["StudentModel"] = relationship(
         foreign_keys=[student_id],
-        lazy="selectin",
+        lazy="noload",
         overlaps="groups"
     )

@@ -63,5 +63,5 @@ class MenuModel(ModelMixin):
     roles: Mapped[list["RoleModel"]] = relationship(
         secondary="sys_role_menus",
         back_populates="menus",
-        lazy="selectin"
+        lazy="noload"
     )

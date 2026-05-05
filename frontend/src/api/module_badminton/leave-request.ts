@@ -15,7 +15,6 @@ export default LeaveRequestAPI;
 // 请假申请表格数据
 export interface LeaveRequestTable extends BaseType {
   student_id: number;
-  course_id: number;
   leave_date: string;
   reason: string;
   status: string;
@@ -23,6 +22,5 @@ export interface LeaveRequestTable extends BaseType {
   reviewed_time?: string;
   review_notes?: string;
   student?: CommonType;
-  course?: CommonType;
   reviewed_by_user?: CommonType;
 }

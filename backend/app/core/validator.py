@@ -19,6 +19,7 @@ DateTimeStr = Annotated[
 # 自定义日期字符串类型
 DateStr = Annotated[
     date,
+    AfterValidator(lambda x: datetime.strptime(x, '%Y-%m-%d').date() if isinstance(x, str) else x),
     PlainSerializer(lambda x: x.strftime('%Y-%m-%d') if isinstance(x, date) else str(x), return_type=str),
     WithJsonSchema({'type': 'string'}, mode='serialization')
 ]
@@ -26,6 +27,7 @@ DateStr = Annotated[
 # 自定义时间字符串类型
 TimeStr = Annotated[
     time,
+    AfterValidator(lambda x: datetime.strptime(x, '%H:%M:%S').time() if isinstance(x, str) and ':' in x else (datetime.strptime(x, '%H:%M').time() if isinstance(x, str) and x.count(':') == 1 else x)),
     PlainSerializer(lambda x: x.strftime('%H:%M:%S') if isinstance(x, time) else str(x), return_type=str),
     WithJsonSchema({'type': 'string'}, mode='serialization')
 ]

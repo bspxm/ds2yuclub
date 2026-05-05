@@ -1,11 +1,13 @@
 from collections.abc import Sequence
 
+from sqlalchemy import delete
+
 from app.api.v1.module_system.auth.schema import AuthSchema
 from app.api.v1.module_system.dept.crud import DeptCRUD
 from app.api.v1.module_system.menu.crud import MenuCRUD
 from app.core.base_crud import CRUDBase
 
-from .model import RoleModel
+from .model import RoleMenusModel, RoleModel
 from .schema import RoleCreateSchema, RoleUpdateSchema
 
 
@@ -73,13 +75,13 @@ class RoleCRUD(CRUDBase[RoleModel, RoleCreateSchema, RoleUpdateSchema]):
         返回:
         - None
         """
+        await self.auth.db.execute(delete(RoleMenusModel).where(RoleMenusModel.role_id.in_(role_ids)))
+
         roles = await self.list(search={"id": ("in", role_ids)})
         menus = await MenuCRUD(self.auth).get_list_crud(search={"id": ("in", menu_ids)})
 
         for obj in roles:
-            relationship = obj.menus
-            relationship.clear()
-            relationship.extend(menus)
+            obj.menus.extend(menus)
         await self.auth.db.flush()
 
     async def set_role_data_scope_crud(self, role_ids: list[int], data_scope: int) -> None:
@@ -106,13 +108,15 @@ class RoleCRUD(CRUDBase[RoleModel, RoleCreateSchema, RoleUpdateSchema]):
         返回:
         - None
         """
+        from .model import RoleDeptsModel
+
+        await self.auth.db.execute(delete(RoleDeptsModel).where(RoleDeptsModel.role_id.in_(role_ids)))
+
         roles = await self.list(search={"id": ("in", role_ids)})
         depts = await DeptCRUD(self.auth).get_list_crud(search={"id": ("in", dept_ids)})
 
         for obj in roles:
-            relationship = obj.depts
-            relationship.clear()
-            relationship.extend(depts)
+            obj.depts.extend(depts)
         await self.auth.db.flush()
 
     async def set_available_crud(self, ids: list[int], status: str) -> None:

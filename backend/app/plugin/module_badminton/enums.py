@@ -67,16 +67,6 @@ class RoundTypeEnum(enum.Enum):
     PROMOTION_RELEGATION = "PROMOTION_RELEGATION"  # 定区升降赛
 
 
-class CourseTypeEnum(enum.Enum):
-    """课程类型枚举"""
-
-    REGULAR = "regular"  # 常规课
-    PRIVATE = "private"  # 私教课
-    GROUP = "group"  # 小组课
-    COMPETITION = "competition"  # 比赛课
-    THEORY = "theory"  # 理论课
-
-
 class LeaveStatusEnum(enum.Enum):
     """请假状态枚举"""
 
@@ -134,11 +124,8 @@ class AttendanceStatusEnum(enum.Enum):
 class SemesterStatusEnum(enum.Enum):
     """学期状态枚举"""
 
-    PLANNING = "planning"  # 规划中
     ACTIVE = "active"  # 进行中
     COMPLETED = "completed"  # 已结束
-    SETTLED = "settled"  # 已结算
-    ARCHIVED = "archived"  # 已归档
 
 
 class ScheduleStatusEnum(enum.Enum):
@@ -164,6 +151,5 @@ class ScheduleTypeEnum(enum.Enum):
 class ClassStatusEnum(enum.Enum):
     """班级状态枚举"""
 
-    PENDING = "pending"  # 未开始
     ACTIVE = "active"  # 进行中
-    ENDED = "ended"  # 已结束
+    COMPLETED = "completed"  # 已结束

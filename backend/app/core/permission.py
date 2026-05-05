@@ -21,6 +21,9 @@ class Permission:
     DATA_SCOPE_ALL = 4  # 全部数据
     DATA_SCOPE_CUSTOM = 5  # 自定义数据
 
+    # 部门树缓存（类级别，进程内缓存）
+    _dept_cache: dict[int, list[int]] = {}
+
     def __init__(self, model: Any, auth: AuthSchema) -> None:
         """
         初始化权限过滤器实例
@@ -45,7 +48,21 @@ class Permission:
         Returns:
             过滤后的查询对象
         """
-        condition = await self.__permission_condition()
+        import time as _time
+        t0 = _time.time()
+        # 在同一请求中缓存权限条件，避免重复计算
+        cache_key = f'_permission_condition_{self.model.__tablename__}'
+        condition = getattr(self.auth, cache_key, None)
+        if condition is None:
+            condition = await self.__permission_condition()
+            setattr(self.auth, cache_key, condition)
+            t1 = _time.time()
+            from app.core.logger import log as _log
+            _log.info(f"[权限过滤] {self.model.__tablename__} 条件计算: {t1-t0:.3f}s (首次)")
+        else:
+            t1 = _time.time()
+            from app.core.logger import log as _log
+            _log.info(f"[权限过滤] {self.model.__tablename__} 条件计算: {t1-t0:.3f}s (缓存命中)")
         return query.where(condition) if condition is not None else query
 
     async def __permission_condition(self) -> ColumnElement | None:
@@ -64,6 +81,9 @@ class Permission:
         - 优先级：全部数据 > 部门权限（2、3、5的并集）> 仅本人
         - 构造权限过滤表达式，返回None表示不限制
         """
+        import time as _time
+        t0 = _time.time()
+
         # 如果不需要检查数据权限,则不限制
         if not self.auth.user:
             return None
@@ -92,11 +112,20 @@ class Permission:
         data_scopes = set()
         custom_dept_ids = set()  # 自定义权限（data_scope=5）关联的部门ID集合
 
+        t_roles = _time.time()
         for role in roles:
             data_scopes.add(role.data_scope)
             # 收集自定义权限（data_scope=5）关联的部门ID
             if role.data_scope == self.DATA_SCOPE_CUSTOM and hasattr(role, 'depts') and role.depts:
                 custom_dept_ids.update(dept.id for dept in role.depts)
+        t_roles_end = _time.time()
+
+        from app.core.logger import log as _log
+        _log.info(f"[权限条件] 角色遍历耗时: {t_roles_end - t_roles:.3f}s, data_scopes={data_scopes}")
+
+        # 权限优先级处理：全部数据权限最高优先级
+        if self.DATA_SCOPE_ALL in data_scopes:
+            return None
 
         # 权限优先级处理：全部数据权限最高优先级
         if self.DATA_SCOPE_ALL in data_scopes:
@@ -116,18 +145,24 @@ class Permission:
 
         # 处理本部门及以下数据权限（3）
         if self.DATA_SCOPE_DEPT_AND_CHILD in data_scopes and user_dept_id is not None:
-            try:
-                # 查询所有部门并递归获取子部门
-                dept_sql = select(DeptModel)
-                dept_result = await self.auth.db.execute(dept_sql)
-                dept_objs = dept_result.scalars().all()
-                id_map = get_child_id_map(dept_objs)
-                # get_child_recursion返回的结果已包含自身ID和所有子部门ID
-                dept_with_children_ids = get_child_recursion(id=user_dept_id, id_map=id_map)
+            # 优先从类缓存中获取部门树
+            dept_tree_cache = Permission._dept_cache.get('dept_tree')
+            if dept_tree_cache is None:
+                try:
+                    # 查询所有部门并构建部门树映射
+                    dept_sql = select(DeptModel)
+                    dept_result = await self.auth.db.execute(dept_sql)
+                    dept_objs = dept_result.scalars().all()
+                    id_map = get_child_id_map(dept_objs)
+                    dept_tree_cache = id_map
+                    Permission._dept_cache['dept_tree'] = id_map
+                except Exception:
+                    # 查询失败时降级到本部门
+                    accessible_dept_ids.add(user_dept_id)
+                    dept_tree_cache = None
+            if dept_tree_cache is not None:
+                dept_with_children_ids = get_child_recursion(id=user_dept_id, id_map=dept_tree_cache)
                 accessible_dept_ids.update(dept_with_children_ids)
-            except Exception:
-                # 查询失败时降级到本部门
-                accessible_dept_ids.add(user_dept_id)
 
         # 如果有部门权限（2、3、5任一），使用部门过滤
         if accessible_dept_ids:

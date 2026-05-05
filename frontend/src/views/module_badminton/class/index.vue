@@ -32,8 +32,7 @@
             clearable
           >
             <el-option value="active" label="进行中" />
-            <el-option value="ended" label="已结束" />
-            <el-option value="pending" label="未开始" />
+            <el-option value="completed" label="已结束" />
           </el-select>
         </el-form-item>
         <el-form-item prop="semester_id" label="学期">
@@ -263,22 +262,8 @@
           </el-table-column>
           <el-table-column v-if="isColumnShow('status')" label="状态" prop="status" min-width="90">
             <template #default="scope">
-              <el-tag
-                :type="
-                  scope.row.class_status === 'active'
-                    ? 'success'
-                    : scope.row.class_status === 'pending'
-                      ? 'info'
-                      : 'warning'
-                "
-              >
-                {{
-                  scope.row.class_status === "active"
-                    ? "进行中"
-                    : scope.row.class_status === "pending"
-                      ? "未开始"
-                      : "已结束"
-                }}
+              <el-tag :type="scope.row.class_status === 'active' ? 'success' : 'warning'">
+                {{ scope.row.class_status === "active" ? "进行中" : "已结束" }}
               </el-tag>
             </template>
           </el-table-column>
@@ -364,22 +349,8 @@
             {{ detailFormData.semester?.name || "未指定" }}
           </el-descriptions-item>
           <el-descriptions-item label="班级状态">
-            <el-tag
-              :type="
-                detailFormData.class_status === 'active'
-                  ? 'success'
-                  : detailFormData.class_status === 'pending'
-                    ? 'info'
-                    : 'warning'
-              "
-            >
-              {{
-                detailFormData.class_status === "active"
-                  ? "进行中"
-                  : detailFormData.class_status === "pending"
-                    ? "未开始"
-                    : "已结束"
-              }}
+            <el-tag :type="detailFormData.class_status === 'active' ? 'success' : 'warning'">
+              {{ detailFormData.class_status === "active" ? "进行中" : "已结束" }}
             </el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="最大学员数">
@@ -612,9 +583,8 @@
                   placeholder="请选择班级状态"
                   style="width: 100%"
                 >
-                  <el-option value="pending" label="未开始" />
                   <el-option value="active" label="进行中" />
-                  <el-option value="ended" label="已结束" />
+                  <el-option value="completed" label="已结束" />
                 </el-select>
               </el-form-item>
             </el-col>
@@ -757,7 +727,7 @@ const initialFormData: ClassForm = {
   sessions_per_week: 2,
   total_sessions: 32,
   status: "0",
-  class_status: "pending",
+  class_status: "active",
   description: undefined,
 };
 

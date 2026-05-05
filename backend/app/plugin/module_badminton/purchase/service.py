@@ -6,7 +6,7 @@ from datetime import date, datetime, timedelta
 from typing import Optional, List, Dict, Any
 from redis.asyncio.client import Redis
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload, noload
 
 from app.api.v1.module_system.user.service import UserService
 from app.core.base_crud import BaseCRUD
@@ -22,6 +22,16 @@ from ..response import SimpleResponse
 
 from app.api.v1.module_system.auth.schema import AuthSchema
 from ..cache_utils import BadmintonCache, BadmintonCacheKeys, CacheExpireTime
+
+
+def _purchase_preload_options() -> list:
+    """构建购买记录的预加载选项，使用 noload("*") 阻止级联加载"""
+    return [
+        selectinload(PurchaseModel.student).noload("*"),
+        selectinload(PurchaseModel.class_ref).noload("*"),
+        selectinload(PurchaseModel.semester).noload("*"),
+    ]
+
 
 # ============================================================================
 # 购买记录管理服务
@@ -197,7 +207,7 @@ class PurchaseService:
         purchases = await PurchaseCRUD(auth).list_crud(
             search=search,
             order_by=order_by,
-            preload=["student", "class_ref", "semester"],
+            preload=_purchase_preload_options(),
         )
         return [
             PurchaseOutSchema.model_validate(purchase).model_dump()
@@ -212,7 +222,7 @@ class PurchaseService:
         purchases = await PurchaseCRUD(auth).list_crud(
             search={"student_id": ("eq", student_id)},
             order_by=[{"purchase_date": "desc"}],
-            preload=["student", "class_ref", "semester"],
+            preload=_purchase_preload_options(),
         )
         return [
             PurchaseOutSchema.model_validate(purchase).model_dump()
@@ -572,7 +582,12 @@ class PurchaseService:
     @classmethod
     async def delete_service(cls, auth: AuthSchema, purchase_ids: list[int]) -> dict:
         """删除购买记录"""
-        await PurchaseCRUD(auth).delete_crud(ids=purchase_ids)
+        try:
+            await PurchaseCRUD(auth).delete_crud(ids=purchase_ids)
+        except CustomException as e:
+            if 'RestrictViolationError' in str(e) or 'foreign key constraint' in str(e):
+                raise CustomException(msg="删除失败：部分购买记录已存在出勤记录，请先处理相关出勤记录后再删除")
+            raise
         return SimpleResponse(success=True, message="购买记录删除成功").model_dump()
 
     @classmethod

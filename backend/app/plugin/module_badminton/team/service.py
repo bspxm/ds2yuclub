@@ -8,7 +8,7 @@ from datetime import date, datetime, timedelta
 from typing import Optional, List, Dict, Any
 from redis.asyncio.client import Redis
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload, noload
 
 from app.api.v1.module_system.user.service import UserService
 from app.core.base_crud import BaseCRUD
@@ -24,6 +24,15 @@ from ..response import SimpleResponse
 
 from app.api.v1.module_system.auth.schema import AuthSchema
 from ..cache_utils import BadmintonCache, BadmintonCacheKeys, CacheExpireTime
+
+
+def _class_preload_options() -> list:
+    """构建班级的预加载选项，使用 noload("*") 阻止级联加载"""
+    return [
+        selectinload(ClassModel.semester).noload("*"),
+        selectinload(ClassModel.coach_user).noload("*"),
+    ]
+
 
 # ============================================================================
 # 班级管理服务
@@ -117,7 +126,7 @@ class ClassService:
         classes = await ClassCRUD(auth).list_crud(
             search=search,
             order_by=order_by,
-            preload=["semester", "coach_user"]
+            preload=_class_preload_options()
         )
         return [ClassOutSchema.model_validate(class_obj).model_dump() for class_obj in classes]
 
@@ -236,7 +245,7 @@ class ClassService:
         classes = await ClassCRUD(auth).list_crud(
             search=search,
             order_by=[{'id': 'asc'}],
-            preload=["semester", "coach_user"]
+            preload=_class_preload_options()
         )
         return [ClassOutSchema.model_validate(class_obj).model_dump() for class_obj in classes]
 

@@ -5,7 +5,7 @@ tournament模块 - Service服务层
 from datetime import date, datetime, timedelta
 from typing import Optional, List, Dict, Any
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload, noload
 
 from app.api.v1.module_system.user.service import UserService
 from app.core.base_crud import BaseCRUD
@@ -25,6 +25,14 @@ from .knockout_service import KnockoutService
 from ..enums import TournamentStatusEnum
 
 from app.api.v1.module_system.auth.schema import AuthSchema
+
+def _tournament_preload_options() -> list:
+    """构建赛事的预加载选项，使用 noload("*") 阻止级联加载"""
+    return [
+        selectinload(TournamentModel.participants).noload("*"),
+        selectinload(TournamentModel.matches).noload("*"),
+    ]
+
 
 # ============================================================================
 # 赛事管理服务
@@ -179,7 +187,7 @@ class TournamentService:
     ) -> list[dict]:
         """获取赛事排名"""
         tournament = await TournamentCRUD(auth).get_by_id_crud(
-            tournament_id, preload=["participants", "matches"]
+            tournament_id, preload=_tournament_preload_options()
         )
         if not tournament:
             raise CustomException(msg="赛事不存在")
@@ -608,7 +616,7 @@ class TournamentMatchService:
             f"[generate_matches_service] 开始生成对阵表，tournament_id={tournament_id}, use_seeding={use_seeding}"
         )
         tournament = await TournamentCRUD(auth).get_by_id_crud(
-            tournament_id, preload=["participants"]
+            tournament_id, preload=_tournament_preload_options()
         )
         if not tournament:
             raise CustomException(msg="赛事不存在")

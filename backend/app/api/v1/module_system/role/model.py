@@ -75,16 +75,16 @@ class RoleModel(ModelMixin):
     menus: Mapped[list["MenuModel"]] = relationship(
         secondary="sys_role_menus",
         back_populates="roles",
-        lazy="selectin",
+        lazy="noload",
         order_by="MenuModel.order"
     )
     depts: Mapped[list["DeptModel"]] = relationship(
         secondary="sys_role_depts",
         back_populates="roles",
-        lazy="selectin"
+        lazy="noload"
     )
     users: Mapped[list["UserModel"]] = relationship(
         secondary="sys_user_roles",
         back_populates="roles",
-        lazy="selectin"
+        lazy="noload"
     )

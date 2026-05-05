@@ -38,20 +38,21 @@ class DeptModel(ModelMixin, UserMixin):
         back_populates='children',
         remote_side="DeptModel.id",
         foreign_keys=[parent_id],
-        uselist=False
+        uselist=False,
+        lazy="noload"
     )
     children: Mapped[list["DeptModel"]] = relationship(
         back_populates='parent',
         foreign_keys=[parent_id],
-        lazy="selectin"
+        lazy="noload"
     )
     roles: Mapped[list["RoleModel"]] = relationship(
         secondary="sys_role_depts",
         back_populates="depts",
-        lazy="selectin"
+        lazy="noload"
     )
     users: Mapped[list["UserModel"]] = relationship(
         back_populates="dept",
         foreign_keys="UserModel.dept_id",
-        lazy="selectin"
+        lazy="noload"
     )

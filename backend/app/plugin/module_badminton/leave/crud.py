@@ -4,6 +4,8 @@ leave模块 - CRUD数据操作层
 
 from typing import Optional, List, Dict, Any, Sequence
 
+from sqlalchemy.orm import selectinload
+
 from app.api.v1.module_system.auth.schema import AuthSchema
 from app.core.base_crud import CRUDBase
 from app.core.database import SessionDep
@@ -38,7 +40,10 @@ class LeaveRequestCRUD(CRUDBase[LeaveRequestModel, dict, dict]):
         return await self.list(
             search={"status": ("eq", "pending")},
             order_by=[{"leave_date": "asc"}],
-            preload=["student", "course"]
+            preload=[
+                selectinload(LeaveRequestModel.student).noload("*"),
+                selectinload(LeaveRequestModel.processed_by).noload("*"),
+            ]
         )
 
     async def page_crud(self, offset: int, limit: int, order_by: list[dict[str, str]], search: dict, out_schema: type, preload: list[str] | None = None) -> dict:
